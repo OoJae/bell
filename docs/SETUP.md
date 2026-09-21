@@ -35,6 +35,33 @@ cargo build-sbf --arch v1 --tools-version v1.57      # the .so we test and ship
 cargo test -p bell-session
 ```
 
+## Running it
+
+Devnet is not usable for this project: **none of the xStocks or Backpack mints
+exist there**, so every gate that reads Token-2022 extension state would have
+nothing to read. The local validator clones the real mainnet accounts instead —
+real bytes, free ledger.
+
+```sh
+./scripts/localnet.sh &                 # validator + 9 cloned mints + program
+solana config set --url http://127.0.0.1:8899
+solana airdrop 100
+
+node scripts/register.ts                # bind symbols, read mint risk, fund attestor
+node scripts/keeper.ts --once           # dry run: decide and print, write nothing
+BELL_ARM=1 node scripts/keeper.ts       # the loop, every 45s
+node scripts/gate.ts                    # ask assert_tradeable about every symbol
+```
+
+`BELL_ARM=1` is required to write. Dry run is the default, so a process never
+writes to a chain because someone forgot a flag.
+
+Two keypairs, deliberately: the deploy authority at `~/.config/solana/id.json`,
+and an attestor at `.attestor.json` whose only power is `push_session`. A leaked
+attestor can close symbols — the fail-closed direction — and can never touch the
+program. It is funded to 0.05 SOL, which bounds what a leaked key can spend and
+runs for roughly five days at one batched push every 45s.
+
 ## External dependencies
 
 All read-only and unauthenticated today:
