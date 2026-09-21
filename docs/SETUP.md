@@ -26,6 +26,13 @@ can look like it returned nothing. Afterwards it is instant.
 pnpm install
 node scripts/measure.ts   # liquidity census -> data/snapshots/
 node --test test/*.test.ts
+
+# Build the program. --arch v1 is required: anchor build emits sbpf v3, which
+# litesvm cannot load, and v1 is the more conservative deployment format.
+# --tools-version is required too, or cargo-build-sbf tries to fetch v1.54.
+anchor build                                         # IDL
+cargo build-sbf --arch v1 --tools-version v1.57      # the .so we test and ship
+cargo test -p bell-session
 ```
 
 ## External dependencies

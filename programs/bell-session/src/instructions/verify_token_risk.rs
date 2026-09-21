@@ -38,7 +38,7 @@ struct MintFacts {
 ///
 /// Everything here is **proven, not attested**: it is read from the mint, so no
 /// attestor can misreport it and no oracle needs to be believed.
-fn read_mint(mint_info: &AccountInfo) -> Result<MintFacts> {
+fn read_mint(mint_info: &AccountInfo, now: i64) -> Result<MintFacts> {
     // anchor-lang and spl-token-2022 pull in different `Pubkey` types, so
     // compare by bytes rather than fighting the trait impls.
     require!(
@@ -55,19 +55,28 @@ fn read_mint(mint_info: &AccountInfo) -> Result<MintFacts> {
         .map(|c| bool::from(c.paused))
         .unwrap_or(false);
 
+    // ScaledUiAmountConfig carries BOTH the outgoing and the incoming
+    // multiplier, and `multiplier` is NOT authoritative once the activation
+    // timestamp has passed — after that instant the effective value is
+    // `new_multiplier`. Reading the wrong field is how an integration ends up
+    // off by an entire stock split: Netflix's mint still reports `multiplier`
+    // 1.0 alongside `new_multiplier` 10.0 with a timestamp in the past.
     let (multiplier_bits, pending_multiplier_bits, activates_at) =
         match mint.get_extension::<ScaledUiAmountConfig>() {
             Ok(c) => {
-                let current = f64::from(c.multiplier).to_bits();
-                let next = f64::from(c.new_multiplier).to_bits();
+                let outgoing = f64::from(c.multiplier).to_bits();
+                let incoming = f64::from(c.new_multiplier).to_bits();
                 let at = i64::from(c.new_multiplier_effective_timestamp);
-                // The issuer publishes the next multiplier and its activation
-                // instant ahead of time. That is what makes the dividend drain
-                // predictable — and therefore refusable.
-                if next != current && at != 0 {
-                    (current, next, at)
+
+                if at != 0 && now >= at {
+                    // Already in force. Nothing is pending.
+                    (incoming, 0, 0)
+                } else if at != 0 && incoming != outgoing {
+                    // Scheduled and published ahead of time — which is exactly
+                    // what makes the dividend drain predictable, and refusable.
+                    (outgoing, incoming, at)
                 } else {
-                    (current, 0, 0)
+                    (outgoing, 0, 0)
                 }
             }
             // No scaled-amount extension: raw balances are already share units.
@@ -136,8 +145,8 @@ pub struct InitTokenRisk<'info> {
 }
 
 pub fn handle_init_token_risk(ctx: Context<InitTokenRisk>) -> Result<()> {
-    let facts = read_mint(&ctx.accounts.mint.to_account_info())?;
     let now = Clock::get()?.unix_timestamp;
+    let facts = read_mint(&ctx.accounts.mint.to_account_info(), now)?;
     ctx.accounts.risk.rebase_kind = RebaseKind::None;
     ctx.accounts.risk.bump = ctx.bumps.risk;
     apply(&mut ctx.accounts.risk, ctx.accounts.mint.key(), facts, now);
@@ -159,8 +168,8 @@ pub struct RefreshTokenRisk<'info> {
 }
 
 pub fn handle_refresh_token_risk(ctx: Context<RefreshTokenRisk>) -> Result<()> {
-    let facts = read_mint(&ctx.accounts.mint.to_account_info())?;
     let now = Clock::get()?.unix_timestamp;
+    let facts = read_mint(&ctx.accounts.mint.to_account_info(), now)?;
     apply(&mut ctx.accounts.risk, ctx.accounts.mint.key(), facts, now);
     Ok(())
 }
