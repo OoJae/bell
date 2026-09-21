@@ -26,4 +26,36 @@ pub enum BellError {
     NotAttestor,
     #[msg("Attested timestamp is in the future")]
     TimestampInFuture,
+
+    // --- queue. Appended, never reordered: the client decodes a custom error
+    // --- by its offset from 6000, so inserting above would silently remap
+    // --- every existing code.
+    #[msg("The price mark is stale")]
+    MarkStale,
+    #[msg("The mark's uncertainty exceeds what this order accepts")]
+    MarkTooWide,
+    #[msg("Delivered less than the order's minimum acceptable output")]
+    PriceOutOfBand,
+    #[msg("The order is not yet due to fill")]
+    NotYetDue,
+    #[msg("The order has expired")]
+    OrderExpired,
+    #[msg("Fill exceeds the amount remaining on this order")]
+    OverFill,
+    #[msg("Fill is smaller than the order's minimum")]
+    FillTooSmall,
+    #[msg("The quote account is not delegated to this order's authority")]
+    DelegationMissing,
+    #[msg("Token account mint does not match")]
+    QuoteMintMismatch,
+    #[msg("Only the order owner may do this while the order is live")]
+    NotOrderOwner,
+    #[msg("Order amount is outside the permitted range")]
+    AmountTooLarge,
+    #[msg("Arithmetic overflow")]
+    MathOverflow,
+    #[msg("Parameter outside the permitted range")]
+    BadParameters,
+    #[msg("Token account owner does not match")]
+    TokenOwnerMismatch,
 }

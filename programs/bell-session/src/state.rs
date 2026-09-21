@@ -107,3 +107,116 @@ pub struct TokenRisk {
     pub verified_at: i64,
     pub bump: u8,
 }
+
+/// Where a price mark came from.
+///
+/// Recorded on the mark and echoed in the fill event, because the provenance of
+/// a price is part of the evidence: Backpack's free tickers cover 21 markets,
+/// and everything else falls back to an on-chain pool price, which is only
+/// defensible once the market is open and the pool has been arbitraged.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub enum MarkSource {
+    Backpack,
+    Jupiter,
+    Pyth,
+    XStocksNav,
+}
+
+/// An attested price for one symbol.
+///
+/// Deliberately a separate account from `SymbolState`, for three reasons: it
+/// leaves the session layout untouched, it gives the price its own freshness
+/// clock (a mark goes stale in a minute, a session does not), and it keeps the
+/// two trusted inputs separately auditable.
+///
+/// **This is the one place the queue adds trust the gate does not have.** The
+/// gate can only refuse, so a broken attestor fails closed. A mark sets a
+/// price, so a broken attestor fails *open*. Bounded by the order's own floor,
+/// by `Mode::Strict` (a wrong mark is arbitrageable against a live market we do
+/// not control), and by `MAX_MARK_AGE_SECONDS`.
+#[account]
+#[derive(InitSpace)]
+pub struct SymbolMark {
+    pub symbol: [u8; SYMBOL_LEN],
+    /// Must equal `SymbolState.mint`; pinned at `open_mark`.
+    pub mint: Pubkey,
+    /// The denomination `rate_q64` is expressed in.
+    pub quote_mint: Pubkey,
+    /// **The binding value.** Stock raw units per quote raw unit, Q64.64, with
+    /// the scaled-UI multiplier already folded in by the attestor.
+    ///
+    /// Raw-per-raw rather than a human price because it is the only form that
+    /// needs no decimals arithmetic on-chain — and the decimals genuinely
+    /// differ: SPYx is 8, Backpack's PFE is 6.
+    pub rate_q64: u128,
+    /// Descriptive only, never read by a check: `px_num * 10^px_expo` USD per
+    /// share, so a human or an explorer can audit what the rate meant.
+    pub px_num: u64,
+    pub px_expo: i32,
+    /// The attestor's own uncertainty about this mark.
+    pub conf_bps: u16,
+    pub source: MarkSource,
+    pub observed_at: i64,
+    pub bump: u8,
+}
+
+/// A standing intent to buy at the next open.
+///
+/// The user's funds are **not** held here. They stay in the user's own token
+/// account under an SPL delegation, which means cancelling is
+/// `spl_token::revoke` from their wallet — an instruction this program has no
+/// part in, and which works even if this program is frozen and every server we
+/// run is down. If no filler ever comes, nothing happened at all.
+#[account]
+#[derive(InitSpace)]
+pub struct BellOrder {
+    pub owner: Pubkey,
+    pub symbol: [u8; SYMBOL_LEN],
+    /// Stock mint, copied from `SymbolState` at placement.
+    pub mint: Pubkey,
+    /// Pinned at placement so a later mark change cannot retarget the order.
+    pub quote_mint: Pubkey,
+    /// The user's quote account, which carries the delegation.
+    pub payer_in: Pubkey,
+    /// Where the stock is delivered. Pinned rather than derived on-chain.
+    pub payee_out: Pubkey,
+    pub amount_in: u64,
+    pub filled_in: u64,
+    /// Smallest acceptable partial fill; equal to `amount_in` means all-or-none.
+    /// Prevents dust fills leaving an order that can never close.
+    pub min_fill_in: u64,
+    /// Snapshotted at placement. A rebase between placing and filling
+    /// invalidates the order rather than silently resizing it.
+    pub expected_multiplier_bits: u64,
+    /// The spread the user pays the filler. Every fill lands at the band edge,
+    /// so this is a maximum cost, not a tolerance.
+    pub max_slip_bps: u16,
+    pub max_conf_bps: u16,
+    /// The user's own worst acceptable price, out-raw per in-raw, Q64.64.
+    /// Zero means none — a pure market-on-open order.
+    pub floor_rate_q64: u128,
+    pub not_before: i64,
+    pub expires_at: i64,
+    pub nonce: u64,
+    pub created_at: i64,
+    pub bump: u8,
+    /// Bump for the per-owner delegate authority PDA.
+    pub auth_bump: u8,
+}
+
+/// Emitted on every fill. Carries the mark that priced it, so a fill can be
+/// audited against the price and source that justified it.
+#[event]
+pub struct OrderFilled {
+    pub symbol: [u8; SYMBOL_LEN],
+    pub owner: Pubkey,
+    pub filler: Pubkey,
+    pub amount_in: u64,
+    pub amount_out: u64,
+    pub px_num: u64,
+    pub px_expo: i32,
+    pub source: MarkSource,
+    pub mark_observed_at: i64,
+    /// Realised cost against the mark, in basis points.
+    pub realized_bps: u16,
+}

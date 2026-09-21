@@ -18,6 +18,7 @@ pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
+pub mod tokens;
 
 use anchor_lang::prelude::*;
 
@@ -72,6 +73,62 @@ pub mod bell_session {
     /// Record whether a pending multiplier change is a split or a dividend.
     pub fn classify_rebase(ctx: Context<ClassifyRebase>, kind: RebaseKind) -> Result<()> {
         instructions::classify_rebase::handle_classify_rebase(ctx, kind)
+    }
+
+    /// Create the price mark for a symbol.
+    pub fn open_mark(
+        ctx: Context<OpenMark>,
+        symbol: [u8; SYMBOL_LEN],
+        quote_mint: Pubkey,
+    ) -> Result<()> {
+        instructions::mark::handle_open_mark(ctx, symbol, quote_mint)
+    }
+
+    /// Attest a price. The one input that can move value rather than only stop it.
+    #[allow(clippy::too_many_arguments)]
+    pub fn push_mark(
+        ctx: Context<PushMark>,
+        symbol: [u8; SYMBOL_LEN],
+        rate_q64: u128,
+        px_num: u64,
+        px_expo: i32,
+        conf_bps: u16,
+        source: MarkSource,
+        observed_at: i64,
+    ) -> Result<()> {
+        instructions::mark::handle_push_mark(
+            ctx, symbol, rate_q64, px_num, px_expo, conf_bps, source, observed_at,
+        )
+    }
+
+    /// Park an intent to buy at the next open. Funds stay in the user's wallet.
+    #[allow(clippy::too_many_arguments)]
+    pub fn place_order(
+        ctx: Context<PlaceOrder>,
+        symbol: [u8; SYMBOL_LEN],
+        nonce: u64,
+        amount_in: u64,
+        min_fill_in: u64,
+        max_slip_bps: u16,
+        max_conf_bps: u16,
+        floor_rate_q64: u128,
+        not_before: i64,
+        expires_at: i64,
+    ) -> Result<()> {
+        instructions::queue::handle_place_order(
+            ctx, symbol, nonce, amount_in, min_fill_in, max_slip_bps, max_conf_bps,
+            floor_rate_q64, not_before, expires_at,
+        )
+    }
+
+    /// Reclaim an order's rent. The real cancel is `spl_token::revoke`.
+    pub fn cancel_order(ctx: Context<CancelOrder>) -> Result<()> {
+        instructions::queue::handle_cancel_order(ctx)
+    }
+
+    /// Settle a due order. Permissionless; runs the same gate.
+    pub fn fill_order(ctx: Context<FillOrder>, amount_in_leg: u64, amount_out: u64) -> Result<()> {
+        instructions::fill::handle_fill_order(ctx, amount_in_leg, amount_out)
     }
 
     /// The gate. Succeeds silently, or fails with a machine-readable reason.

@@ -16,44 +16,28 @@ pub enum Mode {
     Guarded,
 }
 
-/// The gate. Succeeds silently, or fails with the reason.
+/// The gate itself, as a plain function.
+///
+/// Lifted out of the instruction handler so that `fill_order` runs *this exact
+/// code* rather than an equivalent reimplementation. Two copies of a safety
+/// check are two things to keep in sync, and the second one is where the bug
+/// lives. Sharing it also keeps the error codes byte-identical, so a refused
+/// fill decodes with the same client-side machinery as a refused swap.
 ///
 /// `expected_multiplier_bits` is the multiplier the caller built its order
 /// against. A rebase between quote and execution silently re-denominates the
 /// trade, so a moved multiplier invalidates the order rather than filling it at
 /// a different size than intended.
 ///
-/// Designed to be called by CPI from an executing program, so the protection
-/// composes: a lending market, a vault or a router inherits it by calling this
-/// rather than by reimplementing it. Checks run cheapest-and-most-categorical
-/// first, so a refusal names the most fundamental reason rather than whichever
-/// happened to be tested first.
-#[derive(Accounts)]
-#[instruction(symbol: [u8; SYMBOL_LEN])]
-pub struct AssertTradeable<'info> {
-    #[account(
-        seeds = [SYMBOL_SEED, symbol.as_ref()],
-        bump = symbol_state.bump,
-    )]
-    pub symbol_state: Account<'info, SymbolState>,
-    #[account(
-        seeds = [RISK_SEED, symbol_state.mint.as_ref()],
-        bump = risk.bump,
-        constraint = risk.mint == symbol_state.mint @ BellError::MintMismatch,
-    )]
-    pub risk: Account<'info, TokenRisk>,
-}
-
-pub fn handle_assert_tradeable(
-    ctx: Context<AssertTradeable>,
-    _symbol: [u8; SYMBOL_LEN],
+/// Checks run cheapest-and-most-categorical first, so a refusal names the most
+/// fundamental reason rather than whichever happened to be tested first.
+pub fn check_tradeable(
+    s: &SymbolState,
+    r: &TokenRisk,
     mode: Mode,
     expected_multiplier_bits: u64,
+    now: i64,
 ) -> Result<()> {
-    let now = Clock::get()?.unix_timestamp;
-    let s = &ctx.accounts.symbol_state;
-    let r = &ctx.accounts.risk;
-
     // 1. State we cannot vouch for is not a green light. An attestor that goes
     //    dark must close the venue, not leave it open.
     require!(
@@ -91,4 +75,41 @@ pub fn handle_assert_tradeable(
     }
 
     Ok(())
+}
+
+/// The gate as an instruction. Succeeds silently, or fails with the reason.
+///
+/// Callable by CPI, so the protection composes: a lending market, a vault or a
+/// router inherits it by calling this rather than reimplementing it. It is also
+/// composable without a CPI at all — put it first in a transaction and Solana's
+/// atomicity aborts whatever follows.
+#[derive(Accounts)]
+#[instruction(symbol: [u8; SYMBOL_LEN])]
+pub struct AssertTradeable<'info> {
+    #[account(
+        seeds = [SYMBOL_SEED, symbol.as_ref()],
+        bump = symbol_state.bump,
+    )]
+    pub symbol_state: Account<'info, SymbolState>,
+    #[account(
+        seeds = [RISK_SEED, symbol_state.mint.as_ref()],
+        bump = risk.bump,
+        constraint = risk.mint == symbol_state.mint @ BellError::MintMismatch,
+    )]
+    pub risk: Account<'info, TokenRisk>,
+}
+
+pub fn handle_assert_tradeable(
+    ctx: Context<AssertTradeable>,
+    _symbol: [u8; SYMBOL_LEN],
+    mode: Mode,
+    expected_multiplier_bits: u64,
+) -> Result<()> {
+    check_tradeable(
+        &ctx.accounts.symbol_state,
+        &ctx.accounts.risk,
+        mode,
+        expected_multiplier_bits,
+        Clock::get()?.unix_timestamp,
+    )
 }
