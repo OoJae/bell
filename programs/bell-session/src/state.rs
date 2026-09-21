@@ -25,6 +25,14 @@ pub enum HaltState {
     /// Market-wide circuit breaker.
     MarketWide,
     Suspension,
+    /// Halted, kind unknown.
+    ///
+    /// The issuer feed exposes only a boolean, so most halts arrive without a
+    /// reason code. Recording them as `Suspension` would assert something
+    /// stronger than we know — a suspension implies no scheduled resume, while
+    /// a volatility pause resumes in minutes. Appended last so the existing
+    /// variants keep their encodings.
+    Unspecified,
 }
 
 /// Off-chain market facts for one security.
