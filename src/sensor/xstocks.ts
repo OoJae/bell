@@ -10,6 +10,8 @@
 import { z } from 'zod'
 
 const BASE = 'https://api.xstocks.fi/api/v2/public'
+/** Undici defaults to 10s to connect, which several of these hosts exceed. */
+const TIMEOUT_MS = 30_000
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
 
 /** Per-asset session mode. The universe is not uniform — all three occur. */
@@ -91,6 +93,7 @@ export interface XStock {
 async function getPage(page: number): Promise<z.infer<typeof Page>> {
   const res = await fetch(`${BASE}/assets?network=Solana&page=${page}`, {
     headers: { 'user-agent': UA, accept: 'application/json' },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`xstocks assets page ${page}: HTTP ${res.status}`)
   return Page.parse(await res.json())
@@ -150,6 +153,7 @@ const MultiplierResponse = z.object({
 export async function fetchMultiplier(symbol: string) {
   const res = await fetch(`${BASE}/assets/${symbol}/multiplier?network=Solana`, {
     headers: { 'user-agent': UA, accept: 'application/json' },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   })
   if (!res.ok) throw new Error(`xstocks multiplier ${symbol}: HTTP ${res.status}`)
   const m = MultiplierResponse.parse(await res.json())

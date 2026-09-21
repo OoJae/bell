@@ -43,7 +43,9 @@ export async function fetchTokens(mints: string[]): Promise<Map<string, JupToken
   const out = new Map<string, JupToken>()
   for (let i = 0; i < mints.length; i += 90) {
     const batch = mints.slice(i, i + 90).join(',')
-    const res = await fetch(`${LITE}/tokens/v2/search?query=${batch}`)
+    const res = await fetch(`${LITE}/tokens/v2/search?query=${batch}`, {
+      signal: AbortSignal.timeout(30_000),
+    })
     if (!res.ok) throw new Error(`jupiter search: HTTP ${res.status}`)
     for (const t of z.array(Token).parse(await res.json())) out.set(t.id, t)
   }
@@ -70,7 +72,7 @@ export async function quote(
   const url =
     `${LITE}/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}` +
     `&amount=${amount}&slippageBps=${slippageBps}`
-  const res = await fetch(url)
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) })
   if (!res.ok) return null
   const body = (await res.json()) as Record<string, unknown>
   if (typeof body.outAmount !== 'string') return null

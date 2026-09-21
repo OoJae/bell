@@ -60,7 +60,10 @@ const Security = z.object({
 })
 
 async function get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
-  const res = await fetch(`${BASE}/${path}`, { headers: { accept: 'application/json' } })
+  const res = await fetch(`${BASE}/${path}`, {
+    headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(30_000),
+  })
   if (!res.ok) throw new Error(`backpack ${path}: HTTP ${res.status}`)
   return schema.parse(await res.json())
 }

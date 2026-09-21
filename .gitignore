@@ -14,3 +14,5 @@ data/snapshots/
 
 .playwright-mcp/
 .DS_Store
+.attestor.json
+test-ledger/

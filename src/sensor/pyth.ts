@@ -68,6 +68,7 @@ function tickerOf(symbol: string | null | undefined): string | null {
 export async function fetchEquitySessions(): Promise<Map<string, PythSession>> {
   const res = await fetch(`${HERMES}/price_feeds?asset_type=equity`, {
     headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) throw new Error(`pyth price_feeds: HTTP ${res.status}`)
 
