@@ -1,0 +1,16 @@
+# Rust / Anchor build output
+target/
+**/*.rs.bk
+
+# Keypairs — the program keypair is the upgrade authority. Never commit these.
+*-keypair.json
+.anchor/
+test-ledger/
+
+node_modules/
+data/*.db
+data/snapshots/
+.env
+
+.playwright-mcp/
+.DS_Store
