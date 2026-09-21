@@ -11,7 +11,7 @@
  */
 import { Connection, Keypair, PublicKey } from '@solana/web3.js'
 import { ALLOWLIST, type Listing } from '../config.ts'
-import { fetchUniverse, type XStock } from '../sensor/xstocks.ts'
+import { fetchAsset, type XStock } from '../sensor/xstocks.ts'
 import { fetchEquitySessions, type PythSession } from '../sensor/pyth.ts'
 import { fetchHalts, isActive, type Halt } from '../sensor/halts.ts'
 import { fetchSessions, fetchHolidays, fetchSecurities } from '../sensor/backpack.ts'
@@ -44,8 +44,11 @@ export interface Observation {
 }
 
 export async function sense(): Promise<Observation> {
-  const [universe, pyth, halts, sessions, holidays, securities] = await Promise.all([
-    fetchUniverse(),
+  // Only the allowlisted Backed names, not all 928: nine small reads instead of
+  // thirteen pages, which keeps a tick well clear of the refresh threshold.
+  const backedSymbols = ALLOWLIST.filter((l) => l.issuer === 'backed').map((l) => l.symbol)
+  const [assets, pyth, halts, sessions, holidays, securities] = await Promise.all([
+    Promise.all(backedSymbols.map((s) => fetchAsset(s))),
     fetchEquitySessions(),
     fetchHalts(),
     fetchSessions(),
@@ -54,7 +57,9 @@ export async function sense(): Promise<Observation> {
   ])
   return {
     at: new Date(),
-    xstocks: new Map(universe.map((x) => [x.mint, x])),
+    xstocks: new Map(
+      assets.filter((x): x is XStock => x !== null).map((x) => [x.mint, x]),
+    ),
     pyth,
     halts,
     backpack: {

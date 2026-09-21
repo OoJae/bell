@@ -90,6 +90,54 @@ export interface XStock {
   maxOrderUsdNow: number | null
 }
 
+/**
+ * Map one API node to an `XStock`, or null when it has no Solana deployment.
+ *
+ * Note the two halt flags: the asset carries `isTradingHalted` and so does its
+ * `trading` block, and they do not always agree — IWMx reports true at the top
+ * level and false inside. They are OR'd, because either one saying halted is
+ * reason enough not to trade.
+ */
+function toXStock(a: z.infer<typeof Asset>): XStock | null {
+  const sol = (a.deployments ?? []).find((d) => d.network.toLowerCase().startsWith('sol'))
+  if (!sol) return null
+  const t = a.trading ?? {}
+  const period = t.currentPeriod ?? null
+  const limits = period ? t.limitsPerPeriod?.[period] : undefined
+  return {
+    symbol: a.symbol,
+    name: a.name,
+    underlyingSymbol: a.underlyingSymbol ?? null,
+    isin: a.isin ?? null,
+    mint: sol.address,
+    supportsAtomicSwaps: sol.supportsAtomicSwaps ?? false,
+    halted: Boolean(a.isTradingHalted || t.isTradingHalted),
+    period,
+    openNow: t.openNow ?? false,
+    hoursMode: t.tradingHoursMode ?? null,
+    nextChangeAt: t.nextChangeAt ?? null,
+    exchangeMic: t.exchange?.mic ?? null,
+    minOrderUsd: limits?.minOrderFiatValue ?? null,
+    maxOrderUsdNow: limits?.maxOrderFiatValue ?? null,
+  }
+}
+
+/**
+ * One asset by symbol.
+ *
+ * The keeper watches a handful of names, and paging the full 928-asset universe
+ * every tick to read nine of them costs ~10s per cycle — enough that the
+ * refresh threshold and the cycle time start to collide.
+ */
+export async function fetchAsset(symbol: string): Promise<XStock | null> {
+  const res = await fetch(`${BASE}/assets/${symbol}?network=Solana`, {
+    headers: { 'user-agent': UA, accept: 'application/json' },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`xstocks asset ${symbol}: HTTP ${res.status}`)
+  return toXStock(Asset.parse(await res.json()))
+}
+
 async function getPage(page: number): Promise<z.infer<typeof Page>> {
   const res = await fetch(`${BASE}/assets?network=Solana&page=${page}`, {
     headers: { 'user-agent': UA, accept: 'application/json' },
@@ -108,27 +156,8 @@ export async function fetchUniverse(): Promise<XStock[]> {
     for (const a of nodes) {
       if (seen.has(a.id)) continue
       seen.add(a.id)
-      const sol = (a.deployments ?? []).find((d) => d.network.toLowerCase().startsWith('sol'))
-      if (!sol) continue
-      const t = a.trading ?? {}
-      const period = t.currentPeriod ?? null
-      const limits = period ? t.limitsPerPeriod?.[period] : undefined
-      out.push({
-        symbol: a.symbol,
-        name: a.name,
-        underlyingSymbol: a.underlyingSymbol ?? null,
-        isin: a.isin ?? null,
-        mint: sol.address,
-        supportsAtomicSwaps: sol.supportsAtomicSwaps ?? false,
-        halted: Boolean(a.isTradingHalted || t.isTradingHalted),
-        period,
-        openNow: t.openNow ?? false,
-        hoursMode: t.tradingHoursMode ?? null,
-        nextChangeAt: t.nextChangeAt ?? null,
-        exchangeMic: t.exchange?.mic ?? null,
-        minOrderUsd: limits?.minOrderFiatValue ?? null,
-        maxOrderUsdNow: limits?.maxOrderFiatValue ?? null,
-      })
+      const mapped = toXStock(a)
+      if (mapped) out.push(mapped)
     }
     if (!meta.hasNextPage) break
   }
