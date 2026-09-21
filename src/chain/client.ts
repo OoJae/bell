@@ -17,13 +17,25 @@ import {
 import {
   PROGRAM_ID,
   Mode,
+  MarkSource,
+  accountDiscriminator,
+  decodeBellOrder,
+  decodeSymbolMark,
   decodeSymbolState,
   decodeTokenRisk,
   encodeAssertTradeable,
+  encodeCancelOrder,
+  encodeFillOrder,
   encodeInitTokenRisk,
+  encodeOpenMark,
+  encodePlaceOrder,
+  encodePushMark,
   encodePushSession,
   encodeRefreshTokenRisk,
   encodeRegisterSymbol,
+  errorName,
+  type BellOrder,
+  type SymbolMark,
   type SymbolState,
   type TokenRisk,
 } from './codec.ts'
@@ -32,6 +44,12 @@ import { symbolSeed } from '../config.ts'
 const TOKEN_2022 = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 const SYMBOL_SEED = Buffer.from('sym')
 const RISK_SEED = Buffer.from('risk')
+const MARK_SEED = Buffer.from('mark')
+const ORDER_SEED = Buffer.from('ord')
+const AUTH_SEED = Buffer.from('auth')
+
+/** Plain SPL Token, which is what the quote leg (USDC) lives under. */
+export const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
 
 export const rpcUrl = () => process.env.BELL_RPC_URL ?? 'http://127.0.0.1:8899'
 export const connect = () => new Connection(rpcUrl(), 'confirmed')
@@ -46,6 +64,26 @@ export const symbolPda = (symbol: string) =>
 
 export const riskPda = (mint: PublicKey) =>
   PublicKey.findProgramAddressSync([RISK_SEED, mint.toBytes()], PROGRAM_ID)[0]
+
+export const markPda = (symbol: string) =>
+  PublicKey.findProgramAddressSync([MARK_SEED, Buffer.from(symbolSeed(symbol))], PROGRAM_ID)[0]
+
+export const orderPda = (owner: PublicKey, nonce: bigint) => {
+  const n = Buffer.alloc(8)
+  n.writeBigUInt64LE(nonce)
+  return PublicKey.findProgramAddressSync([ORDER_SEED, owner.toBytes(), n], PROGRAM_ID)[0]
+}
+
+/**
+ * The per-owner delegate authority.
+ *
+ * Per owner rather than per order, because an SPL token account has exactly one
+ * delegate slot — a per-order PDA would mean placing a second order silently
+ * un-authorises the first. One authority for all of a user's orders, and one
+ * `revoke` cancels all of them.
+ */
+export const authPda = (owner: PublicKey) =>
+  PublicKey.findProgramAddressSync([AUTH_SEED, owner.toBytes()], PROGRAM_ID)[0]
 
 // ------------------------------------------------------------- instructions
 
@@ -132,6 +170,123 @@ export function ixAssertTradeable(args: {
   })
 }
 
+export function ixOpenMark(payer: PublicKey, symbol: string, quoteMint: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: symbolPda(symbol), isSigner: false, isWritable: false },
+      { pubkey: markPda(symbol), isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: encodeOpenMark({ symbol: symbolSeed(symbol), quoteMint }),
+  })
+}
+
+export function ixPushMark(args: {
+  attestor: PublicKey
+  symbol: string
+  rateQ64: bigint
+  pxNum: bigint
+  pxExpo: number
+  confBps: number
+  source: MarkSource
+  observedAt: bigint
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.attestor, isSigner: true, isWritable: false },
+      { pubkey: symbolPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: markPda(args.symbol), isSigner: false, isWritable: true },
+    ],
+    data: encodePushMark({ ...args, symbol: symbolSeed(args.symbol) }),
+  })
+}
+
+export function ixPlaceOrder(args: {
+  owner: PublicKey
+  symbol: string
+  mint: PublicKey
+  nonce: bigint
+  amountIn: bigint
+  minFillIn: bigint
+  maxSlipBps: number
+  maxConfBps: number
+  floorRateQ64: bigint
+  notBefore: bigint
+  expiresAt: bigint
+  payerIn: PublicKey
+  payeeOut: PublicKey
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: true },
+      { pubkey: symbolPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: riskPda(args.mint), isSigner: false, isWritable: false },
+      { pubkey: markPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: orderPda(args.owner, args.nonce), isSigner: false, isWritable: true },
+      { pubkey: args.payerIn, isSigner: false, isWritable: false },
+      { pubkey: args.payeeOut, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: encodePlaceOrder({ ...args, symbol: symbolSeed(args.symbol) }),
+  })
+}
+
+export function ixCancelOrder(args: {
+  signer: PublicKey
+  owner: PublicKey
+  nonce: bigint
+  payerIn: PublicKey
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.signer, isSigner: true, isWritable: false },
+      { pubkey: args.owner, isSigner: false, isWritable: true },
+      { pubkey: orderPda(args.owner, args.nonce), isSigner: false, isWritable: true },
+      { pubkey: args.payerIn, isSigner: false, isWritable: false },
+    ],
+    data: encodeCancelOrder(),
+  })
+}
+
+export function ixFillOrder(args: {
+  filler: PublicKey
+  order: BellOrder
+  fillerIn: PublicKey
+  fillerOut: PublicKey
+  amountInLeg: bigint
+  amountOut: bigint
+  stockTokenProgram?: PublicKey
+  quoteTokenProgram?: PublicKey
+}): TransactionInstruction {
+  const o = args.order
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.filler, isSigner: true, isWritable: true },
+      { pubkey: orderPda(o.owner, o.nonce), isSigner: false, isWritable: true },
+      { pubkey: symbolPda(o.symbol), isSigner: false, isWritable: false },
+      { pubkey: riskPda(o.mint), isSigner: false, isWritable: false },
+      { pubkey: markPda(o.symbol), isSigner: false, isWritable: false },
+      { pubkey: authPda(o.owner), isSigner: false, isWritable: false },
+      { pubkey: o.owner, isSigner: false, isWritable: true },
+      { pubkey: o.payerIn, isSigner: false, isWritable: true },
+      { pubkey: o.payeeOut, isSigner: false, isWritable: true },
+      { pubkey: args.fillerIn, isSigner: false, isWritable: true },
+      { pubkey: args.fillerOut, isSigner: false, isWritable: true },
+      { pubkey: o.quoteMint, isSigner: false, isWritable: false },
+      { pubkey: o.mint, isSigner: false, isWritable: false },
+      { pubkey: args.quoteTokenProgram ?? TOKEN_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: args.stockTokenProgram ?? TOKEN_2022, isSigner: false, isWritable: false },
+    ],
+    data: encodeFillOrder({ amountInLeg: args.amountInLeg, amountOut: args.amountOut }),
+  })
+}
+
 // ------------------------------------------------------------------ helpers
 
 export async function send(
@@ -156,20 +311,50 @@ export async function readTokenRisk(conn: Connection, mint: PublicKey): Promise<
   return acc ? decodeTokenRisk(acc.data) : null
 }
 
-/** Anchor custom errors start at 6000; `BellError` is declared in that order. */
-export const BELL_ERRORS = [
-  'MarketClosed',
-  'StateStale',
-  'IssuerPaused',
-  'RebasePending',
-  'RebaseUnclassified',
-  'MultiplierMoved',
-  'HookArmed',
-  'NotToken2022',
-  'MintMismatch',
-  'NotAttestor',
-  'TimestampInFuture',
-] as const
+export async function readMark(conn: Connection, symbol: string): Promise<SymbolMark | null> {
+  const acc = await conn.getAccountInfo(markPda(symbol))
+  return acc ? decodeSymbolMark(acc.data) : null
+}
+
+export async function readOrder(
+  conn: Connection,
+  owner: PublicKey,
+  nonce: bigint,
+): Promise<BellOrder | null> {
+  const acc = await conn.getAccountInfo(orderPda(owner, nonce))
+  return acc ? decodeBellOrder(acc.data) : null
+}
+
+/**
+ * Every live order, found by its account discriminator.
+ *
+ * This is what makes the crank permissionless in practice as well as in
+ * principle: anyone can enumerate the book from the chain alone, with no index
+ * to query and no server of ours to ask.
+ */
+export async function readOrders(conn: Connection): Promise<BellOrder[]> {
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, {
+    filters: [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('BellOrder')) } }],
+  })
+  return accounts.map((a) => decodeBellOrder(a.account.data))
+}
+
+/** web3.js wants base58 for memcmp; this is the only place we need it. */
+function bs58Encode(b: Buffer): string {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  let n = 0n
+  for (const byte of b) n = n * 256n + BigInt(byte)
+  let out = ''
+  while (n > 0n) {
+    out = ALPHABET[Number(n % 58n)] + out
+    n /= 58n
+  }
+  for (const byte of b) {
+    if (byte !== 0) break
+    out = '1' + out
+  }
+  return out
+}
 
 export interface GateResult {
   allowed: boolean
@@ -200,11 +385,9 @@ export async function checkGate(
 
   const err = sim.value.err as { InstructionError?: [number, { Custom?: number }] }
   const code = err.InstructionError?.[1]?.Custom
-  const reason =
-    code !== undefined && code >= 6000 && code - 6000 < BELL_ERRORS.length
-      ? BELL_ERRORS[code - 6000]
-      : JSON.stringify(sim.value.err)
+  const reason = code !== undefined ? errorName(code) : JSON.stringify(sim.value.err)
   return { allowed: false, reason, logs }
 }
 
-export { Mode, TOKEN_2022 }
+export { Mode, MarkSource, TOKEN_2022, errorName }
+export type { BellOrder, SymbolMark, SymbolState, TokenRisk }

@@ -17,7 +17,25 @@ import { fetchHalts, isActive, type Halt } from '../sensor/halts.ts'
 import { fetchSessions, fetchHolidays, fetchSecurities } from '../sensor/backpack.ts'
 import { resolveSession, type SessionWindow, type HolidayWindow } from '../policy/sessions.ts'
 import { reconcile, HaltState, type Verdict } from '../policy/reconcile.ts'
-import { ixPushSession, readSymbolState, send } from './client.ts'
+import { ixPushMark, ixPushSession, readMark, readSymbolState, send } from './client.ts'
+import { MarkSource, fairOut, rateQ64 } from './codec.ts'
+import { quote, usdc, fetchTokens, USDC } from '../sensor/jupiter.ts'
+import { multiplierOf } from './codec.ts'
+import { readTokenRisk } from './client.ts'
+import { PublicKey as Web3PublicKey } from '@solana/web3.js'
+
+/**
+ * Notional the reference quote is taken at.
+ *
+ * The mark is an *executable* quote rather than a mid, because a mid is not
+ * what a filler can source. Measured on this universe: Backpack's tickers are
+ * mostly perpetuals trading 38-275bps below spot, and a low mark is the unsafe
+ * direction — it lowers min_out, so the fill still happens and the user quietly
+ * receives less. Jupiter's usdPrice has the opposite bias (a mid, 2-76bps below
+ * executable), which is safe but blocks most fills. An executable quote makes
+ * `fair` what a filler can actually get, so max_slip_bps is their whole margin.
+ */
+const MARK_NOTIONAL_USD = 200
 
 /**
  * The cluster's idea of the current time, which is what the program compares
@@ -27,6 +45,16 @@ export async function clusterTime(conn: Connection): Promise<number> {
   const slot = await conn.getSlot()
   const t = await conn.getBlockTime(slot)
   return t ?? Math.floor(Date.now() / 1000)
+}
+
+/** A price for one symbol, ready to attest. */
+export interface MarkReading {
+  symbol: string
+  rateQ64: bigint
+  pxNum: bigint
+  pxExpo: number
+  confBps: number
+  source: MarkSource
 }
 
 /** Everything the loop needs, gathered once per tick. */
@@ -166,10 +194,52 @@ export function needsPush(
   return nowSeconds - Number(onChain.observedAt) >= refreshBefore
 }
 
+/**
+ * Price every allowlisted symbol from an executable quote.
+ *
+ * Symbols with no route get no mark, and therefore cannot fill — the honest
+ * coverage limit rather than a guess. The scaled-UI multiplier is folded in
+ * here because raw balances are not share units.
+ */
+export async function readMarks(
+  conn: Connection,
+  decimalsByMint: Map<string, number>,
+): Promise<MarkReading[]> {
+  const out: MarkReading[] = []
+  for (const listing of ALLOWLIST) {
+    const mint = new Web3PublicKey(listing.mint)
+    const decimals = decimalsByMint.get(listing.mint)
+    if (decimals === undefined) continue
+
+    const q = await quote(USDC, listing.mint, usdc(MARK_NOTIONAL_USD))
+    if (!q || q.outAmount === 0n) continue
+
+    const risk = await readTokenRisk(conn, mint)
+    if (!risk) continue
+    const multiplier = multiplierOf(risk.multiplierBits)
+
+    // Executable price per share, with the multiplier applied.
+    const shares = (Number(q.outAmount) / 10 ** decimals) * multiplier
+    const pricePerShare = MARK_NOTIONAL_USD / shares
+
+    out.push({
+      symbol: listing.symbol,
+      rateQ64: rateQ64({ pricePerShare, multiplier, quoteDecimals: 6, stockDecimals: decimals }),
+      pxNum: BigInt(Math.round(pricePerShare * 1e6)),
+      pxExpo: -6,
+      // The quote's own price impact is the uncertainty we can actually see.
+      confBps: Math.min(200, Math.max(1, Math.round(q.priceImpact * 10_000))),
+      source: MarkSource.Jupiter,
+    })
+  }
+  return out
+}
+
 export interface TickResult {
   at: Date
   decisions: Decision[]
   pushed: string[]
+  marked: string[]
   signature: string | null
   dryRun: boolean
 }
@@ -184,6 +254,7 @@ export async function tick(args: {
   attestor: Keypair
   refreshBefore?: number
   dryRun?: boolean
+  withMarks?: boolean
 }): Promise<TickResult> {
   const { conn, attestor } = args
   const refreshBefore = args.refreshBefore ?? 60
@@ -204,13 +275,19 @@ export async function tick(args: {
     await clusterTime(conn),
   )
 
-  const ixs = []
+  // Sessions and marks go in separate transactions. Nine session pushes is 841
+  // bytes against the 1,232 limit, but adding marks took the combined message
+  // to 1,520 — a mark carries a u128 rate plus price fields, so it is a much
+  // fatter instruction. Two signatures a tick instead of one is a fee rounding
+  // error next to getting this wrong at the open.
+  const sessionIxs = []
+  const markIxs = []
   const pushed: string[] = []
 
   for (const d of decisions) {
     const state = await readSymbolState(conn, d.listing.symbol)
     if (!needsPush(state, d.verdict, nowSeconds, refreshBefore)) continue
-    ixs.push(
+    sessionIxs.push(
       ixPushSession({
         attestor: attestor.publicKey,
         symbol: d.listing.symbol,
@@ -223,13 +300,43 @@ export async function tick(args: {
     pushed.push(d.listing.symbol)
   }
 
-  let signature: string | null = null
-  if (ixs.length > 0 && !dryRun) {
-    signature = await send(conn, ixs, [attestor])
+  // Marks refresh far more often than sessions: MAX_MARK_AGE_SECONDS is 60, so
+  // a price older than a minute cannot settle anything.
+  const marked: string[] = []
+  if (args.withMarks !== false) {
+    const decimals = new Map(
+      [...(await fetchTokens(ALLOWLIST.map((l) => l.mint)))].map(([m, t]) => [m, t.decimals]),
+    )
+    for (const m of await readMarks(conn, decimals)) {
+      const existing = await readMark(conn, m.symbol)
+      if (!existing) continue // not opened yet
+      markIxs.push(
+        ixPushMark({
+          attestor: attestor.publicKey,
+          symbol: m.symbol,
+          rateQ64: m.rateQ64,
+          pxNum: m.pxNum,
+          pxExpo: m.pxExpo,
+          confBps: m.confBps,
+          source: m.source,
+          observedAt: BigInt(nowSeconds),
+        }),
+      )
+      marked.push(m.symbol)
+    }
   }
 
-  return { at: obs.at, decisions, pushed, signature, dryRun }
+  let signature: string | null = null
+  if (!dryRun) {
+    if (sessionIxs.length > 0) signature = await send(conn, sessionIxs, [attestor])
+    if (markIxs.length > 0) {
+      const markSig = await send(conn, markIxs, [attestor])
+      signature = signature ?? markSig
+    }
+  }
+
+  return { at: obs.at, decisions, pushed, marked, signature, dryRun }
 }
 
-export { HaltState }
+export { HaltState, fairOut }
 export type { Verdict, PublicKey }

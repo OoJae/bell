@@ -13,8 +13,8 @@
  * directly; the instruction is the same either way.
  */
 import { Connection, PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
-import { ixAssertTradeable, readTokenRisk, BELL_ERRORS } from './client.ts'
-import { Mode } from './codec.ts'
+import { ixAssertTradeable, readTokenRisk } from './client.ts'
+import { Mode, errorName } from './codec.ts'
 
 export interface GuardedPlan {
   transaction: Transaction
@@ -71,8 +71,7 @@ export function interpret(err: unknown, gateIndex: number): Outcome {
   const code = detail?.Custom
 
   if (index === gateIndex && code !== undefined && code >= 6000) {
-    const name = BELL_ERRORS[code - 6000] ?? `custom ${code}`
-    return { executed: false, refusedBecause: name, refusedByGate: true }
+    return { executed: false, refusedBecause: errorName(code), refusedByGate: true }
   }
   // Something downstream failed. Not our refusal, and not ours to relabel.
   return { executed: false, refusedBecause: JSON.stringify(err), refusedByGate: false }

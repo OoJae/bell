@@ -42,6 +42,38 @@ mainnet then run the *same* binary, and v1 is the more conservative deployment
 format anyway. `--tools-version` is required: without it cargo-build-sbf tries
 to download v1.54 and times out.
 
+## 2026-09-22 — `anchor build` silently un-does the v1 build
+
+`anchor build` regenerates the IDL, which you need whenever an instruction is
+added — but it also emits an sbpf **v3** `.so` over the top of the v1 one, and
+litesvm cannot load v3. The symptom is all 24 program tests failing at once with
+`InvalidAccountData`, which reads like a corrupt binary rather than "your last
+build overwrote the artefact".
+
+Worse, `cargo build-sbf` then considers the crate unchanged and no-ops, so
+re-running it does not fix anything. It has to be forced.
+
+**Fix:** the two commands are a pair and the order matters.
+
+```sh
+anchor build                                      # IDL
+touch programs/bell-session/src/lib.rs            # defeat the cache
+cargo build-sbf --arch v1 --tools-version v1.57   # the .so we test and ship
+```
+
+`file target/deploy/bell_session.so` tells them apart: v1 reports
+`shared object, *unknown arch 0x107*`, v3 reports `pie executable, eBPF`.
+
+## 2026-09-22 — sessions and marks do not fit in one transaction
+
+Nine `push_session` instructions is 841 bytes against the 1,232 limit, which I
+had measured and relied on. Adding seven `push_mark` instructions took the
+combined message to **1,520** and the tick died. A mark carries a `u128` rate
+plus price fields, so it is a much fatter instruction than a session push.
+
+**Fix:** two transactions per tick, one for sessions and one for marks. Two
+signatures is a rounding error against getting this wrong at the open.
+
 ## 2026-09-21 — the Pyth key is entitled to crypto only
 
 A free Pyth Terminal key authenticates but returns **403** for every feed in

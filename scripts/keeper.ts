@@ -57,8 +57,13 @@ async function once() {
     })),
   )
 
-  if (result.pushed.length === 0) console.log('  (no change)')
-  else console.log(`  pushed: ${result.pushed.join(', ')}${result.signature ? ` sig=${result.signature.slice(0, 16)}…` : ''}`)
+  if (result.pushed.length === 0 && result.marked.length === 0) console.log('  (no change)')
+  else {
+    const parts = []
+    if (result.pushed.length) parts.push(`sessions: ${result.pushed.join(', ')}`)
+    if (result.marked.length) parts.push(`marks: ${result.marked.length}`)
+    console.log(`  ${parts.join('  |  ')}${result.signature ? `  sig=${result.signature.slice(0, 16)}…` : ''}`)
+  }
 
   for (const t of transitions) {
     console.log(

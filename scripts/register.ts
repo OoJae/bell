@@ -11,8 +11,10 @@ import { Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram } from '@solana/web
 import {
   connect,
   ixInitTokenRisk,
+  ixOpenMark,
   ixRegisterSymbol,
   loadKeypair,
+  readMark,
   readSymbolState,
   readTokenRisk,
   riskPda,
@@ -43,6 +45,9 @@ function attestorKeypair(): Keypair {
 
 async function main() {
   const conn = connect()
+  const quoteMint = process.env.BELL_QUOTE_MINT
+    ? new PublicKey(process.env.BELL_QUOTE_MINT)
+    : null
   const payer = loadKeypair(PAYER_PATH)
   const attestor = attestorKeypair()
 
@@ -103,6 +108,14 @@ async function main() {
 
     if (!(await readTokenRisk(conn, mint))) {
       await send(conn, [ixInitTokenRisk(payer.publicKey, mint)], [payer])
+    }
+
+    // The mark is the queue's price input. Opened with a zero timestamp, which
+    // every freshness check reads as stale — a symbol is not fillable until the
+    // attestor has actually pushed a price.
+    if (!(await readMark(conn, l.symbol))) {
+      if (!quoteMint) throw new Error('BELL_QUOTE_MINT is unset; cannot open marks')
+      await send(conn, [ixOpenMark(payer.publicKey, l.symbol, quoteMint)], [payer])
     }
 
     const risk = await readTokenRisk(conn, mint)

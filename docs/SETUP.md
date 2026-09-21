@@ -30,7 +30,11 @@ node --test test/*.test.ts
 # Build the program. --arch v1 is required: anchor build emits sbpf v3, which
 # litesvm cannot load, and v1 is the more conservative deployment format.
 # --tools-version is required too, or cargo-build-sbf tries to fetch v1.54.
+# These are a pair, and the order matters: anchor build regenerates the IDL but
+# also drops an sbpf v3 .so that litesvm cannot load, and cargo build-sbf will
+# then no-op because it thinks nothing changed.
 anchor build                                         # IDL
+touch programs/bell-session/src/lib.rs               # defeat the cache
 cargo build-sbf --arch v1 --tools-version v1.57      # the .so we test and ship
 cargo test -p bell-session
 ```

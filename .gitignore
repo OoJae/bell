@@ -9,6 +9,8 @@ test-ledger/
 
 node_modules/
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/snapshots/
 .env
 
@@ -16,3 +18,6 @@ data/snapshots/
 .DS_Store
 .attestor.json
 test-ledger/
+.filler.json
+localnet/
+.demo.env

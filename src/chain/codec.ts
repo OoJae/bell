@@ -19,6 +19,7 @@ interface Idl {
   address: string
   instructions: Array<{ name: string; discriminator: number[] }>
   accounts: Array<{ name: string; discriminator: number[] }>
+  errors: Array<{ code: number; name: string; msg: string }>
 }
 
 const idl: Idl = JSON.parse(
@@ -26,6 +27,27 @@ const idl: Idl = JSON.parse(
 )
 
 export const PROGRAM_ID = new PublicKey(idl.address)
+
+/**
+ * Custom error code -> name, read from the IDL rather than hardcoded.
+ *
+ * The program's errors are append-only by convention, but reading them means a
+ * reordering would be caught here rather than silently mislabelling a refusal
+ * as the wrong reason — which for a product whose whole output is *why* it said
+ * no would be the worst kind of quiet bug.
+ */
+export const ERROR_NAMES: ReadonlyMap<number, string> = new Map(
+  idl.errors.map((e) => [e.code, e.name]),
+)
+
+export function errorName(code: number): string {
+  return ERROR_NAMES.get(code) ?? `custom ${code}`
+}
+
+/** Anchor account discriminator, for `getProgramAccounts` filters. */
+export function accountDiscriminator(name: string): Buffer {
+  return discriminator('accounts', name)
+}
 
 function discriminator(kind: 'instructions' | 'accounts', name: string): Buffer {
   const found = idl[kind].find((x) => x.name === name)
@@ -38,7 +60,17 @@ class Writer {
   private parts: Buffer[] = []
   u8(v: number) { this.parts.push(Buffer.from([v & 0xff])); return this }
   bool(v: boolean) { return this.u8(v ? 1 : 0) }
+  u16(v: number) { const b = Buffer.alloc(2); b.writeUInt16LE(v); this.parts.push(b); return this }
+  i32(v: number) { const b = Buffer.alloc(4); b.writeInt32LE(v); this.parts.push(b); return this }
   u64(v: bigint) { const b = Buffer.alloc(8); b.writeBigUInt64LE(v); this.parts.push(b); return this }
+  /** Borsh u128: little-endian, 16 bytes. Node has no writeBigUInt128LE. */
+  u128(v: bigint) {
+    const b = Buffer.alloc(16)
+    b.writeBigUInt64LE(v & 0xffffffffffffffffn, 0)
+    b.writeBigUInt64LE(v >> 64n, 8)
+    this.parts.push(b)
+    return this
+  }
   i64(v: bigint) { const b = Buffer.alloc(8); b.writeBigInt64LE(v); this.parts.push(b); return this }
   bytes(v: Uint8Array) { this.parts.push(Buffer.from(v)); return this }
   key(v: PublicKey) { return this.bytes(v.toBytes()) }
@@ -56,7 +88,15 @@ class Reader {
   skip(n: number) { this.o += n; return this }
   u8() { return this.b.readUInt8(this.o++) }
   bool() { return this.u8() === 1 }
+  u16() { const v = this.b.readUInt16LE(this.o); this.o += 2; return v }
+  i32() { const v = this.b.readInt32LE(this.o); this.o += 4; return v }
   u64() { const v = this.b.readBigUInt64LE(this.o); this.o += 8; return v }
+  u128() {
+    const lo = this.b.readBigUInt64LE(this.o)
+    const hi = this.b.readBigUInt64LE(this.o + 8)
+    this.o += 16
+    return (hi << 64n) | lo
+  }
   i64() { const v = this.b.readBigInt64LE(this.o); this.o += 8; return v }
   bytes(n: number) { const v = this.b.subarray(this.o, this.o + n); this.o += n; return v }
   key() { return new PublicKey(this.bytes(32)) }
@@ -123,6 +163,184 @@ export function encodeAssertTradeable(args: {
     discriminator('instructions', 'assert_tradeable'),
     new Writer().bytes(args.symbol).u8(args.mode).u64(args.expectedMultiplierBits).done(),
   ])
+}
+
+// ------------------------------------------------------------- queue & marks
+
+/** Mirrors the on-chain `MarkSource` discriminants. */
+export const MarkSource = { Backpack: 0, Jupiter: 1, Pyth: 2, XStocksNav: 3 } as const
+export type MarkSource = (typeof MarkSource)[keyof typeof MarkSource]
+
+export function encodeOpenMark(args: { symbol: Uint8Array; quoteMint: PublicKey }): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'open_mark'),
+    new Writer().bytes(args.symbol).key(args.quoteMint).done(),
+  ])
+}
+
+export function encodePushMark(args: {
+  symbol: Uint8Array
+  rateQ64: bigint
+  pxNum: bigint
+  pxExpo: number
+  confBps: number
+  source: MarkSource
+  observedAt: bigint
+}): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'push_mark'),
+    new Writer()
+      .bytes(args.symbol)
+      .u128(args.rateQ64)
+      .u64(args.pxNum)
+      .i32(args.pxExpo)
+      .u16(args.confBps)
+      .u8(args.source)
+      .i64(args.observedAt)
+      .done(),
+  ])
+}
+
+export function encodePlaceOrder(args: {
+  symbol: Uint8Array
+  nonce: bigint
+  amountIn: bigint
+  minFillIn: bigint
+  maxSlipBps: number
+  maxConfBps: number
+  floorRateQ64: bigint
+  notBefore: bigint
+  expiresAt: bigint
+}): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'place_order'),
+    new Writer()
+      .bytes(args.symbol)
+      .u64(args.nonce)
+      .u64(args.amountIn)
+      .u64(args.minFillIn)
+      .u16(args.maxSlipBps)
+      .u16(args.maxConfBps)
+      .u128(args.floorRateQ64)
+      .i64(args.notBefore)
+      .i64(args.expiresAt)
+      .done(),
+  ])
+}
+
+export const encodeCancelOrder = () => discriminator('instructions', 'cancel_order')
+
+export function encodeFillOrder(args: { amountInLeg: bigint; amountOut: bigint }): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'fill_order'),
+    new Writer().u64(args.amountInLeg).u64(args.amountOut).done(),
+  ])
+}
+
+export interface SymbolMark {
+  symbol: string
+  mint: PublicKey
+  quoteMint: PublicKey
+  rateQ64: bigint
+  pxNum: bigint
+  pxExpo: number
+  confBps: number
+  source: MarkSource
+  observedAt: bigint
+  bump: number
+}
+
+export function decodeSymbolMark(data: Buffer): SymbolMark {
+  const r = new Reader(data).skip(8)
+  return {
+    symbol: r.text(12),
+    mint: r.key(),
+    quoteMint: r.key(),
+    rateQ64: r.u128(),
+    pxNum: r.u64(),
+    pxExpo: r.i32(),
+    confBps: r.u16(),
+    source: r.u8() as MarkSource,
+    observedAt: r.i64(),
+    bump: r.u8(),
+  }
+}
+
+export interface BellOrder {
+  owner: PublicKey
+  symbol: string
+  mint: PublicKey
+  quoteMint: PublicKey
+  payerIn: PublicKey
+  payeeOut: PublicKey
+  amountIn: bigint
+  filledIn: bigint
+  minFillIn: bigint
+  expectedMultiplierBits: bigint
+  maxSlipBps: number
+  maxConfBps: number
+  floorRateQ64: bigint
+  notBefore: bigint
+  expiresAt: bigint
+  nonce: bigint
+  createdAt: bigint
+  bump: number
+  authBump: number
+}
+
+export function decodeBellOrder(data: Buffer): BellOrder {
+  const r = new Reader(data).skip(8)
+  return {
+    owner: r.key(),
+    symbol: r.text(12),
+    mint: r.key(),
+    quoteMint: r.key(),
+    payerIn: r.key(),
+    payeeOut: r.key(),
+    amountIn: r.u64(),
+    filledIn: r.u64(),
+    minFillIn: r.u64(),
+    expectedMultiplierBits: r.u64(),
+    maxSlipBps: r.u16(),
+    maxConfBps: r.u16(),
+    floorRateQ64: r.u128(),
+    notBefore: r.i64(),
+    expiresAt: r.i64(),
+    nonce: r.u64(),
+    createdAt: r.i64(),
+    bump: r.u8(),
+    authBump: r.u8(),
+  }
+}
+
+/**
+ * Stock raw units per quote raw unit, Q64.64.
+ *
+ * Raw-per-raw rather than a human price because the two legs have different
+ * decimals — SPYx is 8, Backpack's PFE is 6 — and because it is the only form
+ * the program can use without doing decimals arithmetic on chain.
+ *
+ * `multiplier` must be the *effective* scaled-UI multiplier: raw balances are
+ * not share units, and for a post-split mint the gap is the entire split.
+ */
+export function rateQ64(args: {
+  pricePerShare: number
+  multiplier: number
+  quoteDecimals: number
+  stockDecimals: number
+}): bigint {
+  const SCALE = 10n ** 18n
+  const denom = BigInt(Math.round(args.pricePerShare * args.multiplier * 1e18))
+  if (denom <= 0n) throw new Error('rateQ64: non-positive price')
+  return (
+    ((1n << 64n) * 10n ** BigInt(args.stockDecimals) * SCALE) /
+    (denom * 10n ** BigInt(args.quoteDecimals))
+  )
+}
+
+/** `amountIn * rate >> 64` — the fair output the band is measured against. */
+export function fairOut(amountIn: bigint, rate: bigint): bigint {
+  return (amountIn * rate) >> 64n
 }
 
 // ------------------------------------------------------------------- accounts
