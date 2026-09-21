@@ -10,11 +10,14 @@
 import { connect, loadKeypair, readSymbolState } from '../src/chain/client.ts'
 import { tick } from '../src/chain/keeper.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
+import { Recorder } from '../src/record.ts'
 
 const INTERVAL_MS = Number(process.env.BELL_INTERVAL_MS ?? 45_000)
 const ATTESTOR_PATH = process.env.BELL_ATTESTOR_KEYPAIR ?? '.attestor.json'
 const ONCE = process.argv.includes('--once')
 const dryRun = process.env.BELL_ARM !== '1'
+
+const recorder = new Recorder()
 
 const haltName = (h: number) =>
   Object.entries(HaltState).find(([, v]) => v === h)?.[0] ?? String(h)
@@ -37,8 +40,33 @@ async function once() {
         `age=${age === null ? 'never' : age + 's'}  ${d.verdict.detail}`,
     )
   }
+  const pushedSet = new Set(result.pushed)
+  const transitions = recorder.record(
+    result.decisions.map((d) => ({
+      at: Math.floor(result.at.getTime() / 1000),
+      symbol: d.listing.symbol,
+      mint: d.listing.mint,
+      issuer: d.listing.issuer,
+      openNow: d.verdict.openNow,
+      halt: d.verdict.halt,
+      confidence: d.verdict.confidence,
+      detail: d.verdict.detail,
+      ...d.sources,
+      pushed: pushedSet.has(d.listing.symbol),
+      signature: result.signature,
+    })),
+  )
+
   if (result.pushed.length === 0) console.log('  (no change)')
   else console.log(`  pushed: ${result.pushed.join(', ')}${result.signature ? ` sig=${result.signature.slice(0, 16)}…` : ''}`)
+
+  for (const t of transitions) {
+    console.log(
+      `  ** ${t.symbol} ${t.fromOpen ? 'open' : 'closed'} -> ${t.toOpen ? 'open' : 'closed'}` +
+        `${t.fromHalt !== t.toHalt ? `, halt ${haltName(t.fromHalt)} -> ${haltName(t.toHalt)}` : ''}` +
+        `  (${t.detail})`,
+    )
+  }
 }
 
 if (ONCE) {

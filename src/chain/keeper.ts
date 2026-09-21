@@ -75,6 +75,17 @@ export async function sense(): Promise<Observation> {
 export interface Decision {
   listing: Listing
   verdict: Verdict
+  /**
+   * What each source actually said. Kept alongside the verdict so the evidence
+   * log can reconstruct a decision later, rather than storing a conclusion with
+   * no way to audit how it was reached.
+   */
+  sources: {
+    pythOpen: boolean | null
+    issuerOpen: boolean | null
+    issuerHalted: boolean | null
+    exchangeHalt: number | null
+  }
 }
 
 /**
@@ -129,6 +140,12 @@ export function decide(obs: Observation): Decision[] {
         issuer,
         exchangeHalt,
       }),
+      sources: {
+        pythOpen: feed ? feed.isOpen : null,
+        issuerOpen: issuer ? issuer.openNow : null,
+        issuerHalted: issuer ? issuer.issuerHalted : null,
+        exchangeHalt: exchangeHalt ? exchangeHalt.kind : null,
+      },
     }
   })
 }
