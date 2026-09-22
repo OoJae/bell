@@ -12,19 +12,15 @@
  * Discriminators are read from the generated IDL rather than hardcoded, so a
  * program change that alters one is caught here instead of on chain.
  */
-import { readFileSync } from 'node:fs'
 import { PublicKey } from '@solana/web3.js'
-
-interface Idl {
-  address: string
-  instructions: Array<{ name: string; discriminator: number[] }>
-  accounts: Array<{ name: string; discriminator: number[] }>
-  errors: Array<{ code: number; name: string; msg: string }>
-}
-
-const idl: Idl = JSON.parse(
-  readFileSync(new URL('../../target/idl/bell_session.json', import.meta.url), 'utf8'),
-)
+// Imported rather than read from disk so this module runs unchanged in a
+// browser. The front end and the keeper then share one encoder and one set of
+// error names, which is the point: a UI that reimplements the rules is a UI
+// that will eventually disagree with the chain about why a trade was refused.
+//
+// `src/chain/idl.json` is a copy of `target/idl/bell_session.json`; refresh it
+// with `pnpm idl` whenever an instruction changes.
+import idl from './idl.json' with { type: 'json' }
 
 export const PROGRAM_ID = new PublicKey(idl.address)
 

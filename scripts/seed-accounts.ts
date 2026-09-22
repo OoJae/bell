@@ -11,7 +11,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { PublicKey } from '@solana/web3.js'
 import { ALLOWLIST } from '../src/config.ts'
-import { loadKeypair } from '../src/chain/client.ts'
+import {  } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 
 const TOKEN_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 const OUT = 'localnet'

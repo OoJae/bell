@@ -3,23 +3,23 @@
 Generated from `data/bell.db` by `scripts/evidence.ts`. Every number below is
 counted from the tick log, not written by hand.
 
-**Observation window:** 2026-09-21 19:29:56 → 2026-09-21 19:30:56 UTC (0.0h, 27 ticks)
+**Observation window:** 2026-09-21 19:29:56 → 2026-09-22 00:26:18 UTC (4.9h, 3258 ticks)
 
 ## Per symbol
 
 | symbol | issuer | ticks | tradeable | refused | pushes |
 |---|---|---|---|---|---|
-| AAPLx | backed | 3 | 3 (100%) | 0 | 2 |
-| IWMx | backed | 3 | 0 (0%) | 3 | 2 |
-| JPSTx | backed | 3 | 0 (0%) | 3 | 2 |
-| LMT | backpack | 3 | 3 (100%) | 0 | 2 |
-| NVDAx | backed | 3 | 3 (100%) | 0 | 2 |
-| PFE | backpack | 3 | 3 (100%) | 0 | 2 |
-| QQQx | backed | 3 | 3 (100%) | 0 | 2 |
-| SPYx | backed | 3 | 3 (100%) | 0 | 2 |
-| TSLAx | backed | 3 | 3 (100%) | 0 | 2 |
+| AAPLx | backed | 362 | 34 (9%) | 328 | 184 |
+| IWMx | backed | 362 | 0 (0%) | 362 | 183 |
+| JPSTx | backed | 362 | 0 (0%) | 362 | 183 |
+| LMT | backpack | 362 | 40 (11%) | 322 | 184 |
+| NVDAx | backed | 362 | 34 (9%) | 328 | 184 |
+| PFE | backpack | 362 | 40 (11%) | 322 | 184 |
+| QQQx | backed | 362 | 34 (9%) | 328 | 184 |
+| SPYx | backed | 362 | 34 (9%) | 328 | 184 |
+| TSLAx | backed | 362 | 34 (9%) | 328 | 184 |
 
-Across the window, **6 of 27** symbol-observations were not tradeable.
+Across the window, **3008 of 3258** symbol-observations were not tradeable.
 
 ## Confidence
 
@@ -29,7 +29,8 @@ confirm against and the log says so rather than implying agreement.
 
 | confidence | ticks |
 |---|---|
-| confirmed | 27 |
+| conflict | 1635 |
+| confirmed | 1623 |
 
 ## Source disagreement
 
@@ -39,10 +40,28 @@ publishes a reason code.
 
 | symbol | ticks |
 |---|---|
-| IWMx | 3 |
-| JPSTx | 3 |
+| AAPLx | 327 |
+| NVDAx | 327 |
+| QQQx | 327 |
+| SPYx | 327 |
+| TSLAx | 327 |
+| IWMx | 40 |
+| JPSTx | 40 |
 
 ## Transitions
 
-No state change observed in this window.
+| when (UTC) | symbol | change | reason |
+|---|---|---|---|
+| 2026-09-21 19:55:38 | SPYx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-21 19:55:38 | NVDAx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-21 19:55:38 | QQQx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-21 19:55:38 | TSLAx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-21 19:55:38 | AAPLx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-21 20:00:17 | SPYx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-21 20:00:17 | NVDAx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-21 20:00:17 | QQQx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-21 20:00:17 | TSLAx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-21 20:00:17 | AAPLx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-21 20:00:17 | PFE | open → closed | session closed |
+| 2026-09-21 20:00:17 | LMT | open → closed | session closed |
 

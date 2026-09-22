@@ -7,7 +7,11 @@
  * execution would. This is the read-only guard API.
  */
 import { PublicKey } from '@solana/web3.js'
-import { checkGate, connect, loadKeypair, readSymbolState, readTokenRisk } from '../src/chain/client.ts'
+import { checkGate,
+  connect,
+  readSymbolState,
+  readTokenRisk } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { Mode } from '../src/chain/codec.ts'
 import { ALLOWLIST } from '../src/config.ts'
 

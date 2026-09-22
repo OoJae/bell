@@ -7,7 +7,9 @@
  * Dry run is the default, following the same invariant as Ripcord: a process
  * that writes to a chain should never do so because someone forgot a flag.
  */
-import { connect, loadKeypair, readSymbolState } from '../src/chain/client.ts'
+import { connect,
+  readSymbolState } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
 import { Recorder } from '../src/record.ts'

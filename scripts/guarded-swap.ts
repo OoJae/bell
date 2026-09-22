@@ -11,7 +11,8 @@
  * composition takes a real Jupiter swap instruction in that slot, unchanged.
  */
 import { Keypair, PublicKey, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js'
-import { connect, loadKeypair } from '../src/chain/client.ts'
+import { connect } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { guarded, interpret } from '../src/chain/guard.ts'
 import { bySymbol } from '../src/config.ts'
 

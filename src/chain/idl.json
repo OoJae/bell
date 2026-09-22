@@ -1,0 +1,1797 @@
+{
+  "address": "56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx",
+  "metadata": {
+    "name": "bell_session",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Equity market state oracle: sessions, halts and Token-2022 issuer risk."
+  },
+  "instructions": [
+    {
+      "name": "assert_tradeable",
+      "docs": [
+        "The gate. Succeeds silently, or fails with a machine-readable reason."
+      ],
+      "discriminator": [
+        151,
+        32,
+        226,
+        185,
+        18,
+        114,
+        155,
+        21
+      ],
+      "accounts": [
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "symbol_state.mint",
+                "account": "SymbolState"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "mode",
+          "type": {
+            "defined": {
+              "name": "Mode"
+            }
+          }
+        },
+        {
+          "name": "expected_multiplier_bits",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "cancel_order",
+      "docs": [
+        "Reclaim an order's rent. The real cancel is `spl_token::revoke`."
+      ],
+      "discriminator": [
+        95,
+        129,
+        237,
+        240,
+        8,
+        49,
+        223,
+        132
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "writable": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "BellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer_in"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "classify_rebase",
+      "docs": [
+        "Record whether a pending multiplier change is a split or a dividend."
+      ],
+      "discriminator": [
+        233,
+        25,
+        240,
+        98,
+        101,
+        83,
+        80,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "attestor",
+          "signer": true
+        },
+        {
+          "name": "symbol_state"
+        },
+        {
+          "name": "risk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "risk.mint",
+                "account": "TokenRisk"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "kind",
+          "type": {
+            "defined": {
+              "name": "RebaseKind"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fill_order",
+      "docs": [
+        "Settle a due order. Permissionless; runs the same gate."
+      ],
+      "discriminator": [
+        232,
+        122,
+        115,
+        25,
+        199,
+        143,
+        136,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "filler",
+          "signer": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "BellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.mint",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "auth",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "owner so a filler can never collect the user's rent as a bonus."
+          ],
+          "writable": true
+        },
+        {
+          "name": "payer_in",
+          "writable": true
+        },
+        {
+          "name": "payee_out",
+          "writable": true
+        },
+        {
+          "name": "filler_in",
+          "writable": true
+        },
+        {
+          "name": "filler_out",
+          "writable": true
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "stock_mint"
+        },
+        {
+          "name": "quote_token_program"
+        },
+        {
+          "name": "stock_token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_in_leg",
+          "type": "u64"
+        },
+        {
+          "name": "amount_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "init_token_risk",
+      "docs": [
+        "Create the risk record for a mint, read from the mint. Permissionless."
+      ],
+      "discriminator": [
+        77,
+        228,
+        228,
+        130,
+        213,
+        232,
+        130,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mint",
+          "docs": [
+            "deserialize as a mint. Unchecked here so this works for any mint",
+            "without prior registration."
+          ]
+        },
+        {
+          "name": "risk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_mark",
+      "docs": [
+        "Create the price mark for a symbol."
+      ],
+      "discriminator": [
+        218,
+        92,
+        123,
+        245,
+        35,
+        202,
+        123,
+        65
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "quote_mint",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "place_order",
+      "docs": [
+        "Park an intent to buy at the next open. Funds stay in the user's wallet."
+      ],
+      "discriminator": [
+        51,
+        194,
+        155,
+        175,
+        109,
+        130,
+        96,
+        106
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "Only the owner may place an order in their own name."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "symbol_state.mint",
+                "account": "SymbolState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer_in"
+        },
+        {
+          "name": "payee_out"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "nonce",
+          "type": "u64"
+        },
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_fill_in",
+          "type": "u64"
+        },
+        {
+          "name": "max_slip_bps",
+          "type": "u16"
+        },
+        {
+          "name": "max_conf_bps",
+          "type": "u16"
+        },
+        {
+          "name": "floor_rate_q64",
+          "type": "u128"
+        },
+        {
+          "name": "not_before",
+          "type": "i64"
+        },
+        {
+          "name": "expires_at",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "push_mark",
+      "docs": [
+        "Attest a price. The one input that can move value rather than only stop it."
+      ],
+      "discriminator": [
+        31,
+        169,
+        147,
+        195,
+        44,
+        115,
+        195,
+        171
+      ],
+      "accounts": [
+        {
+          "name": "attestor",
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "rate_q64",
+          "type": "u128"
+        },
+        {
+          "name": "px_num",
+          "type": "u64"
+        },
+        {
+          "name": "px_expo",
+          "type": "i32"
+        },
+        {
+          "name": "conf_bps",
+          "type": "u16"
+        },
+        {
+          "name": "source",
+          "type": {
+            "defined": {
+              "name": "MarkSource"
+            }
+          }
+        },
+        {
+          "name": "observed_at",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "push_session",
+      "docs": [
+        "Attest session and halt state for a symbol. The only trusted input."
+      ],
+      "discriminator": [
+        32,
+        238,
+        32,
+        131,
+        50,
+        95,
+        70,
+        238
+      ],
+      "accounts": [
+        {
+          "name": "attestor",
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "halt",
+          "type": {
+            "defined": {
+              "name": "HaltState"
+            }
+          }
+        },
+        {
+          "name": "open_now",
+          "type": "bool"
+        },
+        {
+          "name": "next_change_at",
+          "type": "i64"
+        },
+        {
+          "name": "observed_at",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "refresh_token_risk",
+      "docs": [
+        "Re-read issuer powers and pending rebases from the mint. Permissionless."
+      ],
+      "discriminator": [
+        237,
+        154,
+        130,
+        127,
+        250,
+        102,
+        35,
+        148
+      ],
+      "accounts": [
+        {
+          "name": "mint"
+        },
+        {
+          "name": "risk",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "register_symbol",
+      "docs": [
+        "Bind a ticker to a specific mint. Pinned by address, never by symbol."
+      ],
+      "discriminator": [
+        8,
+        85,
+        76,
+        247,
+        214,
+        216,
+        118,
+        135
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "type": "pubkey"
+        },
+        {
+          "name": "exchange_mic",
+          "type": {
+            "array": [
+              "u8",
+              4
+            ]
+          }
+        },
+        {
+          "name": "hours_mode",
+          "type": {
+            "defined": {
+              "name": "HoursMode"
+            }
+          }
+        },
+        {
+          "name": "attestor",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BellOrder",
+      "discriminator": [
+        146,
+        162,
+        12,
+        89,
+        184,
+        147,
+        107,
+        221
+      ]
+    },
+    {
+      "name": "SymbolMark",
+      "discriminator": [
+        203,
+        252,
+        218,
+        2,
+        245,
+        208,
+        233,
+        124
+      ]
+    },
+    {
+      "name": "SymbolState",
+      "discriminator": [
+        37,
+        39,
+        220,
+        29,
+        61,
+        155,
+        229,
+        71
+      ]
+    },
+    {
+      "name": "TokenRisk",
+      "discriminator": [
+        173,
+        99,
+        234,
+        203,
+        30,
+        82,
+        77,
+        213
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "OrderFilled",
+      "discriminator": [
+        120,
+        124,
+        109,
+        66,
+        249,
+        116,
+        174,
+        30
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MarketClosed",
+      "msg": "Primary listing exchange has halted or suspended this security"
+    },
+    {
+      "code": 6001,
+      "name": "StateStale",
+      "msg": "Session state is stale; treated as halted"
+    },
+    {
+      "code": 6002,
+      "name": "IssuerPaused",
+      "msg": "Issuer has paused this mint"
+    },
+    {
+      "code": 6003,
+      "name": "RebasePending",
+      "msg": "A scheduled rebase activates inside the guard window"
+    },
+    {
+      "code": 6004,
+      "name": "RebaseUnclassified",
+      "msg": "Pending corporate action is neither a split nor a dividend"
+    },
+    {
+      "code": 6005,
+      "name": "MultiplierMoved",
+      "msg": "The multiplier changed after this order was built"
+    },
+    {
+      "code": 6006,
+      "name": "HookArmed",
+      "msg": "A transfer hook is armed on this mint"
+    },
+    {
+      "code": 6007,
+      "name": "NotToken2022",
+      "msg": "Mint is not owned by the Token-2022 program"
+    },
+    {
+      "code": 6008,
+      "name": "MintMismatch",
+      "msg": "Symbol does not match the mint recorded for it"
+    },
+    {
+      "code": 6009,
+      "name": "NotAttestor",
+      "msg": "Only the registered attestor may push session state"
+    },
+    {
+      "code": 6010,
+      "name": "TimestampInFuture",
+      "msg": "Attested timestamp is in the future"
+    },
+    {
+      "code": 6011,
+      "name": "MarkStale",
+      "msg": "The price mark is stale"
+    },
+    {
+      "code": 6012,
+      "name": "MarkTooWide",
+      "msg": "The mark's uncertainty exceeds what this order accepts"
+    },
+    {
+      "code": 6013,
+      "name": "PriceOutOfBand",
+      "msg": "Delivered less than the order's minimum acceptable output"
+    },
+    {
+      "code": 6014,
+      "name": "NotYetDue",
+      "msg": "The order is not yet due to fill"
+    },
+    {
+      "code": 6015,
+      "name": "OrderExpired",
+      "msg": "The order has expired"
+    },
+    {
+      "code": 6016,
+      "name": "OverFill",
+      "msg": "Fill exceeds the amount remaining on this order"
+    },
+    {
+      "code": 6017,
+      "name": "FillTooSmall",
+      "msg": "Fill is smaller than the order's minimum"
+    },
+    {
+      "code": 6018,
+      "name": "DelegationMissing",
+      "msg": "The quote account is not delegated to this order's authority"
+    },
+    {
+      "code": 6019,
+      "name": "QuoteMintMismatch",
+      "msg": "Token account mint does not match"
+    },
+    {
+      "code": 6020,
+      "name": "NotOrderOwner",
+      "msg": "Only the order owner may do this while the order is live"
+    },
+    {
+      "code": 6021,
+      "name": "AmountTooLarge",
+      "msg": "Order amount is outside the permitted range"
+    },
+    {
+      "code": 6022,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6023,
+      "name": "BadParameters",
+      "msg": "Parameter outside the permitted range"
+    },
+    {
+      "code": 6024,
+      "name": "TokenOwnerMismatch",
+      "msg": "Token account owner does not match"
+    }
+  ],
+  "types": [
+    {
+      "name": "BellOrder",
+      "docs": [
+        "A standing intent to buy at the next open.",
+        "",
+        "The user's funds are **not** held here. They stay in the user's own token",
+        "account under an SPL delegation, which means cancelling is",
+        "`spl_token::revoke` from their wallet — an instruction this program has no",
+        "part in, and which works even if this program is frozen and every server we",
+        "run is down. If no filler ever comes, nothing happened at all."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "Stock mint, copied from `SymbolState` at placement."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "docs": [
+              "Pinned at placement so a later mark change cannot retarget the order."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "payer_in",
+            "docs": [
+              "The user's quote account, which carries the delegation."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "payee_out",
+            "docs": [
+              "Where the stock is delivered. Pinned rather than derived on-chain."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "filled_in",
+            "type": "u64"
+          },
+          {
+            "name": "min_fill_in",
+            "docs": [
+              "Smallest acceptable partial fill; equal to `amount_in` means all-or-none.",
+              "Prevents dust fills leaving an order that can never close."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expected_multiplier_bits",
+            "docs": [
+              "Snapshotted at placement. A rebase between placing and filling",
+              "invalidates the order rather than silently resizing it."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_slip_bps",
+            "docs": [
+              "The spread the user pays the filler. Every fill lands at the band edge,",
+              "so this is a maximum cost, not a tolerance."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_conf_bps",
+            "type": "u16"
+          },
+          {
+            "name": "floor_rate_q64",
+            "docs": [
+              "The user's own worst acceptable price, out-raw per in-raw, Q64.64.",
+              "Zero means none — a pure market-on-open order."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "not_before",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "auth_bump",
+            "docs": [
+              "Bump for the per-owner delegate authority PDA."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HaltState",
+      "docs": [
+        "Why trading stopped. Distinguished because a volatility pause resumes on a",
+        "published schedule while a suspension does not."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
+          },
+          {
+            "name": "Luld"
+          },
+          {
+            "name": "NewsPending"
+          },
+          {
+            "name": "MarketWide"
+          },
+          {
+            "name": "Suspension"
+          },
+          {
+            "name": "Unspecified"
+          }
+        ]
+      }
+    },
+    {
+      "name": "HoursMode",
+      "docs": [
+        "Which sessions an asset trades in. The universe is not uniform — all three",
+        "occur across the ~928 listings, so \"is it tradeable now\" is per-symbol."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "TwentyFourFive"
+          },
+          {
+            "name": "MarketHours"
+          },
+          {
+            "name": "Regular"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarkSource",
+      "docs": [
+        "Where a price mark came from.",
+        "",
+        "Recorded on the mark and echoed in the fill event, because the provenance of",
+        "a price is part of the evidence: Backpack's free tickers cover 21 markets,",
+        "and everything else falls back to an on-chain pool price, which is only",
+        "defensible once the market is open and the pool has been arbitraged."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Backpack"
+          },
+          {
+            "name": "Jupiter"
+          },
+          {
+            "name": "Pyth"
+          },
+          {
+            "name": "XStocksNav"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Mode",
+      "docs": [
+        "How much off-hours risk the caller accepts."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Strict"
+          },
+          {
+            "name": "Guarded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrderFilled",
+      "docs": [
+        "Emitted on every fill. Carries the mark that priced it, so a fill can be",
+        "audited against the price and source that justified it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "filler",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "px_num",
+            "type": "u64"
+          },
+          {
+            "name": "px_expo",
+            "type": "i32"
+          },
+          {
+            "name": "source",
+            "type": {
+              "defined": {
+                "name": "MarkSource"
+              }
+            }
+          },
+          {
+            "name": "mark_observed_at",
+            "type": "i64"
+          },
+          {
+            "name": "realized_bps",
+            "docs": [
+              "Realised cost against the mark, in basis points."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RebaseKind",
+      "docs": [
+        "Which kind of corporate action a pending multiplier change represents.",
+        "",
+        "A split leaves value-per-raw-unit invariant, so pools are unaffected. A",
+        "dividend steps value-per-raw-unit up at a known instant, leaving every pool",
+        "stale-low and drained in the first block after activation. The multiplier",
+        "alone cannot tell them apart, so `Unknown` is never tradeable."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "None"
+          },
+          {
+            "name": "Split"
+          },
+          {
+            "name": "Dividend"
+          },
+          {
+            "name": "Unknown"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SymbolMark",
+      "docs": [
+        "An attested price for one symbol.",
+        "",
+        "Deliberately a separate account from `SymbolState`, for three reasons: it",
+        "leaves the session layout untouched, it gives the price its own freshness",
+        "clock (a mark goes stale in a minute, a session does not), and it keeps the",
+        "two trusted inputs separately auditable.",
+        "",
+        "**This is the one place the queue adds trust the gate does not have.** The",
+        "gate can only refuse, so a broken attestor fails closed. A mark sets a",
+        "price, so a broken attestor fails *open*. Bounded by the order's own floor,",
+        "by `Mode::Strict` (a wrong mark is arbitrageable against a live market we do",
+        "not control), and by `MAX_MARK_AGE_SECONDS`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "Must equal `SymbolState.mint`; pinned at `open_mark`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "docs": [
+              "The denomination `rate_q64` is expressed in."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "rate_q64",
+            "docs": [
+              "**The binding value.** Stock raw units per quote raw unit, Q64.64, with",
+              "the scaled-UI multiplier already folded in by the attestor.",
+              "",
+              "Raw-per-raw rather than a human price because it is the only form that",
+              "needs no decimals arithmetic on-chain — and the decimals genuinely",
+              "differ: SPYx is 8, Backpack's PFE is 6."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "px_num",
+            "docs": [
+              "Descriptive only, never read by a check: `px_num * 10^px_expo` USD per",
+              "share, so a human or an explorer can audit what the rate meant."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "px_expo",
+            "type": "i32"
+          },
+          {
+            "name": "conf_bps",
+            "docs": [
+              "The attestor's own uncertainty about this mark."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "source",
+            "type": {
+              "defined": {
+                "name": "MarkSource"
+              }
+            }
+          },
+          {
+            "name": "observed_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SymbolState",
+      "docs": [
+        "Off-chain market facts for one security.",
+        "",
+        "This is the only part of the system that requires trust, so it is kept as",
+        "small as possible and every consumer treats a stale record as a halt."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "docs": [
+              "Ticker of the tokenized security, space-padded."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "The Token-2022 mint this symbol refers to. Pinned by address, never by",
+              "ticker: look-alike mints of major tickers exist on Solana today."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "exchange_mic",
+            "docs": [
+              "MIC of the primary listing exchange, e.g. \"XNAS\". This is the venue that",
+              "SEC Order 34-106402 II.H requires us to stop concurrently with."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                4
+              ]
+            }
+          },
+          {
+            "name": "hours_mode",
+            "type": {
+              "defined": {
+                "name": "HoursMode"
+              }
+            }
+          },
+          {
+            "name": "halt",
+            "type": {
+              "defined": {
+                "name": "HaltState"
+              }
+            }
+          },
+          {
+            "name": "open_now",
+            "docs": [
+              "Issuer reports the primary market is open for this asset right now."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "next_change_at",
+            "docs": [
+              "Unix seconds at which the session state next changes."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "observed_at",
+            "docs": [
+              "When this record was attested. Staleness is failure, not a warning."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "attestor",
+            "docs": [
+              "The only key permitted to push session state."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenRisk",
+      "docs": [
+        "Issuer powers and pending re-denominations, read directly from the mint.",
+        "",
+        "Nothing here is attested: every field is deserialized from the Token-2022",
+        "extension data on-chain, so it cannot be misreported."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "docs": [
+              "Token-2022 `PausableConfig` — the issuer can freeze all transfers."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "multiplier_bits",
+            "docs": [
+              "`ScaledUiAmountConfig.multiplier`, stored as raw bits.",
+              "",
+              "Held as bits rather than a float on purpose: the guard only ever tests",
+              "it for equality against the value an order was built with, and exact",
+              "comparison is the whole point. No arithmetic is done on it on-chain."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "pending_multiplier_bits",
+            "type": "u64"
+          },
+          {
+            "name": "activates_at",
+            "docs": [
+              "Unix seconds at which the pending multiplier takes effect; 0 if none."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "rebase_kind",
+            "type": {
+              "defined": {
+                "name": "RebaseKind"
+              }
+            }
+          },
+          {
+            "name": "hook",
+            "docs": [
+              "Transfer-hook program. `None` means the slot is armed but empty, which",
+              "is how these mints ship today — arming it changes settlement semantics."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "permanent_delegate",
+            "docs": [
+              "The issuer can seize tokens from any wallet. Recorded so that downstream",
+              "protocols can price the risk instead of discovering it."
+            ],
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "verified_at",
+            "docs": [
+              "When the mint was last read. Anyone may refresh this, permissionlessly."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ],
+  "constants": [
+    {
+      "name": "AUTH_SEED",
+      "type": "bytes",
+      "value": "[97, 117, 116, 104]"
+    },
+    {
+      "name": "MARK_SEED",
+      "type": "bytes",
+      "value": "[109, 97, 114, 107]"
+    },
+    {
+      "name": "ORDER_SEED",
+      "type": "bytes",
+      "value": "[111, 114, 100]"
+    },
+    {
+      "name": "RISK_SEED",
+      "type": "bytes",
+      "value": "[114, 105, 115, 107]"
+    },
+    {
+      "name": "SYMBOL_SEED",
+      "type": "bytes",
+      "value": "[115, 121, 109]"
+    }
+  ]
+}

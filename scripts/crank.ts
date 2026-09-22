@@ -18,12 +18,12 @@ import {
   connect,
   errorName,
   ixFillOrder,
-  loadKeypair,
   readMark,
   readOrders,
   TOKEN_PROGRAM,
   TOKEN_2022,
 } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { fairOut } from '../src/chain/codec.ts'
 import { byMint } from '../src/config.ts'
 

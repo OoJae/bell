@@ -4,15 +4,14 @@
  * `@solana/web3.js` is used for transport only — the encoding lives in
  * `codec.ts`.
  */
-import { readFileSync } from 'node:fs'
 import {
   Connection,
-  Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
+  type Keypair,
 } from '@solana/web3.js'
 import {
   PROGRAM_ID,
@@ -51,13 +50,13 @@ const AUTH_SEED = Buffer.from('auth')
 /** Plain SPL Token, which is what the quote leg (USDC) lives under. */
 export const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
 
-export const rpcUrl = () => process.env.BELL_RPC_URL ?? 'http://127.0.0.1:8899'
-export const connect = () => new Connection(rpcUrl(), 'confirmed')
+export const DEFAULT_RPC = 'http://127.0.0.1:8899'
 
-/** Solana CLI keypair format: a JSON array of 64 bytes. */
-export function loadKeypair(path: string): Keypair {
-  return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(path, 'utf8'))))
-}
+/** Node reads the env; a browser passes the URL in. */
+export const rpcUrl = () =>
+  (typeof process !== 'undefined' ? process.env?.BELL_RPC_URL : undefined) ?? DEFAULT_RPC
+
+export const connect = (url?: string) => new Connection(url ?? rpcUrl(), 'confirmed')
 
 export const symbolPda = (symbol: string) =>
   PublicKey.findProgramAddressSync([SYMBOL_SEED, Buffer.from(symbolSeed(symbol))], PROGRAM_ID)[0]

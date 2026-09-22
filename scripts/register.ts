@@ -13,13 +13,13 @@ import {
   ixInitTokenRisk,
   ixOpenMark,
   ixRegisterSymbol,
-  loadKeypair,
   readMark,
   readSymbolState,
   readTokenRisk,
   riskPda,
   send,
 } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { multiplierOf } from '../src/chain/codec.ts'
 import { ALLOWLIST } from '../src/config.ts'
 

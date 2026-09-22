@@ -15,12 +15,12 @@ import {
   connect,
   ixCancelOrder,
   ixPlaceOrder,
-  loadKeypair,
   readMark,
   readOrder,
   readOrders,
   TOKEN_PROGRAM,
 } from '../src/chain/client.ts'
+import { loadKeypair } from '../src/chain/keys.ts'
 import { fairOut } from '../src/chain/codec.ts'
 import { bySymbol } from '../src/config.ts'
 
