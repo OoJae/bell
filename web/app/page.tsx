@@ -44,7 +44,7 @@ export default function Page() {
   const refresh = useCallback(async () => {
     try {
       const [v, o] = await Promise.all([
-        loadAll(conn, publicKey ?? null),
+        loadAll(conn, publicKey ?? null, selected ?? undefined),
         loadOrders(conn, publicKey ?? undefined).catch(() => [] as BellOrder[]),
       ])
       setViews(v)
@@ -56,7 +56,9 @@ export default function Page() {
       // a stale board that still reads "tradeable".
       setError((e as Error).message)
     }
-  }, [conn, publicKey])
+    // `selected` is a dependency because it decides which symbol gets the
+    // authoritative on-chain check rather than the derived one.
+  }, [conn, publicKey, selected])
 
   useEffect(() => {
     void refresh()

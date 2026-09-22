@@ -353,6 +353,45 @@ export async function readMark(conn: Connection, symbol: string): Promise<Symbol
   return acc ? decodeSymbolMark(acc.data) : null
 }
 
+/** One symbol's three accounts, however they were fetched. */
+export interface SymbolAccounts {
+  state: SymbolState | null
+  risk: TokenRisk | null
+  mark: SymbolMark | null
+}
+
+/**
+ * Every symbol's state, risk and mark in a single RPC round trip.
+ *
+ * Read one at a time this was 27 `getAccountInfo` calls per refresh, which
+ * public devnet RPC answers with HTTP 429 — and because an unreachable chain
+ * correctly reads as *not tradeable*, being rate-limited rendered as "Cannot
+ * reach the chain" across the whole board. Fail-closed is right, but a venue
+ * that closes itself because it asked too many questions is not.
+ *
+ * `getMultipleAccounts` takes up to 100 keys, so 27 fits comfortably in one.
+ */
+export async function readAllSymbols(
+  conn: Connection,
+  listings: readonly { symbol: string; mint: string }[],
+): Promise<Map<string, SymbolAccounts>> {
+  const keys: PublicKey[] = []
+  for (const l of listings) {
+    keys.push(symbolPda(l.symbol), riskPda(new PublicKey(l.mint)), markPda(l.symbol))
+  }
+  const infos = await conn.getMultipleAccountsInfo(keys)
+  const out = new Map<string, SymbolAccounts>()
+  listings.forEach((l, i) => {
+    const [s, r, m] = [infos[i * 3], infos[i * 3 + 1], infos[i * 3 + 2]]
+    out.set(l.symbol, {
+      state: s ? decodeSymbolState(s.data) : null,
+      risk: r ? decodeTokenRisk(r.data) : null,
+      mark: m ? decodeSymbolMark(m.data) : null,
+    })
+  })
+  return out
+}
+
 export async function readOrder(
   conn: Connection,
   owner: PublicKey,

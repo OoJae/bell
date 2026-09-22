@@ -10,10 +10,9 @@
 import { Connection, PublicKey } from '@solana/web3.js'
 import {
   checkGate,
-  readMark,
+  readAllSymbols,
   readOrders,
-  readSymbolState,
-  readTokenRisk,
+  type SymbolAccounts,
 } from '../../src/chain/client.ts'
 import {
   MAX_MARK_AGE_SECONDS,
@@ -96,13 +95,19 @@ export async function loadSymbol(
   listing: Listing,
   payer: PublicKey | null,
   mode: Mode = Mode.Strict,
+  prefetched?: SymbolAccounts,
+  /**
+   * Whether to ask the program itself. Off by default in a board view: each
+   * answer costs a `simulateTransaction`, and nine of those every ten seconds
+   * is what rate-limits a public RPC endpoint. The gate rows below are derived
+   * from the same accounts the program reads, so the board stays honest; the
+   * authoritative check is run for the one symbol actually being looked at.
+   */
+  simulate = true,
 ): Promise<SymbolView> {
   const mint = new PublicKey(listing.mint)
-  const [state, risk, mark] = await Promise.all([
-    readSymbolState(conn, listing.symbol),
-    readTokenRisk(conn, mint),
-    readMark(conn, listing.symbol),
-  ])
+  const { state, risk, mark } =
+    prefetched ?? (await readAllSymbols(conn, [listing])).get(listing.symbol)!
   const now = Math.floor(Date.now() / 1000)
 
   if (!state || !risk) {
@@ -179,6 +184,35 @@ export async function loadSymbol(
 
   let allowed: boolean | null = null
   let reason: string | null = null
+  // Derived from the accounts we already hold. `check_tradeable` refuses on the
+  // first failing gate in its own order, so taking the first failing row
+  // reproduces both the verdict and the *reason* without another round trip.
+  const firstFail = gates.find((g) => !g.ok)
+  const derived: Record<string, string> = {
+    'attestation fresh': 'StateStale',
+    'not halted': 'MarketClosed',
+    'issuer has not paused the mint': 'IssuerPaused',
+    'no rebase pending': 'RebasePending',
+    'no transfer hook armed': 'HookArmed',
+    'market open': 'MarketClosed',
+    'price fresh': 'MarkStale',
+  }
+  allowed = !firstFail
+  reason = firstFail ? (derived[firstFail.label] ?? 'Refused') : null
+
+  if (!simulate) {
+    return {
+      listing,
+      allowed,
+      reason,
+      gates,
+      attestationAge: age,
+      nextChangeAt: Number(state.nextChangeAt),
+      priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
+      registered: true,
+    }
+  }
+
   try {
     // A simulated transaction still nominates a fee payer, and it has to be a
     // funded system account or the simulation fails for a reason that has
@@ -211,11 +245,25 @@ export async function loadSymbol(
   }
 }
 
+/**
+ * The whole board, in one RPC round trip plus one simulation.
+ *
+ * `focus` is the symbol whose verdict is checked against the program itself.
+ * Everything else is derived from the same account data the program reads, so
+ * the board cannot disagree with the chain about *why* — and if it ever did,
+ * the focused row would show it, which is the disagreement worth surfacing.
+ */
 export async function loadAll(
   conn: Connection,
   payer: PublicKey | null = null,
+  focus?: string,
 ): Promise<SymbolView[]> {
-  return Promise.all(ALLOWLIST.map((l) => loadSymbol(conn, l, payer)))
+  const accounts = await readAllSymbols(conn, ALLOWLIST)
+  return Promise.all(
+    ALLOWLIST.map((l) =>
+      loadSymbol(conn, l, payer, Mode.Strict, accounts.get(l.symbol), l.symbol === focus),
+    ),
+  )
 }
 
 export async function loadOrders(conn: Connection, owner?: PublicKey): Promise<BellOrder[]> {
