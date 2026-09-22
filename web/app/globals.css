@@ -93,3 +93,14 @@ th { color: var(--dim); font-weight: 500; }
   line-height: 1 !important; padding: 0 16px !important;
 }
 .wallet-adapter-button:not([disabled]):hover { background: var(--panel) !important; }
+
+/* devnet notice: always visible, never blocking */
+.banner {
+  margin-bottom: 20px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.55;
+  border: 1px solid rgba(214, 160, 60, .35); background: rgba(214, 160, 60, .08); color: var(--dim);
+}
+.banner strong { color: var(--fg); }
+
+/* connected wallet's balances */
+.bal { display: flex; gap: 18px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--dim); }
+.bal strong { color: var(--fg); font-weight: 600; }

@@ -23,6 +23,7 @@ import { ixApproveChecked, ixRevoke } from '../src/chain/spl.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { fairOut } from '../src/chain/codec.ts'
 import { bySymbol } from '../src/config.ts'
+import { orderExpiry } from '../src/policy/expiry.ts'
 
 const PAYER_PATH = process.env.BELL_PAYER_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`
 const QUOTE_DECIMALS = 6
@@ -69,7 +70,8 @@ if (cmd === 'place') {
       maxConfBps: 50,
       floorRateQ64: 0n, // market-on-open; no absolute bound stated
       notBefore: 0n,
-      expiresAt: BigInt(Math.floor(Date.now() / 1000) + 86_400),
+      // Shared with the page: survives a weekend, capped inside the program's limit.
+      expiresAt: BigInt(orderExpiry(Math.floor(Date.now() / 1000), null)),
       payerIn,
       payeeOut: new PublicKey(stockAccount),
     }),

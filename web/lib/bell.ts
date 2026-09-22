@@ -11,38 +11,54 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import {
   checkGate,
   readAllSymbols,
+  readBoard,
   readOrders,
   type SymbolAccounts,
 } from '../../src/chain/client.ts'
+import { ataFor, decodeTokenAccount } from '../../src/chain/spl.ts'
 import {
   MAX_MARK_AGE_SECONDS,
   MAX_STATE_AGE_SECONDS,
   Mode,
   multiplierOf,
   REBASE_GUARD_SECONDS,
+  RebaseKind,
+  rebaseKindName,
   type BellOrder,
   type TokenRisk,
 } from '../../src/chain/codec.ts'
 import { ALLOWLIST, type Listing } from '../../src/config.ts'
+import { HaltState } from '../../src/policy/reconcile.ts'
 
 export const RPC_URL = process.env.NEXT_PUBLIC_BELL_RPC ?? 'http://127.0.0.1:8899'
 export const connection = () => new Connection(RPC_URL, 'confirmed')
 
-/** Mirrors the on-chain `HaltState` discriminants. */
-const HALT_NAMES = [
-  'None',
-  'LULD volatility pause',
-  'news pending',
-  'market-wide circuit breaker',
-  'suspension',
-  'halted',
-]
+/**
+ * Display names keyed by the named `HaltState` constants, not by position. A
+ * positional copy is how the rebase enum drifted; the named constants are
+ * checked against the IDL's variant order in `test/portability.test.ts`.
+ */
+const HALT_NAMES: Record<number, string> = {
+  [HaltState.None]: 'None',
+  [HaltState.Luld]: 'LULD volatility pause',
+  [HaltState.NewsPending]: 'news pending',
+  [HaltState.MarketWide]: 'market-wide circuit breaker',
+  [HaltState.Suspension]: 'suspension',
+  [HaltState.Unspecified]: 'halted',
+}
 
 /** One row of the gate panel: what this check saw, and whether it is happy. */
 export interface GateRow {
   label: string
   ok: boolean
   detail: string
+  /**
+   * The `BellError` this row stands for in `check_tradeable`, or absent when the
+   * row is informational. Only rows with a code decide the board's verdict:
+   * "price fresh" gates a *fill*, not `assert_tradeable`, and letting it vote
+   * made the board say "closed" for a symbol the program calls tradeable.
+   */
+  refuses?: string
 }
 
 export interface SymbolView {
@@ -55,32 +71,41 @@ export interface SymbolView {
   /** Seconds since the attestation, or null if never attested. */
   attestationAge: number | null
   nextChangeAt: number
+  /** The attested session state, so `nextChangeAt` can be read as the next open. */
+  openNow: boolean
   priceUsd: number | null
   registered: boolean
 }
 
 const ago = (t: bigint, now: number) => (t > 0n ? now - Number(t) : null)
 
-const RebaseKind = ['None', 'Unknown', 'Split', 'Dividend'] as const
-
+/** Gate 4: within REBASE_GUARD_SECONDS either side of an activation. */
 const inGuardWindow = (r: TokenRisk, now: number) =>
   r.activatesAt !== 0n && Math.abs(Number(r.activatesAt) - now) <= REBASE_GUARD_SECONDS
 
-const rebaseOk = (r: TokenRisk, now: number) =>
-  !inGuardWindow(r, now) && !(r.pendingMultiplierBits !== 0n && r.rebaseKind === 1)
+/** Gate 4b: a change still pending, and nobody has said what kind it is. */
+const unclassified = (r: TokenRisk) =>
+  r.pendingMultiplierBits !== 0n && r.rebaseKind === RebaseKind.Unknown
 
-function rebaseDetail(r: TokenRisk, now: number): string {
+function windowDetail(r: TokenRisk, now: number): string {
   const at = new Date(Number(r.activatesAt) * 1000).toISOString()
   if (inGuardWindow(r, now)) {
     return Number(r.activatesAt) > now
       ? `a corporate action lands at ${at} — too close to trade through`
       : `a corporate action landed at ${at}; the pool is not yet arbitraged`
   }
-  if (r.pendingMultiplierBits !== 0n && r.rebaseKind === 1) {
-    return `a corporate action is scheduled for ${at} and is not yet identified as a split or a dividend`
-  }
-  const kind = r.pendingMultiplierBits !== 0n ? ` · pending ${RebaseKind[r.rebaseKind] ?? '?'}` : ''
-  return `multiplier ${multiplierOf(r.multiplierBits)}${kind}`
+  const pending =
+    r.pendingMultiplierBits !== 0n
+      ? ` · ${multiplierOf(r.pendingMultiplierBits)} scheduled for ${at}`
+      : ''
+  return `multiplier ${multiplierOf(r.multiplierBits)}${pending}`
+}
+
+function classifiedDetail(r: TokenRisk): string {
+  if (r.pendingMultiplierBits === 0n) return 'nothing pending'
+  return unclassified(r)
+    ? 'not yet identified as a split or a dividend — a split leaves a pool fair, a dividend drains it'
+    : `identified as a ${rebaseKindName(r.rebaseKind).toLowerCase()}`
 }
 
 /**
@@ -118,6 +143,7 @@ export async function loadSymbol(
       gates: [{ label: 'registered', ok: false, detail: 'this symbol is not set up on chain' }],
       attestationAge: null,
       nextChangeAt: 0,
+      openNow: false,
       priceUsd: null,
       registered: false,
     }
@@ -129,6 +155,7 @@ export async function loadSymbol(
   const gates: GateRow[] = [
     {
       label: 'attestation fresh',
+      refuses: 'StateStale',
       ok: age !== null && age <= MAX_STATE_AGE_SECONDS,
       detail:
         age === null
@@ -139,32 +166,47 @@ export async function loadSymbol(
     },
     {
       label: 'not halted',
-      ok: state.halt === 0,
-      detail: state.halt === 0 ? `clear on ${state.exchangeMic}` : HALT_NAMES[state.halt] ?? 'halted',
+      refuses: 'MarketClosed',
+      ok: state.halt === HaltState.None,
+      detail:
+        state.halt === HaltState.None
+          ? `clear on ${state.exchangeMic}`
+          : (HALT_NAMES[state.halt] ?? 'halted'),
     },
     {
       label: 'issuer has not paused the mint',
+      refuses: 'IssuerPaused',
       ok: !risk.paused,
       detail: risk.paused ? 'issuer paused this mint' : 'not paused',
     },
     {
-      // Mirrors check_tradeable gates 4 and 4b exactly. The guard window is
-      // symmetric around the activation — before it, the order would settle in
-      // a different denomination than it was built for; after it, the pool is
-      // stale-low by the dividend until arbitrage catches up. A row that were
-      // merely "activatesAt !== 0" would contradict the program's own verdict
-      // for every mint that has ever rebased.
-      label: 'no rebase pending',
-      ok: rebaseOk(risk, now),
-      detail: rebaseDetail(risk, now),
+      // Gate 4. Symmetric around the activation: before it, an order would
+      // settle in a different denomination than it was built for; after it, a
+      // dividend has stepped value-per-raw-unit up and the pool is stale-low by
+      // exactly that until arbitrage catches up.
+      label: 'outside a rebase window',
+      refuses: 'RebasePending',
+      ok: !inGuardWindow(risk, now),
+      detail: windowDetail(risk, now),
+    },
+    {
+      // Gate 4b. Its own row because it is its own refusal: an unclassified
+      // change is refused as `RebaseUnclassified` whenever it is pending, not
+      // only inside the window.
+      label: 'pending change identified',
+      refuses: 'RebaseUnclassified',
+      ok: !unclassified(risk),
+      detail: classifiedDetail(risk),
     },
     {
       label: 'no transfer hook armed',
+      refuses: 'HookArmed',
       ok: risk.hook === null,
       detail: risk.hook ? `hook armed: ${risk.hook.toBase58()}` : 'slot empty',
     },
     {
       label: 'market open',
+      refuses: 'MarketClosed',
       ok: state.openNow,
       detail: state.openNow
         ? 'primary market is trading'
@@ -185,20 +227,12 @@ export async function loadSymbol(
   let allowed: boolean | null = null
   let reason: string | null = null
   // Derived from the accounts we already hold. `check_tradeable` refuses on the
-  // first failing gate in its own order, so taking the first failing row
-  // reproduces both the verdict and the *reason* without another round trip.
-  const firstFail = gates.find((g) => !g.ok)
-  const derived: Record<string, string> = {
-    'attestation fresh': 'StateStale',
-    'not halted': 'MarketClosed',
-    'issuer has not paused the mint': 'IssuerPaused',
-    'no rebase pending': 'RebasePending',
-    'no transfer hook armed': 'HookArmed',
-    'market open': 'MarketClosed',
-    'price fresh': 'MarkStale',
-  }
+  // first failing gate in its own order, and the rows above are in that order,
+  // so the first failing *gate* row reproduces both the verdict and the reason
+  // without another round trip. Informational rows do not vote.
+  const firstFail = gates.find((g) => g.refuses && !g.ok)
   allowed = !firstFail
-  reason = firstFail ? (derived[firstFail.label] ?? 'Refused') : null
+  reason = firstFail?.refuses ?? null
 
   if (!simulate) {
     return {
@@ -208,6 +242,7 @@ export async function loadSymbol(
       gates,
       attestationAge: age,
       nextChangeAt: Number(state.nextChangeAt),
+      openNow: state.openNow,
       priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
       registered: true,
     }
@@ -216,10 +251,13 @@ export async function loadSymbol(
   try {
     // A simulated transaction still nominates a fee payer, and it has to be a
     // funded system account or the simulation fails for a reason that has
-    // nothing to do with the gate. With no wallet connected, borrow the
-    // attestor recorded in the symbol itself: discoverable from the chain,
-    // guaranteed to exist, and never actually charged because nothing is sent.
-    const verdict = await checkGate(conn, payer ?? state.attestor, {
+    // nothing to do with the gate. Always the attestor recorded in the symbol:
+    // discoverable from the chain, guaranteed funded, and never charged because
+    // nothing is sent. It used to be the connected wallet when there was one —
+    // and a judge's fresh devnet wallet holds 0 SOL, so the first tile they
+    // clicked read "AccountNotFound" during market hours.
+    void payer
+    const verdict = await checkGate(conn, state.attestor, {
       symbol: listing.symbol,
       mint,
       mode,
@@ -240,6 +278,7 @@ export async function loadSymbol(
     gates,
     attestationAge: age,
     nextChangeAt: Number(state.nextChangeAt),
+    openNow: state.openNow,
     priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
     registered: true,
   }
@@ -266,9 +305,56 @@ export async function loadAll(
   )
 }
 
-export async function loadOrders(conn: Connection, owner?: PublicKey): Promise<BellOrder[]> {
-  const all = await readOrders(conn)
-  return owner ? all.filter((o) => o.owner.equals(owner)) : all
+/**
+ * One owner's orders. Throws on failure — deliberately.
+ *
+ * It used to swallow errors into `[]`, which turned a rate-limited read into
+ * "you have no orders". The page then approved only the new order's amount,
+ * and because SPL `Approve` replaces rather than adds, that silently defunded
+ * every order the user already had. Not knowing must stay distinguishable
+ * from knowing there are none.
+ */
+export async function loadOrders(conn: Connection, owner: PublicKey): Promise<BellOrder[]> {
+  return readOrders(conn, owner)
+}
+
+/** What the connected wallet holds, read in the same round trip as the board. */
+export interface WalletView {
+  sol: number
+  /** Demo-USDC in raw units; null when the wallet has no quote account yet. */
+  quote: bigint | null
+  delegate: PublicKey | null
+  delegatedAmount: bigint
+}
+
+/**
+ * The board and, when a wallet is connected, its balances — one request.
+ */
+export async function loadBoard(
+  conn: Connection,
+  quoteMint: PublicKey,
+  focus?: string,
+  wallet?: PublicKey | null,
+): Promise<{ views: SymbolView[]; wallet: WalletView | null }> {
+  const extra = wallet ? [wallet, ataFor(wallet, quoteMint)] : []
+  const { symbols, extras } = await readBoard(conn, ALLOWLIST, extra)
+  const views = await Promise.all(
+    ALLOWLIST.map((l) =>
+      loadSymbol(conn, l, null, Mode.Strict, symbols.get(l.symbol), l.symbol === focus),
+    ),
+  )
+  if (!wallet) return { views, wallet: null }
+  const [sys, ata] = extras
+  const token = ata ? decodeTokenAccount(ata.data) : null
+  return {
+    views,
+    wallet: {
+      sol: (sys?.lamports ?? 0) / 1e9,
+      quote: token ? token.amount : null,
+      delegate: token?.delegate ?? null,
+      delegatedAmount: token?.delegatedAmount ?? 0n,
+    },
+  }
 }
 
 /** Plain-English rendering of a refusal. The reason is the product. */
@@ -296,6 +382,10 @@ export function explain(reason: string | null): string {
       return 'The funds this order was to spend are no longer in the account, so it cannot fill.'
     case 'AmountExceedsDelegation':
       return 'This order asks for more than you approved.'
+    case 'AmountTooLarge':
+      return 'Orders are capped at $1,000 while the program still has an upgrade authority.'
+    case 'DelegationMissing':
+      return 'The order is not funded — the approval did not cover it.'
     case 'NotRegistered':
       return 'This symbol is not set up on chain yet.'
     default:

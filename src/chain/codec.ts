@@ -210,6 +210,26 @@ export const encodeInitTokenRisk = (attestor: PublicKey): Buffer =>
     .done()
 export const encodeRefreshTokenRisk = () => discriminator('instructions', 'refresh_token_risk')
 
+/**
+ * Mirrors the on-chain `RebaseKind` discriminants — `None, Split, Dividend,
+ * Unknown`, in that order. `Unknown` is last because it was appended.
+ *
+ * The UI once held its own copy in a different order (`Unknown` second), which
+ * made an unclassified rebase render as "pending Dividend" and tradeable while
+ * the program refused it. Every enum mirror is now checked against the IDL's
+ * variant order in `test/portability.test.ts`, so a copy that drifts fails a
+ * test instead of contradicting the chain in front of someone.
+ */
+export const RebaseKind = { None: 0, Split: 1, Dividend: 2, Unknown: 3 } as const
+export type RebaseKind = (typeof RebaseKind)[keyof typeof RebaseKind]
+
+/** Name of a `RebaseKind` discriminant, for display. */
+export const rebaseKindName = (k: number): string =>
+  (Object.keys(RebaseKind) as (keyof typeof RebaseKind)[]).find((n) => RebaseKind[n] === k) ?? `kind ${k}`
+
+export const encodeClassifyRebase = (kind: RebaseKind): Buffer =>
+  new Writer().bytes(discriminator('instructions', 'classify_rebase')).u8(kind).done()
+
 /** `Strict` refuses to trade without a live primary market; `Guarded` allows it. */
 export const Mode = { Strict: 0, Guarded: 1 } as const
 export type Mode = (typeof Mode)[keyof typeof Mode]

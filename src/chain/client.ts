@@ -24,6 +24,7 @@ import {
   decodeTokenRisk,
   encodeAssertTradeable,
   encodeCancelOrder,
+  encodeClassifyRebase,
   encodeFillOrder,
   encodeInitTokenRisk,
   encodeOpenMark,
@@ -32,6 +33,7 @@ import {
   encodePushSession,
   encodeRefreshTokenRisk,
   encodeRegisterSymbol,
+  type RebaseKind,
   errorName,
   type BellOrder,
   type SymbolMark,
@@ -140,6 +142,28 @@ export function ixRefreshTokenRisk(mint: PublicKey): TransactionInstruction {
       { pubkey: riskPda(mint), isSigner: false, isWritable: true },
     ],
     data: encodeRefreshTokenRisk(),
+  })
+}
+
+/**
+ * Record whether a pending multiplier change is a split or a dividend.
+ *
+ * Signed by the key recorded in `TokenRisk.attestor` — the hot keeper key, not
+ * the deploy key. It is the one attested field in an otherwise-proven account,
+ * so it carries an authority of its own (see AUDIT.md, finding 1).
+ */
+export function ixClassifyRebase(args: {
+  attestor: PublicKey
+  mint: PublicKey
+  kind: RebaseKind
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.attestor, isSigner: true, isWritable: false },
+      { pubkey: riskPda(args.mint), isSigner: false, isWritable: true },
+    ],
+    data: encodeClassifyRebase(args.kind),
   })
 }
 
@@ -375,11 +399,30 @@ export async function readAllSymbols(
   conn: Connection,
   listings: readonly { symbol: string; mint: string }[],
 ): Promise<Map<string, SymbolAccounts>> {
+  return (await readBoard(conn, listings)).symbols
+}
+
+/**
+ * The board plus any extra accounts, still in one round trip.
+ *
+ * `extra` is how the page reads the connected wallet's SOL and demo-USDC
+ * without a second request per poll — the 429 that once closed the whole board
+ * came from exactly that kind of per-thing read. 27 + a few keys stays well
+ * under `getMultipleAccounts`' limit of 100.
+ */
+export async function readBoard(
+  conn: Connection,
+  listings: readonly { symbol: string; mint: string }[],
+  extra: readonly PublicKey[] = [],
+): Promise<{
+  symbols: Map<string, SymbolAccounts>
+  extras: (import('@solana/web3.js').AccountInfo<Buffer> | null)[]
+}> {
   const keys: PublicKey[] = []
   for (const l of listings) {
     keys.push(symbolPda(l.symbol), riskPda(new PublicKey(l.mint)), markPda(l.symbol))
   }
-  const infos = await conn.getMultipleAccountsInfo(keys)
+  const infos = await conn.getMultipleAccountsInfo([...keys, ...extra])
   const out = new Map<string, SymbolAccounts>()
   listings.forEach((l, i) => {
     const [s, r, m] = [infos[i * 3], infos[i * 3 + 1], infos[i * 3 + 2]]
@@ -389,7 +432,7 @@ export async function readAllSymbols(
       mark: m ? decodeSymbolMark(m.data) : null,
     })
   })
-  return out
+  return { symbols: out, extras: infos.slice(keys.length) }
 }
 
 export async function readOrder(
@@ -408,10 +451,18 @@ export async function readOrder(
  * principle: anyone can enumerate the book from the chain alone, with no index
  * to query and no server of ours to ask.
  */
-export async function readOrders(conn: Connection): Promise<BellOrder[]> {
-  const accounts = await conn.getProgramAccounts(PROGRAM_ID, {
-    filters: [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('BellOrder')) } }],
-  })
+/**
+ * Every live order, or one owner's.
+ *
+ * The owner filter runs on the RPC node (a memcmp on the first field after the
+ * discriminator) rather than by fetching the whole book and discarding most of
+ * it — which is the difference between one small response and one that grows
+ * with every judge who tries the site.
+ */
+export async function readOrders(conn: Connection, owner?: PublicKey): Promise<BellOrder[]> {
+  const filters = [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('BellOrder')) } }]
+  if (owner) filters.push({ memcmp: { offset: 8, bytes: owner.toBase58() } })
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, { filters })
   return accounts.map((a) => decodeBellOrder(a.account.data))
 }
 

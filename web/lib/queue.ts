@@ -10,7 +10,16 @@
  * down the page shows everything closed, because the *chain* says so.
  */
 import { PublicKey, Transaction, type Connection } from '@solana/web3.js'
-import { authPda, ixCancelOrder, ixPlaceOrder } from '../../src/chain/client.ts'
+import {
+  authPda,
+  ixCancelOrder,
+  ixPlaceOrder,
+  ixRefreshTokenRisk,
+} from '../../src/chain/client.ts'
+import { errorName } from '../../src/chain/codec.ts'
+import { orderExpiry } from '../../src/policy/expiry.ts'
+
+export { orderExpiry }
 import { ataFor, ixApproveChecked, ixCreateAtaIdempotent, ixRevoke, TOKEN_2022 } from '../../src/chain/spl.ts'
 import type { BellOrder } from '../../src/chain/codec.ts'
 import type { Listing } from '../../src/config.ts'
@@ -27,7 +36,14 @@ export const QUOTE_DECIMALS = 6
 /** Defaults a user never has to think about, stated rather than buried. */
 export const DEFAULT_SLIP_BPS = 30
 export const DEFAULT_CONF_BPS = 50
-export const ORDER_TTL_SECONDS = 86_400
+/**
+ * The program's own ceiling on a single order, $1,000 of quote
+ * (`MAX_ORDER_IN` in constants.rs — a blast-radius bound while the program
+ * still has an upgrade authority). Checked here so an oversized order is
+ * explained before signing instead of refused as `AmountTooLarge` after.
+ */
+export const MAX_ORDER_USD = 1_000
+
 
 export interface PlaceArgs {
   owner: PublicKey
@@ -49,11 +65,13 @@ export interface PlaceArgs {
    * per-owner, so it has to be approved for the whole book at once.
    */
   committed?: bigint
+  /** The next opening bell, when the market is shut and it is known. */
+  nextOpen?: number | null
 }
 
 /**
- * One transaction, one signature: create the destination if needed, approve,
- * then queue.
+ * One transaction, one signature: re-read the mint, create the destination if
+ * needed, approve, then queue.
  *
  * The approval and the order go together deliberately. An approval without an
  * order is a dangling delegation the user did not ask for; an order without an
@@ -72,6 +90,12 @@ export function placeOrderTx(a: PlaceArgs): {
   const payeeOut = ataFor(a.owner, mint, TOKEN_2022)
 
   const tx = new Transaction().add(
+    // Re-read the mint's extensions first, in the same transaction. The order
+    // snapshots the scaled-UI multiplier it was built against, and a snapshot
+    // taken from a stale record would make a perfectly good order refuse as
+    // MultiplierMoved later. Permissionless, and every account it needs is
+    // already in this transaction.
+    ixRefreshTokenRisk(mint),
     // The user may not hold this security yet — that is the normal case for a
     // first buy, and it is not a reason to refuse them.
     ixCreateAtaIdempotent({ payer: a.owner, owner: a.owner, mint, tokenProgram: TOKEN_2022 }),
@@ -98,7 +122,7 @@ export function placeOrderTx(a: PlaceArgs): {
       // price the user invented hours before the market opened.
       floorRateQ64: 0n,
       notBefore: 0n,
-      expiresAt: BigInt(a.now + ORDER_TTL_SECONDS),
+      expiresAt: BigInt(orderExpiry(a.now, a.nextOpen ?? null)),
       payerIn,
       payeeOut,
     }),
@@ -128,6 +152,28 @@ export function cancelOrderTx(owner: PublicKey, order: BellOrder): Transaction {
 }
 
 /** Submit through the wallet and wait for confirmation. */
+/**
+ * Pull a program error code out of whatever the RPC threw, and name it.
+ *
+ * Preflight failures arrive as prose with `custom program error: 0x1773` buried
+ * in them. For a product whose whole output is *why* it said no, showing the
+ * user a hex code is the refusal with the reason stripped off.
+ */
+export function refusalFrom(e: unknown): string | null {
+  const text = [(e as Error)?.message ?? '', ...(((e as { logs?: string[] })?.logs) ?? [])].join('\n')
+  const m = /custom program error: 0x([0-9a-f]+)/i.exec(text)
+  return m ? errorName(parseInt(m[1], 16)) : null
+}
+
+/**
+ * Sign once, submit, and confirm without false negatives.
+ *
+ * Public devnet's websocket drops confirmation notices often enough that
+ * "confirmation failed" does not mean "did not land". Before reporting a
+ * failure the signature's status is checked directly, and a transaction that
+ * landed is reported as the success it was. The same signed bytes are never
+ * re-signed: a second signature would be a second order.
+ */
 export async function submit(
   conn: Connection,
   tx: Transaction,
@@ -139,6 +185,17 @@ export async function submit(
   tx.recentBlockhash = blockhash
   const signed = await sign(tx)
   const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: false })
-  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+  try {
+    const res = await conn.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      'confirmed',
+    )
+    if (res.value.err) throw new Error(`transaction failed: ${JSON.stringify(res.value.err)}`)
+  } catch (e) {
+    const { value } = await conn.getSignatureStatuses([sig], { searchTransactionHistory: true })
+    const st = value[0]
+    const landed = st && !st.err && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')
+    if (!landed) throw e
+  }
   return sig
 }

@@ -16,3 +16,7 @@ test-ledger
 .demo*.env
 web/.env*
 *.png
+
+# Demo-funds faucet key. Hosted only as BELL_KEY_FAUCET; the file lives outside the repo.
+.faucet.json
+*faucet*.json

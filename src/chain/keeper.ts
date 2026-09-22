@@ -17,7 +17,14 @@ import { fetchHalts, isActive, type Halt } from '../sensor/halts.ts'
 import { fetchSessions, fetchHolidays, fetchSecurities } from '../sensor/backpack.ts'
 import { resolveSession, type SessionWindow, type HolidayWindow } from '../policy/sessions.ts'
 import { reconcile, HaltState, type Verdict } from '../policy/reconcile.ts'
-import { ixPushMark, ixPushSession, readMark, readSymbolState, send } from './client.ts'
+import {
+  ixPushMark,
+  ixPushSession,
+  ixRefreshTokenRisk,
+  readMark,
+  readSymbolState,
+  send,
+} from './client.ts'
 import { MarkSource, fairOut, rateQ64 } from './codec.ts'
 import { quote, usdc, fetchTokens, USDC } from '../sensor/jupiter.ts'
 import { multiplierOf } from './codec.ts'
@@ -254,6 +261,13 @@ export interface TickResult {
    * see it, and a run of them means the quote source needs attention.
    */
   markError: string | null
+  /** How many TokenRisk records were re-read from their mints this tick. */
+  refreshed: number
+  /**
+   * Why the re-read failed, if it did. Surfaced every tick: a record that stops
+   * refreshing is the silent failure this field exists to make loud.
+   */
+  riskError: string | null
 }
 
 /**
@@ -269,7 +283,12 @@ export async function tick(args: {
   withMarks?: boolean
 }): Promise<TickResult> {
   const { conn, attestor } = args
-  const refreshBefore = args.refreshBefore ?? 60
+  // 30, not 60. Measured on the hosted keeper: a tick really takes ~57s (45s of
+  // sleep plus ~12s of sensing and sending), so a 60s threshold re-pushed only
+  // every *other* tick and attestations landed 110-112s old against a 120s
+  // limit — eight seconds from the whole venue reading StateStale. At 30 every
+  // tick pushes, and the worst-case age is one tick.
+  const refreshBefore = args.refreshBefore ?? 30
   const dryRun = args.dryRun ?? true
 
   const obs = await sense()
@@ -357,10 +376,38 @@ export async function tick(args: {
   }
 
   let signature: string | null = null
+  let refreshed = 0
+  let riskError: string | null = null
   if (!dryRun) {
-    // Sessions first, and in their own transaction. If the mark push then
-    // fails, the attestation that keeps the venue open has already landed.
+    // Sessions first, and in their own transaction. If a later push fails, the
+    // attestation that keeps the venue open has already landed.
     if (sessionIxs.length > 0) signature = await send(conn, sessionIxs, [attestor])
+
+    // Re-read every mint's Token-2022 extensions into its TokenRisk record.
+    //
+    // For the first day of the devnet deployment nothing did this. The
+    // instruction is permissionless and its builder existed, but no script and
+    // no keeper ever called it — so gates 3 (pause), 4 (rebase), 5 (multiplier
+    // moved) and 6 (hook) were reading a snapshot from registration. A dividend
+    // scheduled on the mint would never have been seen. "Anyone can refresh" is
+    // a defence against someone blocking the refresh; it is no defence against
+    // everyone skipping it, and the one party that profits from a stale record
+    // is the one party that never will.
+    //
+    // Its own transaction (nine refreshes are 859 bytes; with sessions it would
+    // not fit) and its own try/catch: a failed refresh must never cost the
+    // session push above or the marks below.
+    try {
+      await send(
+        conn,
+        ALLOWLIST.map((l) => ixRefreshTokenRisk(new PublicKey(l.mint))),
+        [attestor],
+      )
+      refreshed = ALLOWLIST.length
+    } catch (e) {
+      riskError = (e as Error).message
+    }
+
     if (markIxs.length > 0) {
       try {
         const markSig = await send(conn, markIxs, [attestor])
@@ -372,7 +419,7 @@ export async function tick(args: {
     }
   }
 
-  return { at: obs.at, decisions, pushed, marked, signature, dryRun, markError }
+  return { at: obs.at, decisions, pushed, marked, signature, dryRun, markError, refreshed, riskError }
 }
 
 export { HaltState, fairOut }

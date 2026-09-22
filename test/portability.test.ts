@@ -139,3 +139,78 @@ test('the scaled-UI multiplier decodes without readDoubleLE', () => {
   // *not* produce, so this distinguishes "decoded" from "returned a default".
   assert.equal(codec.multiplierOf(4_607_182_418_800_017_408n), 1)
 })
+
+// ------------------------------------------------------------ enum parity
+//
+// Every place the TypeScript side mirrors an on-chain enum is checked against
+// the IDL's own variant order. The UI once held a hand-written copy of
+// `RebaseKind` in the wrong order, and during a rebase it would have rendered an
+// unclassified change as "pending Dividend" — tradeable on the board, refused by
+// the program. A copy that drifts should fail here, not in front of someone.
+
+const idl = (await import('../src/chain/idl.json', { with: { type: 'json' } })).default as {
+  types: { name: string; type: { kind: string; variants?: { name: string }[] } }[]
+}
+const { HaltState } = await import('../src/policy/reconcile.ts')
+
+const variants = (name: string) => {
+  const t = idl.types.find((x) => x.name === name)
+  assert.ok(t?.type.variants, `${name} missing from the IDL`)
+  return t.type.variants.map((v) => v.name)
+}
+
+const mirrors: [string, Record<string, number>][] = [
+  ['RebaseKind', codec.RebaseKind],
+  ['Mode', codec.Mode],
+  ['MarkSource', codec.MarkSource],
+  ['HaltState', HaltState],
+]
+
+for (const [name, mirror] of mirrors) {
+  test(`${name} mirrors the IDL's variant order exactly`, () => {
+    const onChain = variants(name)
+    assert.equal(Object.keys(mirror).length, onChain.length, `${name}: variant count differs`)
+    onChain.forEach((variant, discriminant) => {
+      assert.equal(mirror[variant], discriminant, `${name}.${variant} should be ${discriminant}`)
+    })
+  })
+}
+
+test('classify_rebase(Dividend) encodes to the bytes the program expects', () => {
+  // Anchor discriminator for classify_rebase, then RebaseKind::Dividend as one u8.
+  const hex = Buffer.from(codec.encodeClassifyRebase(codec.RebaseKind.Dividend)).toString('hex')
+  assert.equal(hex, 'e919f062655350a702')
+})
+
+test('a token account decodes without Node Buffer, delegate included', () => {
+  // A synthetic 165-byte SPL account with every field set, so each offset is
+  // pinned — the delegate in particular, which is how the page tells a live
+  // order from one whose owner has revoked it.
+  const mint = new PublicKey('8QhSxevJerJq8khpNsfW69bUPvcBjMRTXPKrxYQAtAaX')
+  const delegate = client.authPda(OWNER)
+  const raw = new Uint8Array(165)
+  const d = new DataView(raw.buffer)
+  raw.set(mint.toBytes(), 0)
+  raw.set(OWNER.toBytes(), 32)
+  d.setBigUint64(64, 2n ** 63n + 7n, true)
+  d.setUint32(72, 1, true)
+  raw.set(delegate.toBytes(), 76)
+  d.setBigUint64(121, 250_000_000n, true)
+
+  const v = spl.decodeTokenAccount(raw)
+  assert.equal(v.mint.toBase58(), mint.toBase58())
+  assert.equal(v.owner.toBase58(), OWNER.toBase58())
+  assert.equal(v.amount, 2n ** 63n + 7n)
+  assert.equal(v.delegate?.toBase58(), delegate.toBase58())
+  assert.equal(v.delegatedAmount, 250_000_000n)
+
+  d.setUint32(72, 0, true) // COption::None
+  assert.equal(spl.decodeTokenAccount(raw).delegate, null)
+})
+
+test('transfer_checked encodes discriminant, amount and decimals', () => {
+  const ix = spl.ixTransferChecked({
+    source: OWNER, mint: MINT, destination: OWNER, owner: OWNER, amount: 1_000_000_000n, decimals: 6,
+  })
+  assert.equal(Buffer.from(ix.data).toString('hex'), '0c00ca9a3b0000000006')
+})

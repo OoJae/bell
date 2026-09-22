@@ -1,5 +1,5 @@
 /**
- * The three SPL instructions BELL needs, built by hand and portable.
+ * The SPL instructions and account layout BELL needs, built by hand and portable.
  *
  * These live here rather than in a script because the browser needs the *same*
  * `approve` and `revoke` the keeper-side tooling uses. A user who cancels from
@@ -106,4 +106,66 @@ export function ixCreateAtaIdempotent(args: {
     ],
     data: Buffer.from([1]),
   })
+}
+
+/**
+ * `TokenInstruction::TransferChecked` — 12, then a u64 amount and the decimals.
+ *
+ * Checked rather than plain `Transfer` so the mint and its decimals are part of
+ * what is signed: a wrong mint fails instead of moving a different asset.
+ */
+export function ixTransferChecked(args: {
+  source: PublicKey
+  mint: PublicKey
+  destination: PublicKey
+  owner: PublicKey
+  amount: bigint
+  decimals: number
+  tokenProgram?: PublicKey
+}): TransactionInstruction {
+  const data = new Uint8Array(10)
+  data[0] = 12
+  new DataView(data.buffer).setBigUint64(1, args.amount, true)
+  data[9] = args.decimals
+  return new TransactionInstruction({
+    programId: args.tokenProgram ?? TOKEN_PROGRAM,
+    keys: [
+      { pubkey: args.source, isSigner: false, isWritable: true },
+      { pubkey: args.mint, isSigner: false, isWritable: false },
+      { pubkey: args.destination, isSigner: false, isWritable: true },
+      { pubkey: args.owner, isSigner: true, isWritable: false },
+    ],
+    data: Buffer.from(data),
+  })
+}
+
+/** The fields of an SPL token account the page and the faucet read. */
+export interface TokenAccountView {
+  mint: PublicKey
+  owner: PublicKey
+  amount: bigint
+  delegate: PublicKey | null
+  delegatedAmount: bigint
+}
+
+/**
+ * Decode the base layout shared by SPL Token and Token-2022 accounts.
+ *
+ * Offsets from `spl_token::state::Account`: mint 0, owner 32, amount 64,
+ * delegate as a `COption<Pubkey>` (4-byte tag, then the key) at 72,
+ * delegated_amount 121. Token-2022 appends extensions *after* byte 165, so the
+ * same offsets hold for both. DataView, not Buffer's BigInt readers, because
+ * this runs in the browser (see test/portability.test.ts).
+ */
+export function decodeTokenAccount(data: Uint8Array): TokenAccountView {
+  if (data.length < 165) throw new Error(`not a token account: ${data.length} bytes`)
+  const d = new DataView(data.buffer, data.byteOffset, data.byteLength)
+  const hasDelegate = d.getUint32(72, true) === 1
+  return {
+    mint: new PublicKey(data.subarray(0, 32)),
+    owner: new PublicKey(data.subarray(32, 64)),
+    amount: d.getBigUint64(64, true),
+    delegate: hasDelegate ? new PublicKey(data.subarray(76, 108)) : null,
+    delegatedAmount: d.getBigUint64(121, true),
+  }
 }

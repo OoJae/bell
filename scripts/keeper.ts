@@ -67,6 +67,11 @@ async function once() {
     // A pricing failure is not a tick failure — the venue stays open, but
     // nothing can fill until a fresh mark lands, so say so out loud.
     if (result.markError) parts.push(`marks UNPRICED (${result.markError})`)
+    // The mint re-read is what keeps gates 3-6 honest. When it fails the venue
+    // stays open on the last-known issuer state, which is exactly the silent
+    // failure this line exists to make loud.
+    if (result.refreshed) parts.push(`risk: ${result.refreshed} re-read`)
+    if (result.riskError) parts.push(`risk UNREFRESHED (${result.riskError})`)
     console.log(`  ${parts.join('  |  ')}${result.signature ? `  sig=${result.signature.slice(0, 16)}…` : ''}`)
   }
 
