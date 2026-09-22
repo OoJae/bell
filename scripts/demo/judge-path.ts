@@ -5,6 +5,7 @@
  *   node scripts/demo/judge-path.ts --symbol AAPLx --usd 50
  *   node scripts/demo/judge-path.ts --cancel              # cancel every order this wallet has
  *   node scripts/demo/judge-path.ts --look                # just connect and record the board
+ *   node scripts/demo/judge-path.ts --watch 20            # record until this wallet's orders fill (≤20 min)
  *   --headed   watch it happen      --url <site>   a different deployment
  *
  * It uses a fresh-by-default scripted wallet (scripts/demo/wallet.ts) so it
@@ -70,10 +71,14 @@ async function main() {
   console.log(`  wallet ${kp.publicKey.toBase58()}`)
 
   const browser = await chromium.launch({ headless: !flag('headed') })
+  // 16:9, because this is film footage: the edit is 1920x1080 and a 1280x860
+  // capture would have to be cropped or letterboxed. Video is Playwright's webm
+  // (soft); every state change also gets a 2x still, which is what the cut
+  // leans on for anything that has to be read.
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 860 },
+    viewport: { width: 1600, height: 900 },
     deviceScaleFactor: 2,
-    recordVideo: { dir: OUT, size: { width: 1280, height: 860 } },
+    recordVideo: { dir: OUT, size: { width: 1600, height: 900 } },
   })
   await attachWallet(context, kp)
   const page = await context.newPage()
@@ -87,6 +92,32 @@ async function main() {
 
     if (flag('look')) {
       await page.waitForTimeout(4_000)
+    } else if (flag('watch')) {
+      // The bell shot: sit on the board with the parked order in view and keep
+      // recording until the filler settles it — the order line disappears and
+      // a holding appears. Every state change is timestamped for the edit.
+      const minutes = Number(arg('watch', '20'))
+      await page.locator('.tile', { hasText: SYMBOL }).first().click()
+      const deadline = Date.now() + minutes * 60_000
+      let last = ''
+      while (Date.now() < deadline) {
+        const orders = await page.locator('.order').count()
+        const holding = (await page.locator('.bal.holdings').textContent().catch(() => null))?.trim() ?? 'none'
+        const verdict = (await page.locator('.verdict').first().textContent())?.trim() ?? ''
+        const state = `${verdict} | orders ${orders} | ${holding}`
+        if (state !== last) {
+          const at = new Date().toISOString().slice(11, 19).replace(/:/g, '')
+          step(`${at}Z  ${state}`)
+          await page.screenshot({ path: `${OUT}/watch-${at}Z.png` })
+          last = state
+        }
+        if (orders === 0 && (await readOrders(conn, kp.publicKey)).length === 0) {
+          step('filled — the order is gone and the holding is on screen')
+          await page.waitForTimeout(8_000)
+          break
+        }
+        await page.waitForTimeout(5_000)
+      }
     } else if (flag('cancel')) {
       const buttons = page.getByRole('button', { name: /^cancel$/i })
       const n = await buttons.count()

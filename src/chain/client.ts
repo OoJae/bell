@@ -11,6 +11,7 @@ import {
   Transaction,
   TransactionInstruction,
   sendAndConfirmTransaction,
+  VersionedTransaction,
   type Keypair,
 } from '@solana/web3.js'
 import {
@@ -497,16 +498,40 @@ export interface GateResult {
  * question exactly as execution would — which is what makes a read-only guard
  * API possible at all, and how a refusal is asserted in tests without a fee.
  */
+/**
+ * Simulate instructions with the node's own blockhash.
+ *
+ * Fetching a blockhash and then simulating against it is two requests, and
+ * public devnet load-balances them across nodes: the second node regularly has
+ * not seen the first node's blockhash, and the simulation fails with
+ * BlockhashNotFound before the program runs at all. On the board that read as
+ * "Refused" for a symbol the program would have allowed. A simulation never
+ * needed a real blockhash — so ask the node to substitute its own, which is one
+ * request instead of two and cannot fail that way.
+ */
+export async function simulate(
+  conn: Connection,
+  ixs: TransactionInstruction[],
+  payer: PublicKey,
+  accounts?: PublicKey[],
+) {
+  const tx = new Transaction().add(...ixs)
+  tx.feePayer = payer
+  tx.recentBlockhash = PublicKey.default.toBase58() // replaced by the node
+  return conn.simulateTransaction(new VersionedTransaction(tx.compileMessage()), {
+    replaceRecentBlockhash: true,
+    sigVerify: false,
+    commitment: 'confirmed',
+    ...(accounts ? { accounts: { encoding: 'base64', addresses: accounts.map((a) => a.toBase58()) } } : {}),
+  })
+}
+
 export async function checkGate(
   conn: Connection,
   payer: PublicKey,
   args: { symbol: string; mint: PublicKey; mode: Mode; expectedMultiplierBits: bigint },
 ): Promise<GateResult> {
-  const tx = new Transaction().add(ixAssertTradeable(args))
-  tx.feePayer = payer
-  tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash
-
-  const sim = await conn.simulateTransaction(tx)
+  const sim = await simulate(conn, [ixAssertTradeable(args)], payer)
   const logs = sim.value.logs ?? []
   if (!sim.value.err) return { allowed: true, reason: null, logs }
 

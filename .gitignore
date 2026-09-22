@@ -36,3 +36,6 @@ web/.env.local
 
 # Film footage and screenshots from scripts/demo — large, and regenerated.
 demo/recordings/
+
+# The build plan — contains competitive analysis naming other entries. Local only.
+BUILD-PLAN.md

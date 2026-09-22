@@ -141,6 +141,58 @@ delegate.
 
 ---
 
+## Reopened after deploy
+
+Two findings came from checking the *live* devnet deployment against the
+product's own claims, hours after it went up. Both are recorded here because
+"audited before deploy" should describe what is deployed, not what was.
+
+### 7. Four of seven gates read a registration-day snapshot — HIGH
+
+One of the twenty findings the refuters killed was *"check_tradeable never
+bounds the age of the TokenRisk account it trusts."* The reasoning for killing
+it was sound: `refresh_token_risk` is permissionless, so nobody can stop the
+record being brought up to date.
+
+That defends against someone **blocking** a refresh. It does nothing about
+everyone **skipping** one — and on the live deployment, everyone did. The
+builder existed in the client; no script and no keeper ever called it. From
+registration onward `TokenRisk` held what the mints said at registration, and gates 3
+(pause), 4 (rebase), 5 (multiplier moved) and 6 (hook) read it. A dividend
+scheduled on the mint would never have been seen. The party that profits from a
+stale record — someone trading through a dividend — is precisely the party that
+never refreshes it.
+
+**Fix, in two parts.** The keeper re-reads all nine mints every tick, in its own
+transaction, isolated so a failed re-read never costs the session push. And the
+program now refuses to trust a stale read at all: gate 2b rejects a record older
+than `MAX_RISK_AGE_SECONDS` (600) with `RiskStale`. The value is checked at
+compile time against both neighbours — no more than `REBASE_GUARD_SECONDS`, so a
+record read before an activation can never still pass after the window closes;
+no less than `MAX_STATE_AGE_SECONDS`, so a dead keeper still reads `StateStale`
+first. It cannot hold the venue shut, because anyone may put a refresh in front
+of their own transaction. The order path and the filler now do exactly that.
+
+Regression test: `a_dividend_walked_end_to_end_on_the_real_apple_mint` walks the
+real AAPLx mint's own scheduled step through every state, including a record
+left unread past the window.
+
+### 8. The UI copied an enum in the wrong order — MEDIUM
+
+`RebaseKind` is `None, Split, Dividend, Unknown` on chain. The page held its own
+copy with `Unknown` second. During a rebase it would have rendered an
+unclassified change as "pending Dividend" and tradeable, while the program
+refused it — the board contradicting the chain in front of a viewer, which for
+this product is the worst failure available. Every TypeScript mirror of an
+on-chain enum is now checked against the IDL's variant order, and the test fails
+with the old order.
+
+The same pass found the board letting an informational row ("price fresh", which
+gates a fill, not `assert_tradeable`) decide its verdict. Rows now declare which
+refusal they stand for; the ones that stand for none do not vote.
+
+---
+
 ## Not fixed, by decision
 
 - **The mark fails open.** The gate can only refuse; a mark lets the attestor
@@ -157,5 +209,5 @@ delegate.
 ## Reproducing
 
 The audit is a script, not a transcript — see the workflow in the session
-record. The fixes are covered by `programs/bell-session/tests/` (27 tests) and
+record. The fixes are covered by `programs/bell-session/tests/` (33 tests) and
 `test/portability.test.ts`.

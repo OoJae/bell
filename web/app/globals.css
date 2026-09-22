@@ -104,3 +104,4 @@ th { color: var(--dim); font-weight: 500; }
 /* connected wallet's balances */
 .bal { display: flex; gap: 18px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--dim); }
 .bal strong { color: var(--fg); font-weight: 600; }
+.bal.holdings { margin-top: 6px; flex-wrap: wrap; gap: 14px; }

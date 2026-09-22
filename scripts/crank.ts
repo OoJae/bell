@@ -23,7 +23,7 @@
  * mainnet the same loop would swap through Jupiter in its own transaction
  * first, which is why the program never needs to CPI a router.
  */
-import { PublicKey, SYSVAR_CLOCK_PUBKEY, Transaction } from '@solana/web3.js'
+import { PublicKey, SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js'
 import {
   authPda,
   connect,
@@ -34,6 +34,7 @@ import {
   readBoard,
   readOrders,
   send,
+  simulate,
   TOKEN_PROGRAM,
   TOKEN_2022,
 } from '../src/chain/client.ts'
@@ -97,11 +98,10 @@ async function fillOne(o: BellOrder, deliver: bigint, remaining: bigint): Promis
     }),
   ]
 
-  // Simulate first: it is the authoritative check, and it costs nothing.
-  const tx = new Transaction().add(...ixs)
-  tx.feePayer = filler.publicKey
-  tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash
-  const sim = await conn.simulateTransaction(tx)
+  // Simulate first: it is the authoritative check, and it costs nothing. The
+  // node's own blockhash, so a load-balanced RPC cannot turn a fillable order
+  // into "BlockhashNotFound" and skip it until the next pass.
+  const sim = await simulate(conn, ixs, filler.publicKey)
   if (sim.value.err) {
     const e = sim.value.err as { InstructionError?: [number, { Custom?: number }] }
     const code = e.InstructionError?.[1]?.Custom

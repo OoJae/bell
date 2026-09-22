@@ -274,6 +274,17 @@ export default function Page() {
             )}
           </div>
         )}
+        {publicKey && wallet && wallet.holdings.length > 0 && (
+          <div className="bal holdings">
+            <span>holding</span>
+            {wallet.holdings.map((h) => (
+              <span key={h.symbol}>
+                <strong>{h.shares.toLocaleString(undefined, { maximumFractionDigits: 6 })}</strong>{' '}
+                {h.symbol}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       {error && (

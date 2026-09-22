@@ -222,3 +222,59 @@ The general lesson is about error paths that are individually correct. Rate
 limiting and a dead RPC are indistinguishable to a client, and we chose to treat
 the ambiguous case as closed. That is still the right choice. It just means the
 cost of being noisy is paid in false closures, so the client has to be quiet.
+
+## 2026-09-22 — the refresh nobody called
+
+Hours after the devnet deploy, a check of the live system against its own
+claims found that `refresh_token_risk` had never been called. The builder was in
+`client.ts`; no script used it and neither did the keeper. So `TokenRisk` was a
+snapshot from registration, and four gates — pause, rebase, multiplier, hook —
+were checking that snapshot. A dividend scheduled that afternoon would not have
+been seen.
+
+The instructive part is why nothing flagged it. Every test called `init` and
+then asserted immediately, so a record was always fresh in a test. The audit
+raised the unbounded age and killed it because refresh is permissionless — a
+correct argument about *blocking* a refresh that says nothing about everyone
+*skipping* one. And the program stored `verified_at` on every record and never
+read it: the field that would have made the staleness visible was being
+written and ignored.
+
+**Fix:** the keeper re-reads every mint each tick in an isolated transaction,
+and the program refuses a read older than ten minutes (gate 2b, `RiskStale`).
+The lesson for anything "anyone can call": check that *someone does*.
+
+## 2026-09-22 — eight seconds from closing the venue
+
+Decoding the hosted keeper's session pushes showed attestations landing 110–112
+seconds old against a 120-second limit. The keeper's loop sleeps 45s, but a tick
+really takes ~57s end to end, and with `refreshBefore=60` a symbol whose state
+had not changed was re-pushed only every *other* tick. It had never failed —
+which is exactly why nobody had looked. One dropped push would have closed all
+nine symbols for most of a minute.
+
+**Fix:** `refreshBefore` 30, so every tick pushes; worst-case age is one tick.
+Measured after: under 45 seconds.
+
+## 2026-09-22 — error codes counted by eye
+
+Hand-typed error codes in a new test were each off by one. Counting the enum by
+eye — and then with a regex that matched `[A-Za-z]+` — skipped `NotToken2022`,
+whose name contains a digit. The tests failed, loudly, which is the good
+outcome; the reviewer who had quoted the right codes had been "corrected" by me.
+
+**Fix:** tests derive codes from the enum (`ERROR_CODE_OFFSET + variant as
+u32`), and assert by code rather than `is_err()`. One existing test had kept
+passing after its failure reason silently changed from `MarkStale` to the new
+`RiskStale` — an `is_err()` assertion cannot tell the difference.
+
+## 2026-09-22 — devnet rent is not the textbook number
+
+Every cost estimate this week used 6,960 lamports per byte. Devnet charges
+5,080: the ProgramData account for the deploy holds exactly 2.13447884 SOL for
+420,045 bytes. It mattered here only as good news — an upgrade buffer is ~1.59
+SOL, not ~2.17 — but any budget built on the textbook rate for a cluster other
+than mainnet is a guess. `getMinimumBalanceForRentExemption` is the number. The
+faucet's SOL grant is sized from rent *measured* on devnet (a stock account
+1.56M lamports, an order 2.00M), not from the textbook rate — though it is a
+constant, so a rent change on devnet would need it re-measured.

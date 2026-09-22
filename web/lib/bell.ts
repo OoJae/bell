@@ -15,7 +15,7 @@ import {
   readOrders,
   type SymbolAccounts,
 } from '../../src/chain/client.ts'
-import { ataFor, decodeTokenAccount } from '../../src/chain/spl.ts'
+import { ataFor, decodeTokenAccount, TOKEN_2022 } from '../../src/chain/spl.ts'
 import {
   MAX_MARK_AGE_SECONDS,
   MAX_RISK_AGE_SECONDS,
@@ -337,6 +337,8 @@ export interface WalletView {
   quote: bigint | null
   delegate: PublicKey | null
   delegatedAmount: bigint
+  /** Securities the wallet holds, in shares — what a fill leaves behind. */
+  holdings: { symbol: string; shares: number }[]
 }
 
 /**
@@ -348,7 +350,15 @@ export async function loadBoard(
   focus?: string,
   wallet?: PublicKey | null,
 ): Promise<{ views: SymbolView[]; wallet: WalletView | null }> {
-  const extra = wallet ? [wallet, ataFor(wallet, quoteMint)] : []
+  // The wallet, its quote account, then per symbol its stock account and the
+  // mint (for decimals — read from the chain rather than assumed per issuer).
+  const extra = wallet
+    ? [
+        wallet,
+        ataFor(wallet, quoteMint),
+        ...ALLOWLIST.flatMap((l) => [ataFor(wallet, new PublicKey(l.mint), TOKEN_2022), new PublicKey(l.mint)]),
+      ]
+    : []
   const { symbols, extras } = await readBoard(conn, ALLOWLIST, extra)
   const views = await Promise.all(
     ALLOWLIST.map((l) =>
@@ -356,8 +366,27 @@ export async function loadBoard(
     ),
   )
   if (!wallet) return { views, wallet: null }
-  const [sys, ata] = extras
+  const [sys, ata, ...perSymbol] = extras
   const token = ata ? decodeTokenAccount(ata.data) : null
+
+  // Shares, not raw units: raw × the scaled-UI multiplier ÷ 10^decimals. A
+  // scaled mint's raw balance is not a share count, which is the whole reason
+  // gate 4 exists — so the page does the conversion the mint defines.
+  const holdings: { symbol: string; shares: number }[] = []
+  ALLOWLIST.forEach((l, i) => {
+    const acct = perSymbol[i * 2]
+    const mint = perSymbol[i * 2 + 1]
+    const risk = symbols.get(l.symbol)?.risk
+    if (!acct || !mint || !risk) return
+    const raw = decodeTokenAccount(acct.data).amount
+    if (raw === 0n) return
+    const decimals = mint.data[44]
+    holdings.push({
+      symbol: l.symbol,
+      shares: (Number(raw) / 10 ** decimals) * multiplierOf(risk.multiplierBits),
+    })
+  })
+
   return {
     views,
     wallet: {
@@ -365,6 +394,7 @@ export async function loadBoard(
       quote: token ? token.amount : null,
       delegate: token?.delegate ?? null,
       delegatedAmount: token?.delegatedAmount ?? 0n,
+      holdings,
     },
   }
 }

@@ -12,11 +12,29 @@ trade is risky. This is a program that declines to sign one.
 **Live:** https://web-production-f46ca9.up.railway.app
 **Program:** [`56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx`](https://explorer.solana.com/address/56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx?cluster=devnet) (devnet)
 
-The site talks to Solana RPC directly from your browser — there is no backend
-between you and the chain. The keeper runs separately and only writes
-attestations, so **stop it and the site keeps working, correctly showing
-everything closed.** That is the fail-closed property as something you can
-watch rather than something we claim.
+### Try it (about two minutes)
+
+1. Switch your wallet to devnet — Phantom: Settings → Developer Settings →
+   Testnet Mode → Solana Devnet.
+2. Open the site and connect. Press **Get demo funds**: 1,000 demo-USDC (a
+   devnet token BELL issued — not USDC) and a little devnet SOL for rent.
+3. Pick a symbol and read the gate panel. Outside 09:30–16:00 ET it refuses and
+   offers to **queue the order for the opening bell**; inside, it takes it.
+4. Sign once. Your demo-USDC stays in your wallet — the order is funded by a
+   delegation — and a filler settles it within about five minutes of the open.
+5. Cancel any time: it is an SPL `revoke` from your own wallet.
+
+**Your orders never touch a server of ours.** The browser reads Solana RPC
+directly, your wallet signs, and your browser submits. There is exactly one
+server-side endpoint — a devnet faucet (`/api/faucet`) that funds a fresh
+wallet. It holds its own key, which owns a pool of demo-USDC and a little SOL;
+it cannot mint, cannot touch the program, and is not in the order, fill or cancel
+path. The keeper writes attestations and marks; a filler we run every five
+minutes (`scripts/crank.ts`, which anyone else can run too) settles due orders.
+**Stop the keeper and everything reads closed within two minutes; stop the
+filler and orders simply wait** — and `revoke` still cancels them from your
+wallet. That is fail-closed as something you can watch rather than something we
+claim.
 
 Devnet rather than mainnet, deliberately. The rent is identical either way
 (2.17 SOL at exact length) and the program is byte-for-byte the same; devnet SOL
@@ -89,6 +107,9 @@ whichever check happened to run first:
 1. **State freshness** — an attestation older than 120s is not a green light. An
    attestor that goes dark closes the venue.
 2. **Halt** — the underlying is halted on its primary listing exchange.
+   **2b. Mint read fresh** — gates 3–6 are proven from the mint, but only as of
+   the last read, so a read older than ten minutes is refused like a stale
+   attestation. Anyone can re-read a mint, in front of their own transaction.
 3. **Issuer pause** — `PausableConfig`, read from the mint itself.
 4. **Rebase** — a `ScaledUiAmountConfig` activation. Refused within a guard
    window on **both sides** of the activation instant, and refused outright
@@ -103,8 +124,15 @@ whichever check happened to run first:
 
 Four of those are proven on-chain by deserializing Token-2022 extensions
 directly from the mint (`verify_token_risk`), not taken from an oracle. Only
-session and halt need an attestation, and that path **fails closed**: stale means
-halted.
+session and halt need an attestation. **Both paths fail closed**: a stale
+attestation means halted, and so does a mint nobody has re-read in ten minutes.
+
+That second half was learned the hard way. For the first hours of the devnet
+deployment, nothing re-read the mints at all — the refresh instruction existed,
+was permissionless, and nobody called it — so four gates were checking a
+registration-day snapshot. The keeper now re-reads every mint every tick, and
+the program refuses to trust a read that has gone stale. See `AUDIT.md`,
+"Reopened after deploy".
 
 `check_tradeable` is one function. `assert_tradeable` and `fill_order` both call
 *it*, not a reimplementation of it — two copies of a safety check are two things
@@ -197,14 +225,21 @@ needs nothing from this program.
 `EVIDENCE.md` is generated from the tick log by `scripts/evidence.ts`. Every
 number in it is counted, not written by hand.
 
-**Tests:** 27 litesvm tests against real mainnet mint bytes, 45 TypeScript tests.
+**Tests:** 33 litesvm tests against real mainnet mint bytes — including a
+dividend walked end to end on the real AAPLx mint's own scheduled step — and 52
+TypeScript tests, including one that amputates Node's `Buffer` so browser-only
+failures surface in CI, and one that checks every enum the client mirrors
+against the program's IDL. The judge path itself runs as a test:
+`scripts/demo/judge-path.ts` drives a real browser against the live site with a
+scripted Wallet Standard wallet.
 
 **Audited before deploy.** Six independent reviewers across the delegation and
 queue surface, each finding then attacked by three more instructed to refute it.
 26 findings raised, 6 survived, all 6 fixed — including one that let anyone
 disarm the rebase gate on any mint, and one that meant the browser could not
-place or cancel an order at all. `AUDIT.md` has each finding, its fix, and why
-the other 20 died.
+place or cancel an order at all. `AUDIT.md` has each finding, its fix, why the
+other 20 died — and two more found afterwards by checking the live deployment
+against its own claims, one of them a finding the refuters had killed.
 
 ---
 
@@ -249,6 +284,16 @@ guard can honestly do here. This is a disclosure, not a mitigation, and it is
 the strongest reason to read these mints rather than trust a price feed about
 them: **the risk that matters most is written on the mint and nothing else on
 Solana reads it.**
+
+**An issuer can change a multiplier with no warning at all.** Gate 4 refuses
+for fifteen minutes either side of a *scheduled* activation, and issuers
+schedule dividends days ahead. But Token-2022 lets the multiplier authority set
+an effective time of zero or in the past, and applies it immediately — there is
+no pending state for any reader to see, so there is no window to refuse in. The
+first sign is the multiplier having moved, which gate 5 does catch for any order
+built on the old one; a *new* trade in the minutes after such a change is not
+protected. Nothing on-chain can defend against the issuer doing this, and BELL
+says so rather than implying otherwise.
 
 **Prices are not Pyth.** A free Pyth key authenticates but is entitled to crypto
 only; every equity feed returns 403. Sessions come from Pyth's free
@@ -325,9 +370,13 @@ sensors → policy/reconcile → keeper → [ bell-session program ] ← browser
 - **`src/policy/reconcile.ts`** — merges the sources and fails closed on anything
   unconfirmed. Pyth knows the session; the issuer knows the halt; **the
   disagreement between them is the halt.**
-- **`web/`** — Next.js. No backend: the browser talks to RPC directly, so the
-  site keeps working whether or not our keeper is up — and when the keeper is
-  down it correctly shows everything closed, which makes fail-closed something
+- **`scripts/crank.ts`** — the filler, run by us as a five-minute cron job and
+  by anyone else who likes. It re-runs the identical on-chain gate and re-reads
+  the mint in the same transaction as each fill.
+- **`web/`** — Next.js. Orders go browser → wallet → chain with no server of
+  ours in between; the one server route is the devnet faucet. The site keeps
+  working whether or not our keeper is up — and when the keeper is down it
+  correctly shows everything closed, which makes fail-closed something
   you can watch rather than something we claim.
 
 The front end and the keeper run **the same codec and the same policy code**. A

@@ -65,7 +65,15 @@ const w = (s = '') => lines.push(s)
 
 w('# Evidence')
 w()
-w(`Generated from \`data/bell.db\` by \`scripts/evidence.ts\`. Every number below is`)
+// Say where the log came from. The same generator runs against a local
+// validator's log and the hosted keeper's, and those are different claims — a
+// header that named the wrong one would be the evidence file lying about itself.
+const dbPath = process.env.BELL_DB ?? 'data/bell.db'
+const cluster = process.env.BELL_CLUSTER ?? 'localnet'
+const where = process.env.RAILWAY_SERVICE_NAME
+  ? `the hosted keeper's tick log on ${cluster} (Railway service \`${process.env.RAILWAY_SERVICE_NAME}\`, \`${dbPath}\`)`
+  : `\`${dbPath}\` (${cluster})`
+w(`Generated from ${where} by \`scripts/evidence.ts\`. Every number below is`)
 w('counted from the tick log, not written by hand.')
 w()
 w(`**Observation window:** ${iso(span.lo)} → ${iso(span.hi)} UTC (${hours}h, ${span.n} ticks)`)
