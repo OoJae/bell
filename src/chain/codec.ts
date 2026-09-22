@@ -75,6 +75,12 @@ export const LIMITS: Readonly<Record<string, number>> = Object.freeze(
 export const MAX_STATE_AGE_SECONDS = LIMITS.MAX_STATE_AGE_SECONDS
 export const MAX_MARK_AGE_SECONDS = LIMITS.MAX_MARK_AGE_SECONDS
 export const REBASE_GUARD_SECONDS = LIMITS.REBASE_GUARD_SECONDS
+/**
+ * How old a TokenRisk read may be before the gate refuses it (gate 2b).
+ * Falls back to "no bound" only so an IDL from before the bound cannot make
+ * every row fail — the program, not this number, is what enforces it.
+ */
+export const MAX_RISK_AGE_SECONDS = LIMITS.MAX_RISK_AGE_SECONDS ?? Number.POSITIVE_INFINITY
 
 export function errorName(code: number): string {
   return ERROR_NAMES.get(code) ?? SPL_TOKEN_ERRORS.get(code) ?? `custom ${code}`

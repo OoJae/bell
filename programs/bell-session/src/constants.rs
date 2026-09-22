@@ -19,6 +19,31 @@ pub const MAX_STATE_AGE_SECONDS: i64 = 120;
 #[constant]
 pub const REBASE_GUARD_SECONDS: i64 = 15 * 60;
 
+/// A `TokenRisk` read from its mint longer ago than this is not evidence of the
+/// mint's current state.
+///
+/// Gates 3-6 are proven from the mint — pause, rebase, multiplier, hook — but a
+/// proof is only as current as the read it came from, and until this bound
+/// existed nothing required the read to be recent. On the live deployment it
+/// was not: for its first day nobody refreshed the record at all.
+///
+/// Why 600, from both sides:
+/// - **At most `REBASE_GUARD_SECONDS`.** A record read before an activation can
+///   then never still pass once the post-activation window closes — past T+900
+///   it is more than 900s old, so it is stale. Gate 4's second half holds even
+///   if every refresher stops.
+/// - **At least `MAX_STATE_AGE_SECONDS`.** A keeper that dies stops both the
+///   session push and the refresh; the session goes stale first and the refusal
+///   reads `StateStale`. `RiskStale` appears only when attestations land but
+///   refreshes do not — exactly the failure it exists to catch.
+#[constant]
+pub const MAX_RISK_AGE_SECONDS: i64 = 600;
+
+// The two inequalities above, checked by the compiler rather than a comment.
+const _: () = assert!(
+    MAX_RISK_AGE_SECONDS <= REBASE_GUARD_SECONDS && MAX_RISK_AGE_SECONDS >= MAX_STATE_AGE_SECONDS
+);
+
 #[constant]
 pub const MARK_SEED: &[u8] = b"mark";
 

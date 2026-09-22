@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    constants::{MAX_STATE_AGE_SECONDS, REBASE_GUARD_SECONDS, RISK_SEED, SYMBOL_SEED, SYMBOL_LEN},
+    constants::{
+        MAX_RISK_AGE_SECONDS, MAX_STATE_AGE_SECONDS, REBASE_GUARD_SECONDS, RISK_SEED, SYMBOL_SEED,
+        SYMBOL_LEN,
+    },
     error::BellError,
     state::{HaltState, RebaseKind, SymbolState, TokenRisk},
 };
@@ -49,6 +52,20 @@ pub fn check_tradeable(
     //    Stock concurrently with any stoppage of trading in the underlying NMS
     //    stock on the primary listing exchange."
     require!(s.halt == HaltState::None, BellError::MarketClosed);
+
+    // 2b. Everything below is proven from the mint — but only as of the last
+    //     time the mint was read. A record that nobody has re-read is state we
+    //     cannot vouch for, the same as a stale attestation in gate 1, and it
+    //     fails the same way: closed. Placed after the halt so a halt still
+    //     reports as a halt, and before every gate that reads the record.
+    //
+    //     `refresh_token_risk` is permissionless and only ever makes the record
+    //     fresher, so this cannot be used to hold the venue shut: anyone can put
+    //     a refresh in front of their own transaction.
+    require!(
+        now.saturating_sub(r.verified_at) <= MAX_RISK_AGE_SECONDS,
+        BellError::RiskStale
+    );
 
     // 3. Issuer-level freeze, proven from the mint.
     require!(!r.paused, BellError::IssuerPaused);

@@ -18,6 +18,7 @@ import {
 import { ataFor, decodeTokenAccount } from '../../src/chain/spl.ts'
 import {
   MAX_MARK_AGE_SECONDS,
+  MAX_RISK_AGE_SECONDS,
   MAX_STATE_AGE_SECONDS,
   Mode,
   multiplierOf,
@@ -172,6 +173,17 @@ export async function loadSymbol(
         state.halt === HaltState.None
           ? `clear on ${state.exchangeMic}`
           : (HALT_NAMES[state.halt] ?? 'halted'),
+    },
+    {
+      // Gate 2b. Everything below is proven from the mint, but only as of the
+      // last read — so the read itself has to be recent.
+      label: 'mint read fresh',
+      refuses: 'RiskStale',
+      ok: now - Number(risk.verifiedAt) <= MAX_RISK_AGE_SECONDS,
+      detail:
+        now - Number(risk.verifiedAt) <= MAX_RISK_AGE_SECONDS
+          ? `extensions re-read ${now - Number(risk.verifiedAt)}s ago`
+          : `last read ${now - Number(risk.verifiedAt)}s ago — too old to vouch for, so treated as closed`,
     },
     {
       label: 'issuer has not paused the mint',
@@ -386,6 +398,8 @@ export function explain(reason: string | null): string {
       return 'Orders are capped at $1,000 while the program still has an upgrade authority.'
     case 'DelegationMissing':
       return 'The order is not funded — the approval did not cover it.'
+    case 'RiskStale':
+      return "Nobody has re-read this token's issuer settings recently enough to trust them."
     case 'NotRegistered':
       return 'This symbol is not set up on chain yet.'
     default:

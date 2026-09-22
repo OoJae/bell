@@ -88,6 +88,10 @@ impl Ctx {
     }
 
     fn send(&mut self, ix: Instruction, extra: &[&Keypair]) -> Result<(), String> {
+        // A gate asked the same question twice, before and after the clock or
+        // the record changes, is a byte-identical transaction; a fresh
+        // blockhash keeps the runtime from rejecting it as a replay.
+        self.svm.expire_blockhash();
         let blockhash = self.svm.latest_blockhash();
         let msg = Message::new_with_blockhash(&[ix], Some(&self.payer.pubkey()), &blockhash);
         let mut signers: Vec<&Keypair> = vec![&self.payer];
@@ -97,6 +101,12 @@ impl Ctx {
             .send_transaction(tx)
             .map(|_| ())
             .map_err(|e| format!("{:?}", e.err))
+    }
+
+    fn warp(&mut self, to: i64) {
+        let mut c: Clock = self.svm.get_sysvar();
+        c.unix_timestamp = to;
+        self.svm.set_sysvar(&c);
     }
 
     fn now(&self) -> i64 {
@@ -531,4 +541,164 @@ fn the_activation_instant_survives_the_change_taking_effect() {
     // It is in force, so nothing is pending and no classification is demanded.
     assert_eq!(risk.pending_multiplier_bits, 0);
     assert_eq!(risk.rebase_kind, RebaseKind::None);
+}
+
+
+// ------------------------------------------------ the TokenRisk freshness bound
+//
+// Gates 3-6 are proven from the mint, but only as of the last read. For its
+// first day on devnet nobody re-read it: the record was a snapshot from
+// registration. `MAX_RISK_AGE_SECONDS` makes a stale read fail closed, the same
+// way a stale attestation does.
+
+/// Codes derived from the enum, never typed by hand: hand-typed codes were
+/// off by one the first time, because counting variants by eye skipped one.
+const fn code(e: bell_session::error::BellError) -> u32 {
+    anchor_lang::error::ERROR_CODE_OFFSET + e as u32
+}
+const MARKET_CLOSED: u32 = code(bell_session::error::BellError::MarketClosed);
+const REBASE_PENDING: u32 = code(bell_session::error::BellError::RebasePending);
+const REBASE_UNCLASSIFIED: u32 = code(bell_session::error::BellError::RebaseUnclassified);
+const MULTIPLIER_MOVED: u32 = code(bell_session::error::BellError::MultiplierMoved);
+const RISK_STALE: u32 = code(bell_session::error::BellError::RiskStale);
+
+fn ix_refresh(ctx: &Ctx, mint: Pubkey) -> Instruction {
+    Instruction::new_with_bytes(
+        ctx.program_id,
+        &bell_session::instruction::RefreshTokenRisk {}.data(),
+        bell_session::accounts::RefreshTokenRisk { mint, risk: ctx.risk_pda(&mint) }.to_account_metas(None),
+    )
+}
+
+/// Assert a refusal by its code. A bare `is_err()` keeps passing after the
+/// reason has changed underneath it — exactly what happened when this bound
+/// arrived and a mark-staleness test quietly started failing on RiskStale.
+fn assert_code(r: Result<(), String>, code: u32, why: &str) {
+    match r {
+        Ok(()) => panic!("expected Custom({code}) — {why} — but it passed"),
+        Err(e) => assert!(e.contains(&format!("Custom({code})")), "expected Custom({code}) — {why} — got {e}"),
+    }
+}
+
+fn strict() -> bell_session::instructions::assert_tradeable::Mode {
+    bell_session::instructions::assert_tradeable::Mode::Strict
+}
+
+#[test]
+fn a_stale_risk_record_fails_closed() {
+    let mut ctx = Ctx::new();
+    let (symbol, mint, attestor, bits) = open_market(&mut ctx);
+    ctx.warp(NOW + 601);
+    ctx.send(ix_push(&ctx, symbol, attestor.pubkey(), HaltState::None, true, NOW + 601), &[&attestor]).unwrap();
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]), RISK_STALE, "mint last read 601s ago");
+}
+
+#[test]
+fn anyone_re_reading_the_mint_reopens_the_gate() {
+    // Refresh is permissionless, so the bound cannot be used to hold the venue
+    // shut: the cure is available to everyone, in their own transaction.
+    let mut ctx = Ctx::new();
+    let (symbol, mint, attestor, bits) = open_market(&mut ctx);
+    ctx.warp(NOW + 601);
+    ctx.send(ix_push(&ctx, symbol, attestor.pubkey(), HaltState::None, true, NOW + 601), &[&attestor]).unwrap();
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]).unwrap();
+}
+
+#[test]
+fn a_halt_still_reports_as_a_halt_over_a_stale_record() {
+    // Gate 2b sits after the halt on purpose: when the market is halted, that
+    // is the reason a user should see, not a bookkeeping one.
+    let mut ctx = Ctx::new();
+    let (symbol, mint, attestor, bits) = open_market(&mut ctx);
+    ctx.warp(NOW + 601);
+    ctx.send(ix_push(&ctx, symbol, attestor.pubkey(), HaltState::Luld, true, NOW + 601), &[&attestor]).unwrap();
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]), MARKET_CLOSED, "halted and stale");
+}
+
+#[test]
+fn a_record_exactly_at_the_bound_still_passes() {
+    let mut ctx = Ctx::new();
+    let (symbol, mint, attestor, bits) = open_market(&mut ctx);
+    ctx.warp(NOW + 600);
+    ctx.send(ix_push(&ctx, symbol, attestor.pubkey(), HaltState::None, true, NOW + 600), &[&attestor]).unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]).unwrap();
+}
+
+#[test]
+fn a_dividend_walked_end_to_end_on_the_real_apple_mint() {
+    // The real AAPLx mint carries a genuine scheduled multiplier step, so the
+    // whole of gate 4 can be walked on issuer bytes rather than on a mint we
+    // built: unclassified, classified, the window before, the window after (the
+    // half an audit found could be deleted), a record left unread past the
+    // window, and an order built on the old multiplier.
+    let mut ctx = Ctx::new();
+    let mint = ctx.install_mint(AAPLX, include_bytes!("fixtures/aaplx.bin"));
+
+    // Find the step on the mint itself, read at the fixture's own clock.
+    ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+    let t = {
+        let r = ctx.read_risk(&ctx.risk_pda(&mint));
+        // At NOW the step is already in force; its instant is retained.
+        assert!(r.activates_at != 0, "fixture should carry a multiplier activation");
+        r.activates_at
+    };
+
+    // Rewind to half an hour before it, on a fresh ledger, and walk forward.
+    let mut ctx = Ctx::new();
+    ctx.warp(t - 1_800);
+    let mint = ctx.install_mint(AAPLX, include_bytes!("fixtures/aaplx.bin"));
+    ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+    let before = ctx.read_risk(&ctx.risk_pda(&mint));
+    assert_eq!(before.activates_at, t);
+    assert_ne!(before.pending_multiplier_bits, 0, "the step is pending half an hour out");
+    assert_eq!(before.rebase_kind, RebaseKind::Unknown);
+    let old_bits = before.multiplier_bits;
+    let new_bits = before.pending_multiplier_bits;
+
+    let symbol = sym("AAPL");
+    let attestor = Keypair::new();
+    ctx.svm.airdrop(&attestor.pubkey(), 1_000_000_000).unwrap();
+    ctx.send(ix_register(&ctx, symbol, mint, attestor.pubkey()), &[]).unwrap();
+    let push = |ctx: &mut Ctx, at: i64| {
+        let a = attestor.insecure_clone();
+        ctx.send(ix_push(ctx, symbol, a.pubkey(), HaltState::None, true, at), &[&a]).unwrap();
+    };
+
+    // T-1800: a change nobody has identified. Outside the window, still refused.
+    push(&mut ctx, t - 1_800);
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), old_bits), &[]), REBASE_UNCLASSIFIED, "T-1800, unclassified");
+
+    // Classified as a dividend: tradeable again until the window opens.
+    ctx.send(ix_classify(&ctx, mint, ctx.payer.pubkey(), RebaseKind::Dividend), &[]).unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, strict(), old_bits), &[]).unwrap();
+
+    // T-900: the window opens.
+    ctx.warp(t - 900);
+    push(&mut ctx, t - 900);
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), old_bits), &[]), REBASE_PENDING, "T-900");
+
+    // T+1: in force. The instant is retained, so the window's second half holds.
+    ctx.warp(t + 1);
+    push(&mut ctx, t + 1);
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    let after = ctx.read_risk(&ctx.risk_pda(&mint));
+    assert_eq!(after.multiplier_bits, new_bits);
+    assert_eq!(after.pending_multiplier_bits, 0);
+    assert_eq!(after.activates_at, t);
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), new_bits), &[]), REBASE_PENDING, "T+1, post-activation half");
+
+    // T+901, nobody re-read the mint since T+1: 900s old, past the bound.
+    // Without the bound, this is where a stale record would have let a trade
+    // through while nobody had looked at the mint for fifteen minutes.
+    ctx.warp(t + 901);
+    push(&mut ctx, t + 901);
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), new_bits), &[]), RISK_STALE, "T+901, unread since T+1");
+
+    // Re-read: clear of the window. An order built on the old multiplier is
+    // invalidated rather than filled at a size nobody asked for.
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), old_bits), &[]), MULTIPLIER_MOVED, "old multiplier after T");
+    ctx.send(ix_assert(&ctx, symbol, mint, strict(), new_bits), &[]).unwrap();
 }

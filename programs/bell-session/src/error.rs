@@ -60,4 +60,7 @@ pub enum BellError {
     TokenOwnerMismatch,
     #[msg("Account is not owned by the token program it is claimed to belong to")]
     TokenProgramMismatch,
+    /// Appended last so every existing code keeps its number.
+    #[msg("The issuer's mint state has not been read recently enough to trust")]
+    RiskStale,
 }

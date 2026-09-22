@@ -290,6 +290,52 @@ fn fill(ctx: &mut Ctx, nonce: u64, legs: &Legs, amount_in_leg: u64, amount_out: 
     )], &[&flr])
 }
 
+/// `refresh_token_risk` for the stock mint — permissionless, no signer.
+fn refresh_ix(ctx: &Ctx) -> Instruction {
+    Instruction::new_with_bytes(
+        ctx.program_id,
+        &bell_session::instruction::RefreshTokenRisk {}.data(),
+        bell_session::accounts::RefreshTokenRisk { mint: ctx.stock_mint, risk: ctx.risk_pda() }.to_account_metas(None),
+    )
+}
+
+fn refresh(ctx: &mut Ctx) {
+    let ix = refresh_ix(ctx);
+    ctx.send(&[ix], &[]).unwrap();
+}
+
+/// A refresh and a fill in ONE transaction — how a filler that nobody else is
+/// refreshing for still gets a fresh read of the mint at settlement.
+fn refresh_and_fill(ctx: &mut Ctx, nonce: u64, legs: &Legs, amount_in_leg: u64, amount_out: u64) -> Result<(), String> {
+    let metas = accounts_for_fill(ctx, nonce, legs.payer_in, legs.payee_out, legs.filler_in, legs.filler_out);
+    let flr = ctx.filler.insecure_clone();
+    let fill_ix = Instruction::new_with_bytes(
+        ctx.program_id,
+        &bell_session::instruction::FillOrder { amount_in_leg, amount_out }.data(),
+        metas,
+    );
+    let ixs = [refresh_ix(ctx), fill_ix];
+    ctx.send(&ixs, &[&flr])
+}
+
+/// Assert a refusal by its code, not merely that *something* failed. An
+/// `is_err()` check is how a test keeps passing after its reason has changed.
+fn assert_code(r: Result<(), String>, code: u32, why: &str) {
+    match r {
+        Ok(()) => panic!("expected Custom({code}) — {why} — but it succeeded"),
+        Err(e) => assert!(e.contains(&format!("Custom({code})")), "expected Custom({code}) — {why} — got {e}"),
+    }
+}
+
+/// Codes derived from the enum, never typed by hand: hand-typed codes were
+/// off by one the first time, because counting variants by eye skipped one.
+const fn code(e: bell_session::error::BellError) -> u32 {
+    anchor_lang::error::ERROR_CODE_OFFSET + e as u32
+}
+const MARK_STALE: u32 = code(bell_session::error::BellError::MarkStale);
+const ORDER_EXPIRED: u32 = code(bell_session::error::BellError::OrderExpired);
+const RISK_STALE: u32 = code(bell_session::error::BellError::RiskStale);
+
 // --------------------------------------------------------------------- tests
 
 #[test]
@@ -443,7 +489,12 @@ fn a_stale_mark_refuses_the_fill() {
 
     ctx.warp(NOW + 3_600);
     push_session(&mut ctx, HaltState::None, true, NOW + 3_600); // session fresh
-    assert!(fill(&mut ctx, 1, &legs, 1_000_000, 299_401).is_err(), "mark is an hour old");
+    // Re-read the mint too, so the only stale thing is the mark. Before the
+    // TokenRisk age bound this test asserted a bare `is_err()`, and when the
+    // bound arrived the failure silently became RiskStale — the test kept
+    // "passing" for a reason it was not written to test.
+    refresh(&mut ctx);
+    assert_code(fill(&mut ctx, 1, &legs, 1_000_000, 299_401), MARK_STALE, "mark is an hour old");
 
     push_mark(&mut ctx, rate_q64(), NOW + 3_600);
     fill(&mut ctx, 1, &legs, 1_000_000, 299_401).unwrap();
@@ -459,7 +510,28 @@ fn an_expired_order_cannot_fill() {
     ctx.warp(NOW + 601);
     push_session(&mut ctx, HaltState::None, true, NOW + 601);
     push_mark(&mut ctx, rate_q64(), NOW + 601);
-    assert!(fill(&mut ctx, 1, &legs, 1_000_000, 299_401).is_err());
+    // Expiry is checked before the gate, so this stays OrderExpired even though
+    // the risk record is also past its bound by now.
+    assert_code(fill(&mut ctx, 1, &legs, 1_000_000, 299_401), ORDER_EXPIRED, "order lapsed at NOW+600");
+}
+
+#[test]
+fn a_stale_risk_record_refuses_the_fill_until_it_is_re_read() {
+    // Ten minutes without anyone re-reading the mint: the session and the mark
+    // are both fresh, and the fill still refuses, because a pause, a scheduled
+    // rebase or an armed hook could have appeared on the mint in that time.
+    let mut ctx = Ctx::new();
+    ready(&mut ctx);
+    let legs = fund(&mut ctx, 1_000_000);
+    place(&mut ctx, 1, &legs, 1_000_000, 30, 0, NOW + 86_400).unwrap();
+
+    ctx.warp(NOW + 601);
+    push_session(&mut ctx, HaltState::None, true, NOW + 601);
+    push_mark(&mut ctx, rate_q64(), NOW + 601);
+    assert_code(fill(&mut ctx, 1, &legs, 1_000_000, 299_401), RISK_STALE, "mint last read 601s ago");
+
+    // Anyone can cure it, in the same transaction as their own fill.
+    refresh_and_fill(&mut ctx, 1, &legs, 1_000_000, 299_401).unwrap();
 }
 
 #[test]
