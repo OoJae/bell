@@ -18,11 +18,12 @@ import {
 } from '../../src/chain/client.ts'
 import { errorName } from '../../src/chain/codec.ts'
 import { orderExpiry } from '../../src/policy/expiry.ts'
-
-export { orderExpiry }
+import { committedOf, confCap, lossFloor } from '../../src/policy/order.ts'
 import { ataFor, ixApproveChecked, ixCreateAtaIdempotent, ixRevoke, TOKEN_2022 } from '../../src/chain/spl.ts'
 import type { BellOrder } from '../../src/chain/codec.ts'
 import type { Listing } from '../../src/config.ts'
+
+export { committedOf, orderExpiry }
 
 /**
  * The quote asset. On localnet this is a mint we control, because a cloned
@@ -35,7 +36,6 @@ export const QUOTE_DECIMALS = 6
 
 /** Defaults a user never has to think about, stated rather than buried. */
 export const DEFAULT_SLIP_BPS = 30
-export const DEFAULT_CONF_BPS = 50
 /**
  * The program's own ceiling on a single order, $1,000 of quote
  * (`MAX_ORDER_IN` in constants.rs — a blast-radius bound while the program
@@ -67,6 +67,8 @@ export interface PlaceArgs {
   committed?: bigint
   /** The next opening bell, when the market is shut and it is known. */
   nextOpen?: number | null
+  /** The symbol's attested rate when the order is placed; sets the loss floor. */
+  markRateQ64?: bigint | null
 }
 
 /**
@@ -116,11 +118,12 @@ export function placeOrderTx(a: PlaceArgs): {
       amountIn,
       minFillIn: amountIn,
       maxSlipBps: a.maxSlipBps ?? DEFAULT_SLIP_BPS,
-      maxConfBps: DEFAULT_CONF_BPS,
-      // Market-on-open. A band against a fill-time mark is the honest
-      // semantics for "I want $200 of SPY"; an absolute floor would be a
-      // price the user invented hours before the market opened.
-      floorRateQ64: 0n,
+      maxConfBps: confCap(a.listing),
+      // Market-on-open: the price is the band against a fill-time mark. The
+      // floor is not a limit price — it is a loss cap at three quarters of
+      // what the mark says now, so a forged mark cannot fill this order for
+      // dust. See `lossFloor`.
+      floorRateQ64: lossFloor(a.markRateQ64),
       notBefore: 0n,
       expiresAt: BigInt(orderExpiry(a.now, a.nextOpen ?? null)),
       payerIn,
@@ -130,28 +133,75 @@ export function placeOrderTx(a: PlaceArgs): {
   return { tx, amountIn, approved }
 }
 
-/** Raw quote still owed across a set of orders. */
-export const committedOf = (orders: { amountIn: bigint; filledIn: bigint }[]): bigint =>
-  orders.reduce((n, o) => n + (o.amountIn - o.filledIn), 0n)
-
 /**
- * Cancel: revoke first, reclaim rent second.
+ * Cancel one order: kill its funding first, reclaim its rent second — as
+ * separate transactions, so the kill never depends on this program.
  *
- * The order matters and is not cosmetic. The revoke is what actually kills the
- * order, and it is a plain SPL instruction against the user's own account — it
- * works if this program is frozen, if the keeper is dead and if every filler
- * disappears. Closing the order account afterwards is bookkeeping that returns
- * the user's rent. If the second instruction somehow failed, the user would
- * still be safe; if they were reversed, they would not be.
+ * 1. `revoke` — a plain SPL instruction on the user's own account. It works if
+ *    this program is frozen, the keeper is dead and every filler has gone. It
+ *    used to share a transaction with `cancel_order`, so a failure in BELL's
+ *    own instruction rolled the revoke back with it: the one step that must
+ *    never depend on BELL did.
+ * 2. `cancel_order` — closes the order and returns its rent.
+ * 3. Only if other live orders remain (`rest`): approve them again. The
+ *    account has one delegate slot, so the revoke unfunded them too. This
+ *    comes *after* the close on purpose — re-approving first would leave the
+ *    cancelled order fundable, and fillable, until its close landed.
+ *
+ * `bellDelegated` false means the account's delegate is not BELL's (the user
+ * approved someone else since): the order is already unfunded, and revoking
+ * would cancel an approval that is none of our business. Only the close runs.
  */
-export function cancelOrderTx(owner: PublicKey, order: BellOrder): Transaction {
-  return new Transaction().add(
-    ixRevoke(order.payerIn, owner),
+export function cancelOrderTxs(
+  owner: PublicKey,
+  order: BellOrder,
+  rest: bigint,
+  bellDelegated: boolean,
+): Transaction[] {
+  const close = new Transaction().add(
     ixCancelOrder({ signer: owner, owner, nonce: order.nonce, payerIn: order.payerIn }),
   )
+  if (!bellDelegated) return [close]
+  const txs = [new Transaction().add(ixRevoke(order.payerIn, owner)), close]
+  if (rest > 0n) {
+    txs.push(
+      new Transaction().add(
+        ixApproveChecked({
+          source: order.payerIn,
+          mint: order.quoteMint,
+          delegate: authPda(owner),
+          owner,
+          amount: rest,
+          decimals: QUOTE_DECIMALS,
+        }),
+      ),
+    )
+  }
+  return txs
 }
 
-/** Submit through the wallet and wait for confirmation. */
+/** Orders closed per transaction by "revoke all": four accounts each, well inside the size limit. */
+const CLOSES_PER_TX = 6
+
+/**
+ * Revoke all funding, then close every order: the emergency exit, offered
+ * whenever the wallet has any approval to BELL outstanding — including one no
+ * order explains, such as an approval whose order never landed.
+ */
+export function revokeAllTxs(owner: PublicKey, payerIn: PublicKey, book: readonly BellOrder[]): Transaction[] {
+  const txs = [new Transaction().add(ixRevoke(payerIn, owner))]
+  for (let i = 0; i < book.length; i += CLOSES_PER_TX) {
+    txs.push(
+      new Transaction().add(
+        ...book
+          .slice(i, i + CLOSES_PER_TX)
+          .map((o) => ixCancelOrder({ signer: owner, owner, nonce: o.nonce, payerIn: o.payerIn })),
+      ),
+    )
+  }
+  return txs
+}
+
 /**
  * Pull a program error code out of whatever the RPC threw, and name it.
  *
@@ -159,10 +209,17 @@ export function cancelOrderTx(owner: PublicKey, order: BellOrder): Transaction {
  * in them. For a product whose whole output is *why* it said no, showing the
  * user a hex code is the refusal with the reason stripped off.
  */
+/** Anchor's AccountNotInitialized, which is what closing an already-closed order meets. */
+const ANCHOR_ACCOUNT_NOT_INITIALIZED = 3012
+
 export function refusalFrom(e: unknown): string | null {
   const text = [(e as Error)?.message ?? '', ...(((e as { logs?: string[] })?.logs) ?? [])].join('\n')
   const m = /custom program error: 0x([0-9a-f]+)/i.exec(text)
-  return m ? errorName(parseInt(m[1], 16)) : null
+  if (!m) return null
+  const code = parseInt(m[1], 16)
+  // Anchor's AccountNotInitialized: the order account is gone — filled, or
+  // closed by someone tidying the book after its funding was revoked.
+  return code === ANCHOR_ACCOUNT_NOT_INITIALIZED ? 'AlreadyClosed' : errorName(code)
 }
 
 /**
@@ -183,7 +240,10 @@ export async function submit(
   const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed')
   tx.feePayer = owner
   tx.recentBlockhash = blockhash
-  const signed = await sign(tx)
+  return land(conn, await sign(tx), blockhash, lastValidBlockHeight)
+}
+
+async function land(conn: Connection, signed: Transaction, blockhash: string, lastValidBlockHeight: number) {
   const sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: false })
   try {
     const res = await conn.confirmTransaction(
@@ -198,4 +258,54 @@ export async function submit(
     if (!landed) throw e
   }
   return sig
+}
+
+/**
+ * Several transactions, landed strictly in order.
+ *
+ * One wallet prompt when the wallet can sign a batch (anything on the Wallet
+ * Standard can); otherwise one prompt per transaction, each sent before the
+ * next is asked for — so the first step lands even if the user declines the
+ * second. Each is confirmed before the next goes out, and the first failure
+ * stops the rest. Returns what landed and what stopped it, so the caller can
+ * say exactly which step happened: for a cancel, "funding revoked" is the part
+ * that matters and must be reported even if the rent reclaim fails.
+ */
+export async function submitInOrder(
+  conn: Connection,
+  txs: Transaction[],
+  owner: PublicKey,
+  sign: (t: Transaction) => Promise<Transaction>,
+  signAll?: (t: Transaction[]) => Promise<Transaction[]>,
+  /** Carry on past a failure at step `i` — e.g. closing an order that is already closed. */
+  carryOn: (i: number, e: unknown) => boolean = () => false,
+): Promise<{ sigs: (string | null)[]; error: unknown; failedAt: number | null }> {
+  const sigs: (string | null)[] = []
+  let error: unknown = null
+  let failedAt: number | null = null
+  let batch: Transaction[] | null = null
+  try {
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed')
+    for (const tx of txs) {
+      tx.feePayer = owner
+      tx.recentBlockhash = blockhash
+    }
+    batch = signAll ? await signAll(txs) : null
+    for (const [i, tx] of txs.entries()) {
+      try {
+        sigs.push(await land(conn, batch ? batch[i]! : await sign(tx), blockhash, lastValidBlockHeight))
+      } catch (e) {
+        if (i === 0 || !carryOn(i, e)) {
+          error = e
+          failedAt = i
+          break
+        }
+        sigs.push(null)
+      }
+    }
+  } catch (e) {
+    error = e
+    failedAt = sigs.length
+  }
+  return { sigs, error, failedAt }
 }

@@ -397,33 +397,59 @@ export interface SymbolAccounts {
  * `getMultipleAccounts` takes up to 100 keys, so 27 fits comfortably in one.
  */
 export async function readAllSymbols(
-  conn: Connection,
+  conn: Pick<Connection, 'getMultipleAccountsInfo'>,
   listings: readonly { symbol: string; mint: string }[],
 ): Promise<Map<string, SymbolAccounts>> {
   return (await readBoard(conn, listings)).symbols
 }
 
+/** `getMultipleAccounts` refuses more keys than this in one call. */
+export const MAX_KEYS_PER_READ = 100
+
+type AccountInfos = (import('@solana/web3.js').AccountInfo<Buffer> | null)[]
+
 /**
- * The board plus any extra accounts, still in one round trip.
+ * `getMultipleAccountsInfo` over any number of keys, in order.
+ *
+ * The node refuses a request with more than 100 keys outright, so the caller
+ * whose key list grows with the order book — the crank reads each order's
+ * funding account — must never send one list. Unsplit, 37 orders were enough
+ * to make every crank pass throw, and placing an order costs only refundable
+ * rent: anyone could have stopped every fill. Chunks run one after another,
+ * not in parallel, because a burst is what public RPC answers with 429.
+ */
+export async function readAccounts(
+  conn: Pick<Connection, 'getMultipleAccountsInfo'>,
+  keys: readonly PublicKey[],
+): Promise<AccountInfos> {
+  const out: AccountInfos = []
+  for (let i = 0; i < keys.length; i += MAX_KEYS_PER_READ) {
+    out.push(...(await conn.getMultipleAccountsInfo(keys.slice(i, i + MAX_KEYS_PER_READ))))
+  }
+  return out
+}
+
+/**
+ * The board plus any extra accounts, in as few round trips as the node allows.
  *
  * `extra` is how the page reads the connected wallet's SOL and demo-USDC
  * without a second request per poll — the 429 that once closed the whole board
- * came from exactly that kind of per-thing read. 27 + a few keys stays well
- * under `getMultipleAccounts`' limit of 100.
+ * came from exactly that kind of per-thing read. The page's 29 keys are one
+ * call; the crank's list grows with the book and is split by `readAccounts`.
  */
 export async function readBoard(
-  conn: Connection,
+  conn: Pick<Connection, 'getMultipleAccountsInfo'>,
   listings: readonly { symbol: string; mint: string }[],
   extra: readonly PublicKey[] = [],
 ): Promise<{
   symbols: Map<string, SymbolAccounts>
-  extras: (import('@solana/web3.js').AccountInfo<Buffer> | null)[]
+  extras: AccountInfos
 }> {
   const keys: PublicKey[] = []
   for (const l of listings) {
     keys.push(symbolPda(l.symbol), riskPda(new PublicKey(l.mint)), markPda(l.symbol))
   }
-  const infos = await conn.getMultipleAccountsInfo([...keys, ...extra])
+  const infos = await readAccounts(conn, [...keys, ...extra])
   const out = new Map<string, SymbolAccounts>()
   listings.forEach((l, i) => {
     const [s, r, m] = [infos[i * 3], infos[i * 3 + 1], infos[i * 3 + 2]]

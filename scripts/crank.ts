@@ -38,7 +38,13 @@ import {
   TOKEN_PROGRAM,
   TOKEN_2022,
 } from '../src/chain/client.ts'
-import { fairOut, MAX_MARK_AGE_SECONDS, MAX_STATE_AGE_SECONDS, type BellOrder } from '../src/chain/codec.ts'
+import {
+  fairOut,
+  MAX_MARK_AGE_SECONDS,
+  MAX_STATE_AGE_SECONDS,
+  type BellOrder,
+  type SymbolMark,
+} from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { ataFor, decodeTokenAccount } from '../src/chain/spl.ts'
 import { CLUSTER } from '../src/config.ts'
@@ -140,6 +146,15 @@ async function main() {
   const payers = extras.slice(1, 1 + orders.length)
   const inventories = extras.slice(1 + orders.length)
 
+  // The pass can outlive a mark, so "now" advances with the wall clock from the
+  // chain's reading rather than staying frozen at the start.
+  const t0 = Date.now()
+  const chainNow = () => now + Math.floor((Date.now() - t0) / 1000)
+  // Symbols whose mark this pass already waited on: a later order for the same
+  // symbol uses what that wait found instead of sitting out another 70s. Three
+  // orders each waiting afresh was enough to hit the watchdog.
+  const waited = new Map<string, SymbolMark | null>()
+
   for (const [i, o] of orders.entries()) {
     try {
       const remaining = o.amountIn - o.filledIn
@@ -199,6 +214,13 @@ async function main() {
         line(o, 'waiting — market closed; parks until the bell (MarketClosed)')
         continue
       }
+      // Built against a multiplier that is no longer in force: the gate will
+      // refuse it for as long as it lives. Only its owner can close it (it is
+      // still funded), so say so rather than simulating it every pass.
+      if (acc?.risk && acc.risk.multiplierBits !== o.expectedMultiplierBits) {
+        line(o, 'dead — a corporate action changed its size (MultiplierMoved); the owner can cancel to reclaim rent')
+        continue
+      }
       if (payer && payer.amount < remaining) {
         line(o, 'waiting — the owner no longer holds the funds this order would spend')
         continue
@@ -207,22 +229,29 @@ async function main() {
       // A price has to be fresh at settlement, and the keeper's marks land
       // every ~45-60s — so a mark read at a random moment is often most of a
       // minute old. Rather than eat MarkStale, wait for the next one to land.
-      let mark = acc?.mark
+      let mark = waited.has(o.symbol) ? waited.get(o.symbol) : acc?.mark
       if (!mark || mark.observedAt === 0n) {
-        line(o, 'no mark — cannot price, so cannot fill')
+        line(o, waited.has(o.symbol) ? 'waiting — no fresh mark arrived this pass' : 'no mark — cannot price, so cannot fill')
         continue
       }
-      if (now - Number(mark.observedAt) > MAX_MARK_AGE_SECONDS - 10) {
+      if (chainNow() - Number(mark.observedAt) > MAX_MARK_AGE_SECONDS - 10) {
         const seenAt = mark.observedAt
         const until = Date.now() + 70_000
+        let fresh: SymbolMark | null = null
         while (Date.now() < until) {
           await new Promise((r) => setTimeout(r, 5_000))
           const next = (await readBoard(conn, [listings.find((l) => l.symbol === o.symbol)!])).symbols.get(o.symbol)?.mark
           if (next && next.observedAt !== seenAt) {
-            mark = next
+            fresh = next
             break
           }
         }
+        waited.set(o.symbol, fresh)
+        if (!fresh) {
+          line(o, 'waiting — no fresh mark arrived this pass')
+          continue
+        }
+        mark = fresh
       }
 
       // Deliver exactly the band edge. Every fill lands here, which is why

@@ -39,3 +39,6 @@ demo/recordings/
 
 # The build plan — contains competitive analysis naming other entries. Local only.
 BUILD-PLAN.md
+
+# Adversarial study report — describes live-deployment weaknesses before they are fixed. Local only.
+STUDY.md

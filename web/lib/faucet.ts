@@ -16,8 +16,8 @@
  *
  * **Bounds, without a database.** Eligibility is read from the chain, so it
  * survives restarts: a wallet already holding enough gets nothing. On top of
- * that, in-memory limits per address, per IP and globally, one grant in flight
- * at a time, and floors below which the faucet stops rather than empties.
+ * that, in-memory limits per address, per IP and per day, one grant in flight
+ * per address, and floors below which the faucet stops rather than empties.
  */
 import { Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import { ataFor, decodeTokenAccount, ixCreateAtaIdempotent, ixTransferChecked } from '../../src/chain/spl.ts'
@@ -43,21 +43,35 @@ const GRANT_LAMPORTS = 12_000_000
 const HAS_ENOUGH_QUOTE = 100n * 10n ** BigInt(QUOTE_DECIMALS)
 const HAS_ENOUGH_LAMPORTS = 5_000_000
 
-/** Below these the faucet stops rather than runs itself dry. */
-const FLOOR_LAMPORTS = 50_000_000
+/**
+ * What the faucet keeps back for itself — its own rent-exempt minimum plus
+ * fees — on top of whatever a grant costs. It is charged per grant, for what
+ * that grant actually sends: a flat 0.05 SOL floor used to refuse even a
+ * quote-only grant, which costs the faucet a fee and at most one account's
+ * rent, whenever it held less than that.
+ */
+const RESERVE_LAMPORTS = 10_000_000
+/** A new quote account's rent, as an upper bound (mainnet's rate; devnet is lower). */
+const QUOTE_ACCOUNT_RENT = 2_039_280
+const FEE_LAMPORTS = 10_000
 const FLOOR_QUOTE = GRANT_QUOTE
 
 const HOUR = 3_600_000
+/**
+ * No hourly cap: ten grants an hour globally meant one person with a script
+ * could lock every judge out for the rest of it. Per address and per IP bound
+ * any one visitor; the daily cap bounds the pool.
+ */
 const LIMITS = {
   perAddress: { n: 1, window: 12 * HOUR },
   perIp: { n: 5, window: 24 * HOUR },
-  perHour: { n: 10, window: HOUR },
-  perDay: { n: 60, window: 24 * HOUR },
+  perDay: { n: 200, window: 24 * HOUR },
 }
 
 /** In-memory ledger of recent grants. Resets on redeploy; one replica. */
 const seen = new Map<string, number[]>()
-let inFlight = false
+/** Addresses with a grant in progress — per address, so one slow grant does not queue everybody. */
+const inFlight = new Set<string>()
 
 function allowed(key: string, limit: { n: number; window: number }, now: number): boolean {
   const recent = (seen.get(key) ?? []).filter((t) => now - t < limit.window)
@@ -66,6 +80,14 @@ function allowed(key: string, limit: { n: number; window: number }, now: number)
 }
 function record(keys: string[], now: number) {
   for (const k of keys) seen.set(k, [...(seen.get(k) ?? []), now])
+}
+/** A grant that certainly did not land should not count against anyone. */
+function unrecord(keys: string[], now: number) {
+  for (const k of keys) {
+    const list = seen.get(k) ?? []
+    const i = list.lastIndexOf(now)
+    if (i >= 0) list.splice(i, 1)
+  }
 }
 
 function faucetKey(): Keypair | null {
@@ -109,11 +131,12 @@ export async function grant(args: { owner: unknown; ip: string }): Promise<Grant
     return refuse(429, 'This wallet was funded recently — once every 12 hours.', 12 * 3600)
   }
   if (!allowed(ip, LIMITS.perIp, now)) return refuse(429, 'Too many grants from here today.', 3600)
-  if (!allowed('hour', LIMITS.perHour, now) || !allowed('day', LIMITS.perDay, now)) {
-    return refuse(429, 'The faucet is at its limit — try again in a while.', 600)
+  if (!allowed('day', LIMITS.perDay, now)) {
+    return refuse(429, 'The faucet has given out all it can today — try again tomorrow.', 3600)
   }
-  if (inFlight) return refuse(429, 'Another grant is in progress — try again in a few seconds.', 5)
-  inFlight = true
+  if (inFlight.has(addr)) return refuse(429, 'A grant to this wallet is already in progress.', 5)
+  inFlight.add(addr)
+  const keys = [addr, ip, 'day']
 
   try {
     const conn = new Connection(
@@ -137,7 +160,11 @@ export async function grant(args: { owner: unknown; ip: string }): Promise<Grant
       return refuse(200, 'This wallet already has demo funds — nothing to send.')
     }
     if (wantQuote && poolQuote < FLOOR_QUOTE) return refuse(503, 'The demo-USDC pool is empty for now.')
-    if ((faucetInfo?.lamports ?? 0) < FLOOR_LAMPORTS) return refuse(503, 'The faucet is out of SOL for now.')
+    const cost =
+      FEE_LAMPORTS + (wantSol ? GRANT_LAMPORTS : 0) + (wantQuote && !userAtaInfo ? QUOTE_ACCOUNT_RENT : 0)
+    if ((faucetInfo?.lamports ?? 0) < cost + RESERVE_LAMPORTS) {
+      return refuse(503, 'The faucet is out of SOL for now.')
+    }
 
     const tx = new Transaction()
     if (wantQuote) {
@@ -168,13 +195,16 @@ export async function grant(args: { owner: unknown; ip: string }): Promise<Grant
     tx.sign(faucet)
     const raw = tx.serialize()
     const sig = await conn.sendRawTransaction(raw, { skipPreflight: false })
-    record([addr, ip, 'hour', 'day'], now)
+    record(keys, now)
 
     const deadline = Date.now() + 45_000
     while (Date.now() < deadline) {
       const { value } = await conn.getSignatureStatuses([sig], { searchTransactionHistory: true })
       const st = value[0]
-      if (st?.err) return refuse(502, `The grant failed on chain: ${JSON.stringify(st.err)}`)
+      if (st?.err) {
+        unrecord(keys, now)
+        return refuse(502, `The grant failed on chain: ${JSON.stringify(st.err)}`)
+      }
       if (st && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')) {
         const parts = [wantQuote ? '1,000 demo-USDC' : null, wantSol ? '0.012 devnet SOL' : null]
         return {
@@ -182,14 +212,24 @@ export async function grant(args: { owner: unknown; ip: string }): Promise<Grant
           body: { ok: true, message: `Sent ${parts.filter(Boolean).join(' and ')}.`, signature: sig },
         }
       }
-      if ((await conn.getBlockHeight('confirmed')) > lastValidBlockHeight) break
+      if ((await conn.getBlockHeight('confirmed')) > lastValidBlockHeight) {
+        // Past its blockhash's last valid height, a transaction that has not
+        // landed never will. One last look, then it is certainly nothing.
+        const { value: last } = await conn.getSignatureStatuses([sig], { searchTransactionHistory: true })
+        if (!last[0]) {
+          unrecord(keys, now)
+          return refuse(504, 'The network dropped the grant — nothing was sent. Try again.')
+        }
+        break
+      }
       await conn.sendRawTransaction(raw, { skipPreflight: true }).catch(() => {})
       await new Promise((r) => setTimeout(r, 1_500))
     }
+    // Ambiguous: it may yet land, so it still counts against this wallet.
     return refuse(504, `The grant was sent but not confirmed in time — check ${sig.slice(0, 16)}… before retrying.`)
   } catch (e) {
     return refuse(502, `The faucet could not reach the chain: ${(e as Error).message}`)
   } finally {
-    inFlight = false
+    inFlight.delete(addr)
   }
 }

@@ -4,6 +4,7 @@
  *   node scripts/demo/judge-path.ts                       # connect, fund, queue $200 of SPYx
  *   node scripts/demo/judge-path.ts --symbol AAPLx --usd 50
  *   node scripts/demo/judge-path.ts --cancel              # cancel every order this wallet has
+ *   node scripts/demo/judge-path.ts --revoke-all          # the emergency exit: revoke, then close everything
  *   node scripts/demo/judge-path.ts --look                # just connect and record the board
  *   node scripts/demo/judge-path.ts --watch 20            # record until this wallet's orders fill (≤20 min)
  *   --headed   watch it happen      --url <site>   a different deployment
@@ -43,6 +44,9 @@ function wallet(): Keypair {
 }
 
 const step = (s: string) => console.log(`  · ${s}`)
+
+/** A cancel that revokes signs more than the close alone. */
+const bellDelegatedBefore = (txs: string[]) => txs.length > 1
 
 async function connect(page: Page) {
   step('connecting through the Wallet Standard')
@@ -118,16 +122,45 @@ async function main() {
         }
         await page.waitForTimeout(5_000)
       }
+    } else if (flag('revoke-all')) {
+      const before = signed.length
+      await page.getByRole('button', { name: /revoke all funding/i }).click()
+      const r = await notice(page)
+      step(`${r.ok ? 'revoked' : 'FAILED'}: ${r.text}`)
+      const txs = signed.slice(before).map((t) => t.programs.join('+'))
+      step(`signed in order: ${txs.join('  →  ')}`)
+      if (txs[0] !== 'spl-token') {
+        failed = true
+        step('FAILED: the first transaction was not a lone SPL revoke')
+      }
+      if (!r.ok) failed = true
     } else if (flag('cancel')) {
+      // Balances render before the order list, which is a second read — so
+      // count the cancel buttons only once there are orders on screen, or
+      // once the chain confirms there are none.
+      if ((await readOrders(conn, kp.publicKey)).length > 0) {
+        await page.locator('.order').first().waitFor({ timeout: 30_000 })
+      }
       const buttons = page.getByRole('button', { name: /^cancel$/i })
       const n = await buttons.count()
       step(`${n} order(s) to cancel`)
       for (let i = 0; i < n; i++) {
+        const before = signed.length
         await page.getByRole('button', { name: /^cancel$/i }).first().click()
         const r = await notice(page)
         step(`${r.ok ? 'cancelled' : 'FAILED'}: ${r.text}`)
+        // The revoke must land on its own, first, touching nothing of BELL's.
+        const txs = signed.slice(before).map((t) => t.programs.join('+'))
+        step(`signed in order: ${txs.join('  →  ')}`)
+        if (bellDelegatedBefore(txs) && txs[0] !== 'spl-token') {
+          failed = true
+          step('FAILED: the first transaction was not a lone SPL revoke')
+        }
         if (!r.ok) failed = true
-        await page.waitForTimeout(2_000)
+        // The next press must land on the next order, not on this one again.
+        for (let t = 0; t < 20 && (await page.locator('.order').count()) > n - i - 1; t++) {
+          await page.waitForTimeout(1_000)
+        }
       }
     } else {
       const have = await quoteShown(page)
@@ -164,7 +197,7 @@ async function main() {
     step(`the wallet signed ${signed.length} transaction(s)`)
   } catch (e) {
     failed = true
-    console.error(`  ✗ ${(e as Error).message.split('\n')[0]}`)
+    console.error(`  ✗ ${(e as Error).message.split('\n').slice(0, 8).join('\n    ')}`)
     await page.screenshot({ path: `${OUT}/judge-path-failed-${Date.now()}.png`, fullPage: true }).catch(() => {})
   } finally {
     const video = await page.video()?.path()

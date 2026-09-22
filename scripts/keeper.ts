@@ -7,14 +7,20 @@
  * Dry run is the default, following the same invariant as Ripcord: a process
  * that writes to a chain should never do so because someone forgot a flag.
  */
-import { connect,
-  readSymbolState } from '../src/chain/client.ts'
+import { connect, readAllSymbols } from '../src/chain/client.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
 import { Recorder } from '../src/record.ts'
 
 const INTERVAL_MS = Number(process.env.BELL_INTERVAL_MS ?? 45_000)
+/**
+ * Exit if no tick has succeeded for this long, so the restart policy brings
+ * the keeper back. A `fetch` with no timeout can hang forever, and a hung
+ * keeper is the worst kind of failure: Railway shows it running, and every
+ * symbol quietly goes stale.
+ */
+const WATCHDOG_MS = Number(process.env.BELL_WATCHDOG_MS ?? 300_000)
 const ATTESTOR_PATH = process.env.BELL_ATTESTOR_KEYPAIR ?? '.attestor.json'
 const ONCE = process.argv.includes('--once')
 const dryRun = process.env.BELL_ARM !== '1'
@@ -31,8 +37,11 @@ async function once() {
 
   const stamp = result.at.toISOString().slice(11, 19)
   console.log(`\n[${stamp}] ${dryRun ? 'DRY RUN' : 'ARMED'}`)
+  // One read for the whole log, not one per symbol: nine more requests a tick
+  // at a public endpoint is how the keeper earns itself a 429.
+  const after = await readAllSymbols(conn, result.decisions.map((d) => d.listing)).catch(() => null)
   for (const d of result.decisions) {
-    const state = await readSymbolState(conn, d.listing.symbol)
+    const state = after?.get(d.listing.symbol)?.state
     // observedAt is 0 until the first push; that is "never", not an age.
     const age =
       state && state.observedAt > 0n ? Math.floor(Date.now() / 1000) - Number(state.observedAt) : null
@@ -95,14 +104,26 @@ if (ONCE) {
   }
 } else {
   console.log(`keeper every ${INTERVAL_MS / 1000}s — ctrl-c to stop`)
+  let lastOk = Date.now()
+  setInterval(() => {
+    if (Date.now() - lastOk > WATCHDOG_MS) {
+      console.error(`watchdog: no successful tick for ${Math.round((Date.now() - lastOk) / 1000)}s, exiting to be restarted`)
+      process.exit(1)
+    }
+  }, 15_000).unref()
   for (;;) {
+    const started = Date.now()
     try {
       await once()
+      lastOk = Date.now()
     } catch (e) {
       // Never exit the loop on a transient sensor failure: an attestation that
       // stops being refreshed closes its symbol on its own, which is correct.
       console.error('  tick failed:', (e as Error).message)
     }
-    await new Promise((r) => setTimeout(r, INTERVAL_MS))
+    // The interval is the cadence, not the gap. Sleeping a full interval after
+    // a ~12s tick made the real period ~57s, which is what left attestations
+    // landing 110s old against a 120s limit.
+    await new Promise((r) => setTimeout(r, Math.max(0, INTERVAL_MS - (Date.now() - started))))
   }
 }

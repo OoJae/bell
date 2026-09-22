@@ -32,7 +32,19 @@ import { ALLOWLIST, type Listing } from '../../src/config.ts'
 import { HaltState } from '../../src/policy/reconcile.ts'
 
 export const RPC_URL = process.env.NEXT_PUBLIC_BELL_RPC ?? 'http://127.0.0.1:8899'
-export const connection = () => new Connection(RPC_URL, 'confirmed')
+/**
+ * No automatic retry on 429. web3.js otherwise sleeps and retries a
+ * rate-limited request with backoff, silently, for as long as it takes — so a
+ * throttled poll overlapped the next one and the page piled requests onto the
+ * endpoint that was already refusing it. A failed poll is shown as one, and
+ * the next poll is the retry.
+ */
+export const connection = () =>
+  new Connection(RPC_URL, { commitment: 'confirmed', disableRetryOnRateLimit: true })
+
+/** A devnet explorer link for a signature, so every claim on the page can be checked. */
+export const explorerTx = (sig: string) =>
+  `https://explorer.solana.com/tx/${sig}${RPC_URL.includes('devnet') ? '?cluster=devnet' : ''}`
 
 /**
  * Display names keyed by the named `HaltState` constants, not by position. A
@@ -51,7 +63,8 @@ const HALT_NAMES: Record<number, string> = {
 /** One row of the gate panel: what this check saw, and whether it is happy. */
 export interface GateRow {
   label: string
-  ok: boolean
+  /** Null for "in between": a price that is due to be replaced, not a failure. */
+  ok: boolean | null
   detail: string
   /**
    * The `BellError` this row stands for in `check_tradeable`, or absent when the
@@ -62,12 +75,34 @@ export interface GateRow {
   refuses?: string
 }
 
+/**
+ * What the board badge says. Derived from the refusal's *reason*, because
+ * "closed" for a stale attestation, a paused mint or a pending dividend is a
+ * claim about the market that is not true — and for a product whose output is
+ * why it said no, the wrong why is the bug.
+ */
+export type Status =
+  | 'loading'
+  | 'tradeable'
+  | 'closed' // the primary market is shut; parks for the bell
+  | 'halted' // a halt with an exchange reason code
+  | 'withdrawn' // the issuer stopped its own token; the underlying trades
+  | 'suspended' // stopped, reason not published
+  | 'stale' // our attestation or mint read is too old to vouch for
+  | 'paused' // the issuer froze the mint
+  | 'rebase' // a corporate action is pending or just landed
+  | 'hook' // the issuer armed a transfer hook
+  | 'offline' // we cannot reach the chain or the program
+  | 'unlisted'
+  | 'refused'
+
 export interface SymbolView {
   listing: Listing
   /** The program's own answer. Null while loading. */
   allowed: boolean | null
   /** `BellError` variant when refused. */
   reason: string | null
+  status: Status
   gates: GateRow[]
   /** Seconds since the attestation, or null if never attested. */
   attestationAge: number | null
@@ -76,7 +111,72 @@ export interface SymbolView {
   openNow: boolean
   priceUsd: number | null
   registered: boolean
+  /** The attested halt state (`HaltState`). */
+  halt: number
+  /** The mark's raw-per-raw rate, for an order's loss floor; null without a mark. */
+  markRateQ64: bigint | null
+  /** The multiplier in force, as the last mint read recorded it. */
+  multiplierBits: bigint | null
+  /** When a scheduled multiplier change lands, if one is still ahead; else 0. */
+  changeAt: number
 }
+
+/**
+ * Fold a refusal into a badge. `halt` separates the kinds of stopped: a reason
+ * code from the exchange feed is a halt; an unflagged stop on a listing whose
+ * issuer is known to have withdrawn it is a withdrawal; anything else says
+ * only what is known.
+ */
+export function statusOf(v: Pick<SymbolView, 'allowed' | 'reason' | 'halt' | 'listing'>): Status {
+  if (v.allowed === null) return 'loading'
+  if (v.allowed) return 'tradeable'
+  switch (v.reason) {
+    case 'StateStale':
+    case 'RiskStale':
+      return 'stale'
+    case 'IssuerPaused':
+      return 'paused'
+    case 'RebasePending':
+    case 'RebaseUnclassified':
+      return 'rebase'
+    case 'HookArmed':
+      return 'hook'
+    case 'unavailable':
+      return 'offline'
+    case 'NotRegistered':
+      return 'unlisted'
+    case 'MarketClosed':
+      if (v.halt === HaltState.None) return 'closed'
+      if (v.halt !== HaltState.Unspecified) return 'halted'
+      return v.listing.withdrawn ? 'withdrawn' : 'suspended'
+    default:
+      return 'refused'
+  }
+}
+
+/** What has to change for a parked order to fill — the end of "fills when …". */
+export function clearsWhen(v: Pick<SymbolView, 'reason' | 'status'>): string {
+  switch (v.status) {
+    case 'stale':
+      return v.reason === 'RiskStale' ? 'the mint is re-read' : 'the attestation is fresh'
+    case 'paused':
+      return 'the issuer unpauses'
+    case 'rebase':
+      return v.reason === 'RebaseUnclassified' ? 'the corporate action is identified' : 'the rebase window passes'
+    case 'hook':
+      return 'the hook is disarmed'
+    case 'halted':
+    case 'suspended':
+      return 'trading resumes'
+    case 'offline':
+      return 'the chain is reachable'
+    default:
+      return 'the gate clears'
+  }
+}
+
+/** A price counts as due for replacement, not stale, for this long past the limit. */
+const MARK_GRACE_SECONDS = 10
 
 const ago = (t: bigint, now: number) => (t > 0n ? now - Number(t) : null)
 
@@ -141,12 +241,17 @@ export async function loadSymbol(
       listing,
       allowed: false,
       reason: 'NotRegistered',
+      status: 'unlisted',
       gates: [{ label: 'registered', ok: false, detail: 'this symbol is not set up on chain' }],
       attestationAge: null,
       nextChangeAt: 0,
       openNow: false,
       priceUsd: null,
       registered: false,
+      halt: HaltState.None,
+      markRateQ64: null,
+      multiplierBits: null,
+      changeAt: 0,
     }
   }
 
@@ -172,7 +277,11 @@ export async function loadSymbol(
       detail:
         state.halt === HaltState.None
           ? `clear on ${state.exchangeMic}`
-          : (HALT_NAMES[state.halt] ?? 'halted'),
+          : state.halt !== HaltState.Unspecified
+            ? `halted on ${state.exchangeMic}: ${HALT_NAMES[state.halt] ?? 'halted'}`
+            : listing.withdrawn
+              ? `the issuer has withdrawn this token — ${listing.underlying} itself is not halted`
+              : 'trading stopped; no reason published',
     },
     {
       // Gate 2b. Everything below is proven from the mint, but only as of the
@@ -225,14 +334,26 @@ export async function loadSymbol(
         : 'primary market is closed — queue it for the bell',
     },
     {
+      // Informational: it gates a fill, not `assert_tradeable`. A new price
+      // lands every 45–60s, so one just past the limit is due, not stale — and
+      // the filler waits for it rather than filling on the old one.
       label: 'price fresh',
-      ok: markAge !== null && markAge <= MAX_MARK_AGE_SECONDS,
+      ok:
+        markAge === null
+          ? false
+          : markAge <= MAX_MARK_AGE_SECONDS - 5
+            ? true
+            : markAge <= MAX_MARK_AGE_SECONDS + MARK_GRACE_SECONDS
+              ? null
+              : false,
       detail:
         markAge === null
           ? 'no price attested — cannot fill'
-          : markAge <= MAX_MARK_AGE_SECONDS
+          : markAge <= MAX_MARK_AGE_SECONDS - 5
             ? `${markAge}s old`
-            : `${markAge}s old — stale`,
+            : markAge <= MAX_MARK_AGE_SECONDS + MARK_GRACE_SECONDS
+              ? `${markAge}s old — refreshing; a fill waits for the next price`
+              : `${markAge}s old — stale`,
     },
   ]
 
@@ -246,8 +367,8 @@ export async function loadSymbol(
   allowed = !firstFail
   reason = firstFail?.refuses ?? null
 
-  if (!simulate) {
-    return {
+  const view = (): SymbolView => {
+    const v = {
       listing,
       allowed,
       reason,
@@ -257,8 +378,16 @@ export async function loadSymbol(
       openNow: state.openNow,
       priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
       registered: true,
+      halt: state.halt,
+      markRateQ64: mark && mark.observedAt > 0n && mark.rateQ64 > 0n ? mark.rateQ64 : null,
+      multiplierBits: risk.multiplierBits,
+      changeAt:
+        risk.pendingMultiplierBits !== 0n && Number(risk.activatesAt) > now ? Number(risk.activatesAt) : 0,
     }
+    return { ...v, status: statusOf(v) }
   }
+
+  if (!simulate) return view()
 
   try {
     // A simulated transaction still nominates a fee payer, and it has to be a
@@ -283,18 +412,16 @@ export async function loadSymbol(
     reason = 'unavailable'
   }
 
-  return {
-    listing,
-    allowed,
-    reason,
-    gates,
-    attestationAge: age,
-    nextChangeAt: Number(state.nextChangeAt),
-    openNow: state.openNow,
-    priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
-    registered: true,
-  }
+  return view()
 }
+
+/**
+ * The board when the chain cannot be read: every symbol refused. A red panel
+ * above tiles still reading "tradeable" from the last good poll is the board
+ * disagreeing with itself — and the tiles are what gets believed.
+ */
+export const offline = (views: SymbolView[]): SymbolView[] =>
+  views.map((v) => ({ ...v, allowed: false, reason: 'unavailable', status: 'offline' as const }))
 
 /**
  * The whole board, in one RPC round trip plus one simulation.
@@ -399,6 +526,27 @@ export async function loadBoard(
   }
 }
 
+/**
+ * The verdict line for a symbol: the refusal in words, told apart by what
+ * kind of stopped it is. `MarketClosed` alone covers a shut market, an
+ * exchange halt and an issuer withdrawal, and only one of those is the market
+ * being closed.
+ */
+export function explainView(v: SymbolView): string {
+  switch (v.status) {
+    case 'closed':
+      return 'The primary market is closed. An order parks and fills at the opening bell.'
+    case 'halted':
+      return `Halted on its primary exchange (${HALT_NAMES[v.halt] ?? 'halted'}). Nothing trades until it resumes.`
+    case 'withdrawn':
+      return `The issuer has withdrawn this token; ${v.listing.underlying} itself is not halted. BELL refuses it as a withdrawal, not an exchange halt.`
+    case 'suspended':
+      return 'Trading in this security has stopped, and no reason has been published.'
+    default:
+      return explain(v.reason)
+  }
+}
+
 /** Plain-English rendering of a refusal. The reason is the product. */
 export function explain(reason: string | null): string {
   switch (reason) {
@@ -430,6 +578,12 @@ export function explain(reason: string | null): string {
       return 'The order is not funded — the approval did not cover it.'
     case 'RiskStale':
       return "Nobody has re-read this token's issuer settings recently enough to trust them."
+    case 'MarkTooWide':
+      return 'The price sources disagree by more than this order accepts, so it waits for them to agree.'
+    case 'AlreadyClosed':
+      return 'That order is already closed — filled, or tidied up after its funding was revoked.'
+    case 'unavailable':
+      return 'Cannot reach the chain or the program right now — and that is not permission to trade.'
     case 'NotRegistered':
       return 'This symbol is not set up on chain yet.'
     default:

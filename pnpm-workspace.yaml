@@ -3,11 +3,6 @@ packages:
   - 'web'
 
 allowBuilds:
-  '@stellar/stellar-sdk': false
   better-sqlite3: true
-  blake-hash: false
   bufferutil: true
-  protobufjs: false
-  tiny-secp256k1: false
-  usb: false
   utf-8-validate: true

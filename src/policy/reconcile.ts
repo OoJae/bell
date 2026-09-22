@@ -159,17 +159,20 @@ export function reconcile(args: {
     }
   }
 
-  // 4. No Pyth feed. Expected for non-US listings, a gap otherwise — either
-  //    way we are single-sourced and say so rather than implying confirmation.
+  // 4. No Pyth feed. Expected for non-US listings, where the issuer is the only
+  //    source there can be. For a US listing it is a missing source, and a
+  //    missing source closes the symbol: Backed's 24/5 wrapper reads open all
+  //    night, so trusting it alone would open the venue whenever Pyth drops a
+  //    ticker — and fill orders parked for the bell in the small hours.
   if (!pyth) {
     return {
       halt: HaltState.None,
-      openNow: issuer.openNow,
+      openNow: args.nonUsListing ? issuer.openNow : false,
       nextChangeAt: next,
       confidence: args.nonUsListing ? 'degraded' : 'unavailable',
       detail: args.nonUsListing
         ? 'non-US listing: no Equity.US feed exists, issuer is the only source'
-        : 'expected a Pyth feed for this ticker and found none',
+        : 'expected a Pyth feed for this ticker and found none; closed until one arrives',
     }
   }
 

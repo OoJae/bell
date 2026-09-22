@@ -1,0 +1,41 @@
+# Is the live deployment healthy? Every 15 minutes, read-only.
+#
+# BELL fails closed, which is right and also quiet: a dead keeper looks exactly
+# like a closed market. This is what notices. A failed run emails the repo
+# owner. It holds no keys and sends no transactions — every value below is a
+# public address. Lives under .github/, outside every Railway watch pattern, so
+# changing it never redeploys a service.
+name: health
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      # Same install as Dockerfile.keeper: the root package only, no build scripts.
+      - run: npm i -g pnpm@11.1.2
+      - run: pnpm install --prod --frozen-lockfile --ignore-scripts --filter .
+      - run: node scripts/health.ts
+        env:
+          BELL_CLUSTER: devnet
+          BELL_RPC_URL: https://api.devnet.solana.com
+          BELL_FAUCET: piSfW5NsLpC1eYCmouMjHj6EEn1SrsXjeZnv3jDmpt5
+          BELL_FILLER: 4v5r4eSnB7kmnAmJ6ia9X1Mhu7tZKpznLb3x5PdMjtN2
+          BELL_QUOTE_MINT: 8QhSxevJerJq8khpNsfW69bUPvcBjMRTXPKrxYQAtAaX
+          BELL_SITE_URL: https://web-production-f46ca9.up.railway.app

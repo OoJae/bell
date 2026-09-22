@@ -105,3 +105,22 @@ th { color: var(--dim); font-weight: 500; }
 .bal { display: flex; gap: 18px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--dim); }
 .bal strong { color: var(--fg); font-weight: 600; }
 .bal.holdings { margin-top: 6px; flex-wrap: wrap; gap: 14px; }
+
+/* a price due for replacement is neither a pass nor a failure */
+.wait { color: var(--dim); }
+.badge.dim { background: rgba(139,151,166,.15); color: var(--dim); }
+
+/* the emergency exit: always findable, never loud */
+.revoke { display: flex; gap: 12px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--dim); }
+
+/* phones: the gate panel's fixed label column would push details off-screen */
+@media (max-width: 560px) {
+  .wrap { padding: 20px 16px 60px; }
+  .top { flex-direction: column; }
+  .gate { flex-wrap: wrap; gap: 2px 10px; }
+  .gate .label { width: auto; flex: 1 1 auto; }
+  .gate .detail { flex-basis: 100%; padding-left: 24px; }
+  .buy { flex-direction: column; }
+  .order { flex-wrap: wrap; }
+  .bal { flex-wrap: wrap; gap: 10px 14px; }
+}

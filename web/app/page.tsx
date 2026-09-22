@@ -1,30 +1,39 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import {
+  clearsWhen,
   connection,
   explain,
+  explainView,
+  explorerTx,
   loadBoard,
   loadOrders,
+  offline,
   RPC_URL,
+  type Status,
   type SymbolView,
   type WalletView,
 } from '../lib/bell.ts'
 import {
-  cancelOrderTx,
-  committedOf,
+  cancelOrderTxs,
   MAX_ORDER_USD,
+  orderExpiry,
   placeOrderTx,
   QUOTE_DECIMALS,
   QUOTE_MINT,
   refusalFrom,
+  revokeAllTxs,
   submit,
+  submitInOrder,
 } from '../lib/queue.ts'
 import { authPda } from '../../src/chain/client.ts'
 import type { BellOrder } from '../../src/chain/codec.ts'
-import { CLUSTER } from '../../src/config.ts'
+import { ataFor } from '../../src/chain/spl.ts'
+import { ALLOWLIST, CLUSTER } from '../../src/config.ts'
+import { deadReason, stillOwed } from '../../src/policy/order.ts'
 
 const POLL_MS = 10_000
 
@@ -36,12 +45,37 @@ const POLL_MS = 10_000
  */
 const MIN_SOL_FOR_ORDER = 0.0036
 
+/**
+ * The badge says what kind of no it is. It used to be binary — "closed" for a
+ * stale attestation, a paused mint or a pending dividend alike — which is a
+ * false statement about the market whenever the market is in fact open.
+ */
+const BADGE: Record<Status, [text: string, tone: string]> = {
+  loading: ['…', ''],
+  tradeable: ['tradeable', 'ok'],
+  closed: ['closed', 'no'],
+  halted: ['halted', 'stop'],
+  withdrawn: ['withdrawn', 'stop'],
+  suspended: ['suspended', 'stop'],
+  stale: ['stale', 'no'],
+  paused: ['paused', 'stop'],
+  rebase: ['rebase', 'no'],
+  hook: ['hook armed', 'stop'],
+  offline: ['offline', 'dim'],
+  unlisted: ['unlisted', 'dim'],
+  refused: ['refused', 'no'],
+}
+
 function Badge({ view }: { view: SymbolView }) {
-  if (view.allowed === null) return <span className="badge">…</span>
-  if (view.allowed) return <span className="badge ok">tradeable</span>
-  const halted =
-    view.reason === 'MarketClosed' && view.gates.find((g) => g.label === 'not halted')?.ok === false
-  return <span className={`badge ${halted ? 'stop' : 'no'}`}>{halted ? 'halted' : 'closed'}</span>
+  const [text, tone] = BADGE[view.status]
+  return <span className={`badge ${tone}`}>{text}</span>
+}
+
+interface Notice {
+  ok: boolean
+  text: string
+  /** The transaction that proves it, linked to the explorer. */
+  sig?: string
 }
 
 const usd = (raw: bigint) =>
@@ -61,7 +95,7 @@ function describe(e: unknown): string {
 
 export default function Page() {
   const conn = useMemo(() => connection(), [])
-  const { publicKey, signTransaction } = useWallet()
+  const { publicKey, signTransaction, signAllTransactions } = useWallet()
   const [views, setViews] = useState<SymbolView[]>([])
   const [wallet, setWallet] = useState<WalletView | null>(null)
   // `null` means "not read yet, or the last read failed" — never "none".
@@ -71,56 +105,119 @@ export default function Page() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [amount, setAmount] = useState('200')
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
   // The wallet button renders from browser-only state, so it must not be part
   // of the server-rendered markup.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
+  // One poll at a time. A slow or throttled read used to overlap the next
+  // one, and each overlap was another request at an endpoint already saying no.
+  // A refresh asked for mid-poll is not dropped but run once the poll ends,
+  // with the latest wallet and symbol — otherwise connecting a wallet during a
+  // poll left its balances and orders off screen until the next one.
+  const polling = useRef(false)
+  const again = useRef(false)
+  /** Orders this page has closed; a poll that began before the close must not bring them back. */
+  const closed = useRef(new Set<string>())
+  /**
+   * A fresh read of the book, corrected by what this page already knows.
+   * Public RPC load-balances across nodes that lag each other by a few
+   * seconds, so a read right after a close can still list the closed order —
+   * and one right after a place can miss the new one. Leaving out what we
+   * closed and keeping what we last saw errs toward funding too much, never
+   * toward silently defunding a live order.
+   */
+  const known = useCallback(
+    (fresh: BellOrder[]) => {
+      const byNonce = new Map<string, BellOrder>()
+      for (const o of [...(orders ?? []), ...fresh]) byNonce.set(String(o.nonce), o)
+      return [...byNonce.values()].filter((o) => !closed.current.has(String(o.nonce)))
+    },
+    [orders],
+  )
+  const latest = useRef<() => Promise<void>>(async () => {})
   const refresh = useCallback(async () => {
-    try {
-      const board = await loadBoard(conn, QUOTE_MINT, selected ?? undefined, publicKey)
-      setViews(board.views)
-      setWallet(board.wallet)
-      setUpdatedAt(new Date())
-      setError(null)
-    } catch (e) {
-      // Losing the RPC is not permission to trade; say so rather than showing
-      // a stale board that still reads "tradeable".
-      setError((e as Error).message)
+    if (polling.current) {
+      again.current = true
+      return
     }
-    if (publicKey) {
+    polling.current = true
+    try {
       try {
-        setOrders(await loadOrders(conn, publicKey))
-      } catch {
-        // Keep showing the last list we actually read. What must never happen
-        // is a failed read becoming "you have no orders" — `place()` below
-        // re-reads for itself rather than trusting this copy.
+        // With nothing chosen yet, the first symbol on the board is the one on
+        // screen — so it gets the program's own answer from the first load.
+        const board = await loadBoard(conn, QUOTE_MINT, selected ?? ALLOWLIST[0]?.symbol, publicKey)
+        setViews(board.views)
+        setWallet(board.wallet)
+        setUpdatedAt(new Date())
+        setError(null)
+      } catch (e) {
+        // Losing the RPC is not permission to trade. Every tile says so too —
+        // a red panel above tiles still reading "tradeable" from the last good
+        // poll is the page disagreeing with itself.
+        setViews((v) => offline(v))
+        setError((e as Error).message)
       }
-    } else {
-      setOrders(null)
+      if (publicKey) {
+        try {
+          const book = await loadOrders(conn, publicKey)
+          setOrders(book.filter((o) => !closed.current.has(String(o.nonce))))
+        } catch {
+          // Keep showing the last list we actually read. What must never happen
+          // is a failed read becoming "you have no orders" — `place()` below
+          // re-reads for itself rather than trusting this copy.
+        }
+      } else {
+        setOrders(null)
+      }
+    } finally {
+      polling.current = false
+    }
+    if (again.current) {
+      again.current = false
+      await latest.current()
     }
     // `selected` decides which symbol gets the authoritative on-chain check.
   }, [conn, publicKey, selected])
+  useEffect(() => {
+    latest.current = refresh
+  }, [refresh])
 
   useEffect(() => {
-    void refresh()
-    const id = setInterval(() => void refresh(), POLL_MS)
-    return () => clearInterval(id)
+    // Each poll is scheduled when the last one finishes, never on a fixed beat.
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const tick = async () => {
+      await refresh()
+      if (!stopped) timer = setTimeout(() => void tick(), POLL_MS)
+    }
+    void tick()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+    }
   }, [refresh])
 
   const current = views.find((v) => v.listing.symbol === selected) ?? views[0]
   const tradeable = views.filter((v) => v.allowed).length
   const auth = useMemo(() => (publicKey ? authPda(publicKey) : null), [publicKey])
+  const bellDelegated = !!(wallet && auth && wallet.delegate?.equals(auth))
+
+  /** The multiplier in force for a symbol, as the board last read it. */
+  const multiplierOf = useCallback(
+    (symbol: string) => views.find((v) => v.listing.symbol === symbol)?.multiplierBits,
+    [views],
+  )
+  const nowS = () => Math.floor(Date.now() / 1000)
 
   /** An order the wallet's single delegation no longer covers cannot fill. */
   const funded = useCallback(
     (list: BellOrder[]) => {
       if (!wallet || !auth) return true
-      const delegatedToUs = wallet.delegate?.equals(auth) ?? false
-      return delegatedToUs && wallet.delegatedAmount >= committedOf(list)
+      return bellDelegated && wallet.delegatedAmount >= stillOwed(list, nowS(), multiplierOf)
     },
-    [auth, wallet],
+    [auth, bellDelegated, multiplierOf, wallet],
   )
 
   const getFunds = useCallback(async () => {
@@ -161,6 +258,19 @@ export default function Page() {
       if (wallet.sol < MIN_SOL_FOR_ORDER) {
         throw new Error('This wallet needs a little devnet SOL for account rent — use "Get demo funds".')
       }
+      if (current.status === 'withdrawn') {
+        throw new Error('The issuer has withdrawn this token, so an order would wait on the issuer, not on a bell.')
+      }
+      const now = nowS()
+      const nextOpen = current.openNow ? null : current.nextChangeAt || null
+      // An order snapshots the multiplier it was built against, and the gate
+      // refuses it for good once that moves. Parking one across a scheduled
+      // change is parking an order that can never fill.
+      if (!current.allowed && current.changeAt > 0 && current.changeAt < orderExpiry(now, nextOpen)) {
+        throw new Error(
+          `A corporate action is scheduled for ${new Date(current.changeAt * 1000).toLocaleString()}, before this order could fill — it would be refused as resized. Place it after the change lands.`,
+        )
+      }
 
       // Re-read this wallet's orders now, with no fallback. The approval has
       // to cover the whole book, because SPL `Approve` replaces the delegated
@@ -169,13 +279,15 @@ export default function Page() {
       // not guess at it.
       let book: BellOrder[]
       try {
-        book = await loadOrders(conn, publicKey)
+        book = known(await loadOrders(conn, publicKey))
       } catch {
         throw new Error(
           'Could not read your existing orders just now, so nothing was sent — approving without them would defund them. Try again in a moment.',
         )
       }
-      const committed = committedOf(book)
+      // Every order that can still fill, and only those: expired and resized
+      // orders never settle, so funding them only ties up the quote.
+      const committed = stillOwed(book, now, multiplierOf)
       const wanted = committed + BigInt(Math.round(usdAmount * 10 ** QUOTE_DECIMALS))
       if (wallet.quote < wanted) {
         throw new Error(
@@ -188,16 +300,20 @@ export default function Page() {
         listing: current.listing,
         usd: usdAmount,
         nonce: BigInt(Date.now()),
-        now: Math.floor(Date.now() / 1000),
+        now,
         committed,
-        nextOpen: current.openNow ? null : current.nextChangeAt || null,
+        nextOpen,
+        markRateQ64: current.markRateQ64,
       })
       const sig = await submit(conn, tx, publicKey, signTransaction)
       setNotice({
         ok: true,
+        sig,
         text: current.allowed
-          ? `Placed $${usdAmount} of ${current.listing.symbol}. The filler settles it on its next pass, within about five minutes. Your funds stay in your wallet until then — ${sig.slice(0, 16)}…`
-          : `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet — ${sig.slice(0, 16)}…`,
+          ? `Placed $${usdAmount} of ${current.listing.symbol}. The filler settles it on its next pass, within about five minutes. Your funds stay in your wallet until then.`
+          : current.status === 'closed'
+            ? `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet.`
+            : `Parked $${usdAmount} of ${current.listing.symbol}; it fills when ${clearsWhen(current)}. Your funds never left your wallet.`,
       })
       await refresh()
     } catch (e) {
@@ -205,7 +321,7 @@ export default function Page() {
     } finally {
       setBusy(false)
     }
-  }, [amount, conn, current, publicKey, refresh, signTransaction, wallet])
+  }, [amount, conn, current, known, multiplierOf, publicKey, refresh, signTransaction, wallet])
 
   const cancel = useCallback(
     async (order: BellOrder) => {
@@ -213,8 +329,59 @@ export default function Page() {
       setBusy(true)
       setNotice(null)
       try {
-        const sig = await submit(conn, cancelOrderTx(publicKey, order), publicKey, signTransaction)
-        setNotice({ ok: true, text: `Revoked and cancelled — ${sig.slice(0, 16)}…` })
+        // What the other orders still need, read fresh. If the book cannot be
+        // read, cancel anyway and leave them unfunded — a cancel that waits on
+        // a read is a cancel that can fail, and stopping is the safe direction.
+        let rest = 0n
+        let unread = false
+        try {
+          const book = known(await loadOrders(conn, publicKey))
+          rest = stillOwed(
+            book.filter((o) => o.nonce !== order.nonce),
+            nowS(),
+            multiplierOf,
+          )
+        } catch {
+          unread = true
+        }
+        const txs = cancelOrderTxs(publicKey, order, rest, bellDelegated)
+        const { sigs, error, failedAt } = await submitInOrder(
+          conn,
+          txs,
+          publicKey,
+          signTransaction,
+          signAllTransactions,
+          (i, e) => bellDelegated && i === 1 && refusalFrom(e) === 'AlreadyClosed',
+        )
+        const revoked = bellDelegated && sigs[0] != null
+        // The close landed (or found it already gone): take it off the list
+        // now. A poll that began before the close would otherwise put it back
+        // on screen, and the next cancel press would land on a closed order.
+        if (failedAt === null) {
+          closed.current.add(String(order.nonce))
+          setOrders((list) => list?.filter((o) => o.nonce !== order.nonce) ?? list)
+        }
+        if (failedAt === null) {
+          setNotice({
+            ok: true,
+            sig: sigs[0] ?? undefined,
+            text: !bellDelegated
+              ? 'Closed, and the rent returned. It was already unfunded — nothing was revoked.'
+              : `Cancelled. Funding was revoked first, then ${sigs[1] ? 'the order closed and its rent returned' : 'the order turned out to be closed already'}${rest > 0n ? `, then your other orders re-funded ($${usd(rest)})` : ''}.${unread ? ' Your other orders could not be read, so they are unfunded too — cancel or re-place them.' : ''}`,
+          })
+        } else if (revoked) {
+          // The part that matters landed. Say so before saying what did not.
+          setNotice({
+            ok: true,
+            sig: sigs[0] ?? undefined,
+            text:
+              failedAt === 1
+                ? `Funding revoked — this order can no longer fill. Closing it failed (${describe(error)}); press cancel again to reclaim the rent.${rest > 0n ? ' Your other orders are unfunded until then.' : ''}`
+                : `Cancelled, but re-funding your other orders failed (${describe(error)}). They cannot fill until re-funded — placing any order re-approves the whole book.`,
+          })
+        } else {
+          setNotice({ ok: false, text: describe(error) })
+        }
         await refresh()
       } catch (e) {
         setNotice({ ok: false, text: describe(e) })
@@ -222,10 +389,58 @@ export default function Page() {
         setBusy(false)
       }
     },
-    [conn, publicKey, refresh, signTransaction],
+    [bellDelegated, conn, known, multiplierOf, publicKey, refresh, signAllTransactions, signTransaction],
   )
 
+  /**
+   * The emergency exit: revoke every approval to BELL, then close every order.
+   * Offered whenever any approval is outstanding, including one no order
+   * explains — an approval whose order never landed is still an approval.
+   */
+  const revokeAll = useCallback(async () => {
+    if (!publicKey || !signTransaction) return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const book = await loadOrders(conn, publicKey).catch(() => orders ?? [])
+      const txs = revokeAllTxs(publicKey, ataFor(publicKey, QUOTE_MINT), book)
+      const { sigs, error, failedAt } = await submitInOrder(
+        conn,
+        txs,
+        publicKey,
+        signTransaction,
+        signAllTransactions,
+        (_, e) => refusalFrom(e) === 'AlreadyClosed',
+      )
+      if (failedAt === null) {
+        for (const o of book) closed.current.add(String(o.nonce))
+        setOrders([])
+      }
+      setNotice(
+        failedAt === null
+          ? {
+              ok: true,
+              sig: sigs[0] ?? undefined,
+              text: `Funding revoked — BELL can no longer spend any of your demo-USDC.${book.length ? ` ${book.length} order(s) closed and their rent returned.` : ''}`,
+            }
+          : failedAt > 0
+            ? {
+                ok: true,
+                sig: sigs[0] ?? undefined,
+                text: `Funding revoked — nothing can fill. Closing the orders failed (${describe(error)}); cancel them to reclaim the rent.`,
+              }
+            : { ok: false, text: describe(error) },
+      )
+      await refresh()
+    } catch (e) {
+      setNotice({ ok: false, text: describe(e) })
+    } finally {
+      setBusy(false)
+    }
+  }, [conn, orders, publicKey, refresh, signAllTransactions, signTransaction])
+
   const bookFunded = orders ? funded(orders) : true
+  const canPlace = !!current && !['withdrawn', 'offline', 'unlisted'].includes(current.status)
 
   return (
     <div className="wrap">
@@ -272,6 +487,17 @@ export default function Page() {
                 Get demo funds
               </button>
             )}
+          </div>
+        )}
+        {publicKey && wallet && bellDelegated && wallet.delegatedAmount > 0n && (
+          <div className="revoke">
+            <span>
+              BELL may spend up to <strong>${usd(wallet.delegatedAmount)}</strong> of your demo-USDC,
+              for your orders only.
+            </span>
+            <button className="mini" disabled={busy} onClick={() => void revokeAll()}>
+              Revoke all funding
+            </button>
           </div>
         )}
         {publicKey && wallet && wallet.holdings.length > 0 && (
@@ -324,14 +550,16 @@ export default function Page() {
               </>
             ) : (
               <>
-                <span className="fail">✕</span> {explain(current.reason)}
+                <span className="fail">✕</span> {explainView(current)}
               </>
             )}
           </p>
 
           {current.gates.map((g) => (
             <div className="gate" key={g.label}>
-              <span className={`mark ${g.ok ? 'pass' : 'fail'}`}>{g.ok ? '✓' : '✕'}</span>
+              <span className={`mark ${g.ok === null ? 'wait' : g.ok ? 'pass' : 'fail'}`}>
+                {g.ok === null ? '↻' : g.ok ? '✓' : '✕'}
+              </span>
               <span className="label">{g.label}</span>
               <span className="detail">{g.detail}</span>
             </div>
@@ -351,7 +579,7 @@ export default function Page() {
             </label>
             <button
               className={`act ${current.allowed ? '' : 'secondary'}`}
-              disabled={!publicKey || busy || !(Number(amount) > 0)}
+              disabled={!publicKey || busy || !canPlace || !(Number(amount) > 0)}
               onClick={() => void place()}
             >
               {busy
@@ -360,15 +588,33 @@ export default function Page() {
                   ? 'Connect a wallet'
                   : current.allowed
                     ? `Place order · the filler settles it within ~5 min`
-                    : `Queue it for the opening bell${
-                        !current.openNow && current.nextChangeAt > 0
-                          ? ` · ${new Date(current.nextChangeAt * 1000).toLocaleString()}`
-                          : ''
-                      }`}
+                    : current.status === 'withdrawn'
+                      ? 'Not queueable · fills only if the issuer resumes'
+                      : current.status === 'offline'
+                        ? 'Cannot reach the chain'
+                        : current.status === 'closed'
+                          ? `Queue it for the opening bell${
+                              current.nextChangeAt > 0
+                                ? ` · ${new Date(current.nextChangeAt * 1000).toLocaleString()}`
+                                : ''
+                            }`
+                          : `Park it — fills when ${clearsWhen(current)}`}
             </button>
           </div>
 
-          {notice && <div className={`notice ${notice.ok ? 'ok' : 'bad'}`}>{notice.text}</div>}
+          {notice && (
+            <div className={`notice ${notice.ok ? 'ok' : 'bad'}`}>
+              {notice.text}
+              {notice.sig && (
+                <>
+                  {' '}
+                  <a href={explorerTx(notice.sig)} target="_blank" rel="noreferrer">
+                    view on explorer ↗
+                  </a>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="note">
             A refusal is never the end of it: the order parks and fills at the open, and cancelling is
@@ -381,18 +627,25 @@ export default function Page() {
         <div className="panel">
           <p className="verdict">Your bell orders</p>
           {orders.map((o) => {
-            const expired = Number(o.expiresAt) <= Date.now() / 1000
+            const dead = deadReason(o, nowS(), multiplierOf(o.symbol))
+            const view = views.find((v) => v.listing.symbol === o.symbol)
             return (
               <div className="order" key={String(o.nonce)}>
                 <span className="label">{o.symbol}</span>
                 <span className="detail">
                   ${usd(o.amountIn)}
                   {o.filledIn > 0n ? ` · $${usd(o.filledIn)} filled` : ''}
-                  {expired
+                  {dead === 'expired'
                     ? ' · expired — cancel to reclaim the rent'
-                    : !bookFunded
-                      ? ' · not funded — the delegation no longer covers it, so it cannot fill'
-                      : ' · waiting for the bell'}{' '}
+                    : dead === 'resized'
+                      ? ' · refused: a corporate action changed its size — cancel to reclaim the rent'
+                      : !bookFunded
+                        ? ' · not funded — the delegation no longer covers it, so it cannot fill'
+                        : view?.allowed
+                          ? ' · the filler settles it on its next pass'
+                          : !view || view.status === 'closed'
+                            ? ' · waiting for the bell'
+                            : ` · parked — fills when ${clearsWhen(view)}`}{' '}
                   · slip ≤ {o.maxSlipBps}bps · until {new Date(Number(o.expiresAt) * 1000).toLocaleString()}
                 </span>
                 <button className="mini" disabled={busy} onClick={() => void cancel(o)}>
@@ -402,11 +655,11 @@ export default function Page() {
             )
           })}
           <div className="note">
-            ${usd(committedOf(orders))} of your demo-USDC is delegated against these orders and stays
-            in your wallet until a fill. Cancelling sends <code>revoke</code> first and reclaims the
-            rent second — the revoke alone makes the order unfillable, so it works even if this
-            program never runs again, and it cancels <em>all</em> of them, because one token account
-            has one delegate.
+            ${usd(stillOwed(orders, nowS(), multiplierOf))} of your demo-USDC is delegated against
+            these orders and stays in your wallet until a fill. Cancelling sends <code>revoke</code>{' '}
+            on its own first — that alone makes every order unfillable, and it works even if this
+            program never runs again — then closes the order for its rent, then re-funds any others
+            you still have.
           </div>
         </div>
       )}

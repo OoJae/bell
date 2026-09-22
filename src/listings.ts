@@ -46,6 +46,21 @@ export interface Listing {
   issuer: Issuer
   /** Why this one is on the list, so nobody has to guess later. */
   note: string
+  /**
+   * The issuer has stopped trading its own token. Not an exchange halt: the
+   * underlying trades normally. Used to label the refusal truthfully and to
+   * stop the page queueing an order that would wait on the issuer, not a bell.
+   * The chain still decides — this only changes the words.
+   */
+  withdrawn?: boolean
+  /**
+   * Widest price disagreement, in bps, an order in this name will accept at
+   * fill time. The keeper attests the spread it sees between sources; a thin
+   * name routinely shows more than a deep one, and a cap tighter than its
+   * normal spread silently refuses half its fills as MarkTooWide. Default 50;
+   * the program's ceiling is 200.
+   */
+  maxConfBps?: number
 }
 
 const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
@@ -92,14 +107,19 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     note: 'carries a live scaledUiAmount multiplier — exercises the rebase gate',
   },
 
-  // Halted on NYSE Arca during the regular session. The §II.H case, live.
+  // Withdrawn by their issuer while the underlying trades normally — the two
+  // conflicts in 928 listings. Not the §II.H case: IWM and JPST were never
+  // halted on Arca (checked against Nasdaq's UTP feed, which carries Arca
+  // halts). They stay on the board because refusing them *truthfully* — as a
+  // withdrawal, not an exchange halt — is part of what the gate is for.
   {
     symbol: 'IWMx',
     mint: 'XsbELVbLGBkn7xfMfyYuUipKGt1iRUc2B7pYRvFTFu3',
     underlying: 'IWM',
     exchangeMic: 'ARCX',
     issuer: 'backed',
-    note: 'halted on its primary exchange: one of only two conflicts in 928 listings',
+    note: 'Backed has withdrawn its wrapper; IWM itself is not halted. BELL refuses it as an issuer withdrawal, not an exchange halt',
+    withdrawn: true,
   },
   {
     symbol: 'JPSTx',
@@ -107,7 +127,8 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'JPST',
     exchangeMic: 'ARCX',
     issuer: 'backed',
-    note: 'halted, and MarketHours-only — the other conflict',
+    note: 'Backed has withdrawn its wrapper; JPST itself is not halted. MarketHours-only, the other conflict',
+    withdrawn: true,
   },
 
   // Rights-bearing contrast. Same gates, a different legal instrument: the SEC
@@ -121,6 +142,8 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     exchangeMic: 'XNYS',
     issuer: 'backpack',
     note: 'tradeable here at 0.58% while the Backed wrapper has no route at all',
+    // Its attested spread exceeded 50bps in 17 of 31 samples.
+    maxConfBps: 100,
   },
   {
     symbol: 'LMT',
@@ -129,6 +152,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     exchangeMic: 'XNYS',
     issuer: 'backpack',
     note: 'second rights-bearing name',
+    maxConfBps: 100,
   },
 ] as const
 

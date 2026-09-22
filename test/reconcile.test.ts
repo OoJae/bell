@@ -85,6 +85,17 @@ test('a missing Pyth feed for a US name is unavailable, not degraded', () => {
   assert.equal(v.confidence, 'unavailable')
 })
 
+test('a missing Pyth feed for a US name closes it, whatever the issuer says', () => {
+  // Backed's 24/5 wrapper reads open overnight. Before this was fixed, a
+  // dropped Pyth ticker opened SPYx at 3am on the issuer's word alone.
+  for (const issuer of [trading, { ...trading, openNow: false }, { ...trading, issuerHalted: true }]) {
+    for (const nonUsListing of [false, undefined]) {
+      const v = reconcile({ pyth: null, issuer, nonUsListing })
+      assert.equal(v.openNow, false, `issuer=${JSON.stringify(issuer)} nonUsListing=${nonUsListing}`)
+    }
+  }
+})
+
 test('no issuer reading closes the symbol', () => {
   const v = reconcile({ pyth: openSession, issuer: null })
   assert.equal(v.openNow, false)

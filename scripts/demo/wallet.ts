@@ -18,20 +18,32 @@
  */
 import { Keypair, Transaction, VersionedTransaction } from '@solana/web3.js'
 import type { BrowserContext } from 'playwright'
+import { PROGRAM_ID } from '../../src/chain/codec.ts'
 
 export const WALLET_NAME = 'BELL Demo Wallet'
 
 /** Every transaction the page asked this wallet to sign, for the test to assert on. */
-export const signed: { at: Date; bytes: number }[] = []
+export const signed: { at: Date; bytes: number; programs: string[] }[] = []
+
+const PROGRAM_NAMES: Record<string, string> = {
+  TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: 'spl-token',
+  TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb: 'token-2022',
+  ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL: 'ata',
+  '11111111111111111111111111111111': 'system',
+  [PROGRAM_ID.toBase58()]: 'bell',
+}
+const nameOf = (p: string) => PROGRAM_NAMES[p] ?? p.slice(0, 6)
 
 export async function attachWallet(context: BrowserContext, keypair: Keypair): Promise<void> {
   await context.exposeFunction('__bellSign', async (b64: string): Promise<string> => {
     const bytes = Buffer.from(b64, 'base64')
     let out: Uint8Array
+    let programs: string[] = []
     try {
       // The page builds legacy transactions; sign as a partial signer so any
       // other signatures already present are kept.
       const tx = Transaction.from(bytes)
+      programs = tx.instructions.map((ix) => nameOf(ix.programId.toBase58()))
       tx.partialSign(keypair)
       out = tx.serialize({ requireAllSignatures: false, verifySignatures: false })
     } catch {
@@ -39,7 +51,7 @@ export async function attachWallet(context: BrowserContext, keypair: Keypair): P
       vtx.sign([keypair])
       out = vtx.serialize()
     }
-    signed.push({ at: new Date(), bytes: out.length })
+    signed.push({ at: new Date(), bytes: out.length, programs })
     return Buffer.from(out).toString('base64')
   })
 

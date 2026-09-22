@@ -22,7 +22,7 @@ import {
   ixPushSession,
   ixRefreshTokenRisk,
   readMark,
-  readSymbolState,
+  readAllSymbols,
   send,
 } from './client.ts'
 import { MarkSource, fairOut, rateQ64 } from './codec.ts'
@@ -83,7 +83,11 @@ export async function sense(): Promise<Observation> {
   // thirteen pages, which keeps a tick well clear of the refresh threshold.
   const backedSymbols = ALLOWLIST.filter((l) => l.issuer === 'backed').map((l) => l.symbol)
   const [assets, pyth, halts, sessions, holidays, securities] = await Promise.all([
-    Promise.all(backedSymbols.map((s) => fetchAsset(s))),
+    // Each asset on its own: one withdrawn token answering 404 used to fail
+    // the whole tick, and a tick that pushes nothing closes all nine symbols
+    // two minutes later. A missing reading closes only its own symbol —
+    // `reconcile` treats an absent issuer as closed.
+    Promise.all(backedSymbols.map((s) => fetchAsset(s).catch(() => null))),
     fetchEquitySessions(),
     fetchHalts(),
     fetchSessions(),
@@ -315,8 +319,14 @@ export async function tick(args: {
   const markIxs = []
   const pushed: string[] = []
 
+  // Every symbol's on-chain state in one read: one consistent snapshot, and
+  // one request instead of nine against an endpoint that rate-limits.
+  const onChain = await readAllSymbols(
+    conn,
+    decisions.map((d) => d.listing),
+  )
   for (const d of decisions) {
-    const state = await readSymbolState(conn, d.listing.symbol)
+    const state = onChain.get(d.listing.symbol)?.state ?? null
     if (!needsPush(state, d.verdict, nowSeconds, refreshBefore)) continue
     sessionIxs.push(
       ixPushSession({

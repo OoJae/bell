@@ -158,8 +158,10 @@ opens. Funding is by SPL delegation — the user `approve`s a capped amount and
 That choice has consequences worth stating:
 
 - **Cancel is `spl_token::revoke`** — one standard instruction from the user's
-  own wallet. It works if this program is frozen, our keeper is dead and our RPC
-  is down. BELL is not in the cancel path at all.
+  own wallet, sent as its own transaction before anything of BELL's. It works if
+  this program is frozen, our keeper is dead and our RPC is down. BELL is not in
+  the cancel path at all; closing the order for its rent comes second, and a
+  failure there cannot undo the revoke.
 - **If no filler ever comes, nothing happened.** The funds were never
   immobilised.
 - **Spending the money elsewhere silently invalidates the order.** That is the
@@ -226,7 +228,7 @@ needs nothing from this program.
 number in it is counted, not written by hand.
 
 **Tests:** 33 litesvm tests against real mainnet mint bytes — including a
-dividend walked end to end on the real AAPLx mint's own scheduled step — and 52
+dividend walked end to end on the real AAPLx mint's own scheduled step — and 62
 TypeScript tests, including one that amputates Node's `Buffer` so browser-only
 failures surface in CI, and one that checks every enum the client mirrors
 against the program's IDL. The judge path itself runs as a test:
@@ -248,21 +250,35 @@ against its own claims, one of them a finding the refuters had killed.
 Stated plainly, because a guard product that hides its own trust assumptions is
 worth less than no guard at all.
 
-**The mark fails open.** The gate can only refuse, so it fails closed. A *mark*
-lets the attestor set a price, and a wrong mark could permit a bad fill. This is
-the one place the queue adds trust the gate did not have. Three bounds contain
-it: the user's own optional floor; `Mode::Strict`, so a fill only happens while
-the real market is live and a wrong mark is arbitrageable against something we
-do not control; and a 60-second freshness limit.
+**The attestor is trusted, and here is exactly how far.** One hot key can open
+or close a symbol, set its price (the *mark*), and classify a pending corporate
+action. The gate can only refuse, so the session side fails closed. The mark
+does not: a wrong price could permit a bad fill, and this is the one place the
+queue adds trust the gate did not have. What bounds it:
+
+- **A loss floor on every order**, set at placement to three quarters of what
+  the mark said the order was worth then. A leaked attestor key pushing a
+  near-zero price cannot fill a parked order for dust.
+- **$1,000 per order** (`MAX_ORDER_IN`), and a 60-second freshness limit on the
+  mark.
+- `Mode::Strict` is **not** an independent bound: the same attestor attests the
+  session. It limits fills to when the real market is live, which makes an
+  honest mark arbitrageable — it does not stop a dishonest one.
+
+The key cannot move anyone's funds, touch the program, or place, cancel or fill
+an order.
 
 **The upgrade authority is live.** Until it is burned, a malicious upgrade could
 move up to a user's delegated amount — capped by `MAX_ORDER_IN`. Burning it is
 the production step and is named as such rather than quietly skipped.
 
 **One delegate slot per token account.** SPL delegation is per-owner, not
-per-order, so a `revoke` cancels every one of your orders at once, and placing
-one re-approves the whole book. The page says so rather than implying orders are
-independent.
+per-order, so a `revoke` unfunds every one of your orders at once, and placing
+one re-approves the whole book. Cancelling one order therefore revokes, closes
+it, and only then re-approves the others — never the other way round, which
+would leave the cancelled order fillable until its close landed. A
+**Revoke all funding** button is always on screen while any approval is
+outstanding.
 
 **Every one of these mints has a `permanentDelegate`, and two keys cover all
 nine.** Not some of them — all nine, verified against the real mainnet accounts:

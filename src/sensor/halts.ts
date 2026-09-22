@@ -91,23 +91,34 @@ export async function fetchHalts(): Promise<Map<string, Halt>> {
     signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) throw new Error(`nasdaq trade halts: HTTP ${res.status}`)
-  const xml = await res.text()
+  return parseHalts(await res.text())
+}
 
+/**
+ * The feed as a map of each ticker's **most recent** halt.
+ *
+ * The feed lists every halt of the day, so a stock paused, resumed and paused
+ * again appears twice — and keeping whichever row came last in the document
+ * kept the *first* halt, already resumed, and read a live halt as over. The
+ * row with the latest halt time is the one that describes the stock now.
+ */
+export function parseHalts(xml: string): Map<string, Halt> {
   const out = new Map<string, Halt>()
   for (const [, item] of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
     const ticker = tag(item, 'IssueSymbol')
     if (!Row.safeParse({ ticker }).success) continue
     const reasonCode = tag(item, 'ReasonCode')
-    const resumesAt = easternToUnix(tag(item, 'ResumptionDate'), tag(item, 'ResumptionTradeTime'))
-    out.set(ticker, {
+    const halt: Halt = {
       ticker,
       issueName: tag(item, 'IssueName'),
       market: tag(item, 'Market'),
       reasonCode,
       kind: classify(reasonCode),
       haltedAt: easternToUnix(tag(item, 'HaltDate'), tag(item, 'HaltTime')),
-      resumesAt,
-    })
+      resumesAt: easternToUnix(tag(item, 'ResumptionDate'), tag(item, 'ResumptionTradeTime')),
+    }
+    const prev = out.get(ticker)
+    if (!prev || halt.haltedAt >= prev.haltedAt) out.set(ticker, halt)
   }
   return out
 }
