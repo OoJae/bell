@@ -1,4 +1,13 @@
+packages:
+  - '.'
+  - 'web'
+
 allowBuilds:
-  better-sqlite3: set this to true or false
-  bufferutil: set this to true or false
-  utf-8-validate: set this to true or false
+  '@stellar/stellar-sdk': false
+  better-sqlite3: true
+  blake-hash: false
+  bufferutil: true
+  protobufjs: false
+  tiny-secp256k1: false
+  usb: false
+  utf-8-validate: true

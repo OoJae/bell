@@ -11,7 +11,7 @@ use spl_token_2022::{
     state::{Account as SplAccount, AccountState},
 };
 
-use crate::error::BellError;
+use crate::{constants::is_token_program, error::BellError};
 
 /// The fields of a token account this program cares about.
 pub struct TokenAccountView {
@@ -32,12 +32,21 @@ macro_rules! bridge {
     };
 }
 
-/// Deserialize a token account owned by either token program.
+/// Deserialize a token account, checking who owns it first.
 ///
-/// The owning program is checked by the caller against the program account it
-/// will actually transfer through, so a token account cannot be read under one
-/// program and moved under another.
-pub fn read_token_account(info: &AccountInfo) -> Result<TokenAccountView> {
+/// The owner check is here rather than left to callers. The previous comment
+/// claimed the caller verified it; no caller did, which meant every
+/// owner/mint/delegate fact this function returns could be fabricated by
+/// handing it an account owned by any program at all — including one written
+/// for the purpose. A reader that the rest of the program trusts for
+/// authorisation decisions has to establish that itself.
+///
+/// `expect` is the program the account will actually be moved under, so an
+/// account cannot be read under one token program and transferred under
+/// another.
+pub fn read_token_account(info: &AccountInfo, expect: &Pubkey) -> Result<TokenAccountView> {
+    require!(is_token_program(expect), BellError::TokenProgramMismatch);
+    require_keys_eq!(*info.owner, *expect, BellError::TokenProgramMismatch);
     let data = info.try_borrow_data()?;
     let acc = StateWithExtensions::<SplAccount>::unpack(&data)
         .map_err(|_| error!(BellError::QuoteMintMismatch))?;
@@ -61,8 +70,22 @@ pub fn read_token_account(info: &AccountInfo) -> Result<TokenAccountView> {
     })
 }
 
+/// Read a token account without knowing in advance which token program holds
+/// it, requiring only that it is genuinely one of the two.
+///
+/// Used where the leg's program is not an account in the context — placing and
+/// cancelling an order — and the question is simply "is this a real token
+/// account, owned by this user, of this mint". `fill_order` uses the pinned
+/// form instead, because there the program is chosen by the filler and has to
+/// match the account it is about to move.
+pub fn read_token_account_any(info: &AccountInfo) -> Result<TokenAccountView> {
+    require!(is_token_program(info.owner), BellError::TokenProgramMismatch);
+    let expect = *info.owner;
+    read_token_account(info, &expect)
+}
+
 /// Balance only, for measuring a transfer's effect rather than trusting its
 /// stated amount.
-pub fn balance_of(info: &AccountInfo) -> Result<u64> {
-    Ok(read_token_account(info)?.amount)
+pub fn balance_of(info: &AccountInfo, expect: &Pubkey) -> Result<u64> {
+    Ok(read_token_account(info, expect)?.amount)
 }

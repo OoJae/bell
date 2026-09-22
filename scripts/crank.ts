@@ -24,8 +24,9 @@ import {
   TOKEN_2022,
 } from '../src/chain/client.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
+import { ataFor } from '../src/chain/spl.ts'
 import { fairOut } from '../src/chain/codec.ts'
-import { byMint } from '../src/config.ts'
+import { byMint, CLUSTER } from '../src/config.ts'
 
 const FILLER_PATH = process.env.BELL_FILLER_KEYPAIR ?? '.filler.json'
 const arm = process.env.BELL_ARM === '1'
@@ -33,8 +34,25 @@ const arm = process.env.BELL_ARM === '1'
 const conn = connect()
 const filler = loadKeypair(FILLER_PATH)
 
-/** Where this filler keeps inventory for a given mint. Seeded on localnet. */
+/**
+ * Where this filler keeps inventory for a given mint.
+ *
+ * Two different answers, because the two clusters get inventory two different
+ * ways. On localnet the stock is *conjured at genesis* by `localnet.sh`'s
+ * `--account` flags: the real issuers hold the mint authority on the real
+ * mints, so there is no way to mint a test holding, and the address is a PDA of
+ * a program that does not exist — nothing can ever sign for it, which is fine
+ * because nothing needs to.
+ *
+ * That trick cannot be carried to devnet. No genesis to write into, and no
+ * `create_account` can be signed for an off-curve address owned by a
+ * nonexistent program. But on devnet we hold the mirror mint authorities, so
+ * inventory is simply minted to an ordinary associated account. `fill.rs`
+ * leaves `filler_out` unconstrained beyond the transfer's own authority check,
+ * so an ATA is accepted without any program change.
+ */
 function inventoryFor(mint: PublicKey): PublicKey {
+  if (CLUSTER === 'devnet') return ataFor(filler.publicKey, mint, TOKEN_2022)
   return PublicKey.findProgramAddressSync(
     [Buffer.from('inv'), filler.publicKey.toBytes(), mint.toBytes()],
     new PublicKey('11111111111111111111111111111112'),

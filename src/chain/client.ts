@@ -68,8 +68,12 @@ export const markPda = (symbol: string) =>
   PublicKey.findProgramAddressSync([MARK_SEED, Buffer.from(symbolSeed(symbol))], PROGRAM_ID)[0]
 
 export const orderPda = (owner: PublicKey, nonce: bigint) => {
-  const n = Buffer.alloc(8)
-  n.writeBigUInt64LE(nonce)
+  // DataView, not `Buffer.writeBigUInt64LE`: this runs in the browser too, and
+  // the bundled Buffer polyfill has no BigInt methods. See FRICTION.md — this
+  // is the second instance of that trap, and it hid here because the seed is
+  // derived rather than encoded, so the codec sweep missed it.
+  const n = new Uint8Array(8)
+  new DataView(n.buffer).setBigUint64(0, nonce, true)
   return PublicKey.findProgramAddressSync([ORDER_SEED, owner.toBytes(), n], PROGRAM_ID)[0]
 }
 
@@ -111,7 +115,11 @@ export function ixRegisterSymbol(args: {
   })
 }
 
-export function ixInitTokenRisk(payer: PublicKey, mint: PublicKey): TransactionInstruction {
+export function ixInitTokenRisk(
+  payer: PublicKey,
+  mint: PublicKey,
+  attestor: PublicKey,
+): TransactionInstruction {
   return new TransactionInstruction({
     programId: PROGRAM_ID,
     keys: [
@@ -120,7 +128,7 @@ export function ixInitTokenRisk(payer: PublicKey, mint: PublicKey): TransactionI
       { pubkey: riskPda(mint), isSigner: false, isWritable: true },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ],
-    data: encodeInitTokenRisk(),
+    data: encodeInitTokenRisk(attestor),
   })
 }
 
@@ -288,16 +296,46 @@ export function ixFillOrder(args: {
 
 // ------------------------------------------------------------------ helpers
 
+/**
+ * Errors that mean "the network dropped this", not "this was wrong".
+ *
+ * Public devnet RPC rejects a meaningful fraction of sends with
+ * `Blockhash not found` — the node that receives the transaction has not yet
+ * seen the blockhash the node that issued it gave us. It is pure infrastructure
+ * noise, and the keeper meets it every 45 seconds for as long as it runs.
+ *
+ * Retrying only these is the point. A transaction refused by the *gate* must
+ * never be retried: refusal is the product, and a retry loop that cannot tell
+ * the two apart would hammer away at a market that is legitimately shut.
+ */
+const TRANSIENT = /Blockhash not found|block height exceeded|Node is behind|429|timeout|fetch failed/i
+
 export async function send(
   conn: Connection,
   ixs: TransactionInstruction[],
   signers: Keypair[],
+  attempts = 4,
 ): Promise<string> {
-  const tx = new Transaction().add(...ixs)
-  return sendAndConfirmTransaction(conn, tx, signers, {
-    commitment: 'confirmed',
-    skipPreflight: false,
-  })
+  let last: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      // A fresh Transaction each attempt: `sendAndConfirmTransaction` stamps
+      // the blockhash onto the object, so reusing it would retry with the
+      // very blockhash that was just rejected.
+      const tx = new Transaction().add(...ixs)
+      return await sendAndConfirmTransaction(conn, tx, signers, {
+        commitment: 'confirmed',
+        skipPreflight: false,
+      })
+    } catch (e) {
+      last = e
+      if (!TRANSIENT.test((e as Error).message ?? '')) throw e
+      // Linear backoff. A blockhash the cluster has not caught up to yet is
+      // fixed by waiting, not by trying harder.
+      await new Promise((r) => setTimeout(r, 800 * (i + 1)))
+    }
+  }
+  throw last
 }
 
 export async function readSymbolState(conn: Connection, symbol: string): Promise<SymbolState | null> {

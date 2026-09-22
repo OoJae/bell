@@ -105,6 +105,15 @@ pub struct TokenRisk {
     pub permanent_delegate: Option<Pubkey>,
     /// When the mint was last read. Anyone may refresh this, permissionlessly.
     pub verified_at: i64,
+    /// The only key permitted to set `rebase_kind`.
+    ///
+    /// Everything else in this account is *proven* from the mint, which is why
+    /// refreshing is permissionless. `rebase_kind` is the single exception —
+    /// split versus dividend cannot be read from the extension data, so it is
+    /// attested. An attested field inside an otherwise-permissionless, shared
+    /// account needs an authority of its own, or the weakest symbol referencing
+    /// this mint becomes the authority for every symbol referencing it.
+    pub attestor: Pubkey,
     pub bump: u8,
 }
 

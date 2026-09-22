@@ -36,8 +36,48 @@ export const ERROR_NAMES: ReadonlyMap<number, string> = new Map(
   idl.errors.map((e) => [e.code, e.name]),
 )
 
+/**
+ * The SPL token errors a fill can realistically hit, named.
+ *
+ * Anchor numbers custom errors from 6000, and the token program's are all
+ * below 30, so the ranges cannot collide and one lookup can serve both.
+ *
+ * These are here because two of them are not failures at all — they are the
+ * delegation design working. `OwnerMismatch` during a fill means the user
+ * revoked, and `InsufficientFunds` means they spent the money elsewhere. Both
+ * are how a non-custodial order is *supposed* to die, and reporting either as
+ * `custom 4` would describe the system's best property as an unexplained
+ * error.
+ */
+const SPL_TOKEN_ERRORS: ReadonlyMap<number, string> = new Map([
+  [1, 'OwnerSpentTheFunds'],
+  [3, 'MintMismatch'],
+  [4, 'OwnerRevoked'],
+  [6, 'AmountExceedsDelegation'],
+])
+
+/**
+ * Program constants, read from the IDL rather than restated here.
+ *
+ * The front end explains *why* a gate refused, which means it has to know the
+ * same bounds the program enforces. Restating them is how a panel ends up
+ * confidently contradicting the chain it is describing — so they are read from
+ * the same artefact the discriminators and error names come from.
+ */
+export const LIMITS: Readonly<Record<string, number>> = Object.freeze(
+  Object.fromEntries(
+    idl.constants
+      .filter((c) => /^(MAX_|REBASE_)/.test(c.name))
+      .map((c) => [c.name, Number(c.value)]),
+  ),
+)
+
+export const MAX_STATE_AGE_SECONDS = LIMITS.MAX_STATE_AGE_SECONDS
+export const MAX_MARK_AGE_SECONDS = LIMITS.MAX_MARK_AGE_SECONDS
+export const REBASE_GUARD_SECONDS = LIMITS.REBASE_GUARD_SECONDS
+
 export function errorName(code: number): string {
-  return ERROR_NAMES.get(code) ?? `custom ${code}`
+  return ERROR_NAMES.get(code) ?? SPL_TOKEN_ERRORS.get(code) ?? `custom ${code}`
 }
 
 /** Anchor account discriminator, for `getProgramAccounts` filters. */
@@ -51,54 +91,74 @@ function discriminator(kind: 'instructions' | 'accounts', name: string): Buffer 
   return Buffer.from(found.discriminator)
 }
 
-/** Minimal little-endian writer. Grows as needed; no length guessing. */
+/**
+ * Minimal little-endian writer.
+ *
+ * Numeric fields go through `DataView` rather than Node's `Buffer.writeBigInt*`
+ * helpers: this module also runs in the browser, where `Buffer` is a polyfill
+ * that does not implement the BigInt methods. `DataView` is standard in both.
+ */
 class Writer {
-  private parts: Buffer[] = []
-  u8(v: number) { this.parts.push(Buffer.from([v & 0xff])); return this }
-  bool(v: boolean) { return this.u8(v ? 1 : 0) }
-  u16(v: number) { const b = Buffer.alloc(2); b.writeUInt16LE(v); this.parts.push(b); return this }
-  i32(v: number) { const b = Buffer.alloc(4); b.writeInt32LE(v); this.parts.push(b); return this }
-  u64(v: bigint) { const b = Buffer.alloc(8); b.writeBigUInt64LE(v); this.parts.push(b); return this }
-  /** Borsh u128: little-endian, 16 bytes. Node has no writeBigUInt128LE. */
-  u128(v: bigint) {
-    const b = Buffer.alloc(16)
-    b.writeBigUInt64LE(v & 0xffffffffffffffffn, 0)
-    b.writeBigUInt64LE(v >> 64n, 8)
+  private parts: Uint8Array[] = []
+  private push(bytes: number, fill: (v: DataView) => void) {
+    const b = new Uint8Array(bytes)
+    fill(new DataView(b.buffer))
     this.parts.push(b)
     return this
   }
-  i64(v: bigint) { const b = Buffer.alloc(8); b.writeBigInt64LE(v); this.parts.push(b); return this }
-  bytes(v: Uint8Array) { this.parts.push(Buffer.from(v)); return this }
+  u8(v: number) { return this.push(1, (d) => d.setUint8(0, v & 0xff)) }
+  bool(v: boolean) { return this.u8(v ? 1 : 0) }
+  u16(v: number) { return this.push(2, (d) => d.setUint16(0, v, true)) }
+  i32(v: number) { return this.push(4, (d) => d.setInt32(0, v, true)) }
+  u64(v: bigint) { return this.push(8, (d) => d.setBigUint64(0, v, true)) }
+  i64(v: bigint) { return this.push(8, (d) => d.setBigInt64(0, v, true)) }
+  /** Borsh u128: two little-endian halves, low first. */
+  u128(v: bigint) {
+    return this.push(16, (d) => {
+      d.setBigUint64(0, v & 0xffffffffffffffffn, true)
+      d.setBigUint64(8, v >> 64n, true)
+    })
+  }
+  bytes(v: Uint8Array) { this.parts.push(Uint8Array.from(v)); return this }
   key(v: PublicKey) { return this.bytes(v.toBytes()) }
-  done() { return Buffer.concat(this.parts) }
+  done(): Buffer {
+    const total = this.parts.reduce((n, p) => n + p.length, 0)
+    const out = new Uint8Array(total)
+    let o = 0
+    for (const p of this.parts) { out.set(p, o); o += p.length }
+    return Buffer.from(out)
+  }
 }
 
+/** The reading half, portable for the same reason. */
 class Reader {
   private o = 0
-  private readonly b: Buffer
+  private readonly b: Uint8Array
+  private readonly d: DataView
   // An explicit field rather than a parameter property: Node strips types
   // rather than compiling them, and parameter properties emit code.
-  constructor(b: Buffer) {
+  constructor(b: Uint8Array) {
     this.b = b
+    this.d = new DataView(b.buffer, b.byteOffset, b.byteLength)
   }
   skip(n: number) { this.o += n; return this }
-  u8() { return this.b.readUInt8(this.o++) }
+  u8() { return this.d.getUint8(this.o++) }
   bool() { return this.u8() === 1 }
-  u16() { const v = this.b.readUInt16LE(this.o); this.o += 2; return v }
-  i32() { const v = this.b.readInt32LE(this.o); this.o += 4; return v }
-  u64() { const v = this.b.readBigUInt64LE(this.o); this.o += 8; return v }
+  u16() { const v = this.d.getUint16(this.o, true); this.o += 2; return v }
+  i32() { const v = this.d.getInt32(this.o, true); this.o += 4; return v }
+  u64() { const v = this.d.getBigUint64(this.o, true); this.o += 8; return v }
+  i64() { const v = this.d.getBigInt64(this.o, true); this.o += 8; return v }
   u128() {
-    const lo = this.b.readBigUInt64LE(this.o)
-    const hi = this.b.readBigUInt64LE(this.o + 8)
+    const lo = this.d.getBigUint64(this.o, true)
+    const hi = this.d.getBigUint64(this.o + 8, true)
     this.o += 16
     return (hi << 64n) | lo
   }
-  i64() { const v = this.b.readBigInt64LE(this.o); this.o += 8; return v }
   bytes(n: number) { const v = this.b.subarray(this.o, this.o + n); this.o += n; return v }
   key() { return new PublicKey(this.bytes(32)) }
   /** Borsh `Option<T>`: a one-byte tag, then the value only when present. */
   optionKey() { return this.bool() ? this.key() : null }
-  text(n: number) { return this.bytes(n).toString('utf8').trimEnd() }
+  text(n: number) { return new TextDecoder().decode(this.bytes(n)).trimEnd() }
 }
 
 // ---------------------------------------------------------------- instructions
@@ -143,7 +203,11 @@ export function encodePushSession(args: {
   ])
 }
 
-export const encodeInitTokenRisk = () => discriminator('instructions', 'init_token_risk')
+export const encodeInitTokenRisk = (attestor: PublicKey): Buffer =>
+  new Writer()
+    .bytes(discriminator('instructions', 'init_token_risk'))
+    .key(attestor)
+    .done()
 export const encodeRefreshTokenRisk = () => discriminator('instructions', 'refresh_token_risk')
 
 /** `Strict` refuses to trade without a live primary market; `Guarded` allows it. */
@@ -246,7 +310,7 @@ export interface SymbolMark {
   bump: number
 }
 
-export function decodeSymbolMark(data: Buffer): SymbolMark {
+export function decodeSymbolMark(data: Uint8Array): SymbolMark {
   const r = new Reader(data).skip(8)
   return {
     symbol: r.text(12),
@@ -284,7 +348,7 @@ export interface BellOrder {
   authBump: number
 }
 
-export function decodeBellOrder(data: Buffer): BellOrder {
+export function decodeBellOrder(data: Uint8Array): BellOrder {
   const r = new Reader(data).skip(8)
   return {
     owner: r.key(),
@@ -354,7 +418,7 @@ export interface SymbolState {
   bump: number
 }
 
-export function decodeSymbolState(data: Buffer): SymbolState {
+export function decodeSymbolState(data: Uint8Array): SymbolState {
   const r = new Reader(data).skip(8)
   return {
     symbol: r.text(12),
@@ -380,10 +444,12 @@ export interface TokenRisk {
   hook: PublicKey | null
   permanentDelegate: PublicKey | null
   verifiedAt: bigint
+  /** The only key permitted to set `rebaseKind`. */
+  attestor: PublicKey
   bump: number
 }
 
-export function decodeTokenRisk(data: Buffer): TokenRisk {
+export function decodeTokenRisk(data: Uint8Array): TokenRisk {
   const r = new Reader(data).skip(8)
   return {
     mint: r.key(),
@@ -395,13 +461,14 @@ export function decodeTokenRisk(data: Buffer): TokenRisk {
     hook: r.optionKey(),
     permanentDelegate: r.optionKey(),
     verifiedAt: r.i64(),
+    attestor: r.key(),
     bump: r.u8(),
   }
 }
 
 /** The stored multiplier is raw bits so the guard can compare it exactly. */
 export const multiplierOf = (bits: bigint): number => {
-  const b = Buffer.alloc(8)
-  b.writeBigUInt64LE(bits)
-  return b.readDoubleLE(0)
+  const d = new DataView(new ArrayBuffer(8))
+  d.setBigUint64(0, bits, true)
+  return d.getFloat64(0, true)
 }

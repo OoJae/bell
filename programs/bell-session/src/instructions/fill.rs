@@ -5,11 +5,14 @@ use anchor_lang::solana_program::{
 };
 
 use crate::{
-    constants::{AUTH_SEED, MARK_SEED, MAX_MARK_AGE_SECONDS, ORDER_SEED, RISK_SEED, SYMBOL_SEED},
+    constants::{
+        is_token_program, AUTH_SEED, MARK_SEED, MAX_MARK_AGE_SECONDS, ORDER_SEED, RISK_SEED,
+        SYMBOL_SEED,
+    },
     error::BellError,
     instructions::assert_tradeable::{check_tradeable, Mode},
     state::{BellOrder, OrderFilled, SymbolMark, SymbolState, TokenRisk},
-    tokens::{balance_of, read_token_account},
+    tokens::balance_of,
 };
 
 /// `a * q64 >> 64`, refusing rather than wrapping.
@@ -177,11 +180,20 @@ pub fn handle_fill_order(
     let by_floor = mul_shr64(amount_in_leg as u128, o.floor_rate_q64)?;
     let min_out = by_band.max(by_floor);
 
+    // Both legs must move under a real token program. Unconstrained, these are
+    // filler-chosen callees that `invoke_signed` would hand the delegate
+    // authority's signature to; the post-transfer measurement bounds the damage
+    // but the primitive should not exist in the first place.
+    let quote_program = &ctx.accounts.quote_token_program.key();
+    let stock_program = &ctx.accounts.stock_token_program.key();
+    require!(is_token_program(quote_program), BellError::TokenProgramMismatch);
+    require!(is_token_program(stock_program), BellError::TokenProgramMismatch);
+
     let quote_decimals = mint_decimals(&ctx.accounts.quote_mint.to_account_info())?;
     let stock_decimals = mint_decimals(&ctx.accounts.stock_mint.to_account_info())?;
 
     // Deliver first, then take. If the delivery is short, nothing is taken.
-    let out_before = balance_of(&ctx.accounts.payee_out.to_account_info())?;
+    let out_before = balance_of(&ctx.accounts.payee_out.to_account_info(), stock_program)?;
     let deliver = transfer_checked_ix(
         &ctx.accounts.stock_token_program.key(),
         &ctx.accounts.filler_out.key(),
@@ -205,11 +217,11 @@ pub fn handle_fill_order(
     // Measure, do not trust. This covers transfer fees, hooks, rounding and any
     // Token-2022 behaviour not anticipated here — the same rule the program
     // already follows for issuer state: prove what you can.
-    let delivered = balance_of(&ctx.accounts.payee_out.to_account_info())?
+    let delivered = balance_of(&ctx.accounts.payee_out.to_account_info(), stock_program)?
         .saturating_sub(out_before);
     require!(delivered as u128 >= min_out, BellError::PriceOutOfBand);
 
-    let in_before = balance_of(&ctx.accounts.payer_in.to_account_info())?;
+    let in_before = balance_of(&ctx.accounts.payer_in.to_account_info(), quote_program)?;
     let owner = ctx.accounts.order.owner;
     let auth_bump = ctx.accounts.order.auth_bump;
     let take = transfer_checked_ix(
@@ -232,7 +244,7 @@ pub fn handle_fill_order(
         ],
         &[&[AUTH_SEED, owner.as_ref(), &[auth_bump]]],
     )?;
-    let taken = in_before.saturating_sub(balance_of(&ctx.accounts.payer_in.to_account_info())?);
+    let taken = in_before.saturating_sub(balance_of(&ctx.accounts.payer_in.to_account_info(), quote_program)?);
     require!(taken <= amount_in_leg, BellError::OverFill);
 
     let realized_bps = if fair > 0 {

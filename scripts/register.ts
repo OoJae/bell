@@ -48,6 +48,30 @@ async function main() {
   const quoteMint = process.env.BELL_QUOTE_MINT
     ? new PublicKey(process.env.BELL_QUOTE_MINT)
     : null
+  // This script is the point of no return: `register_symbol`, `init_token_risk`
+  // and `open_mark` all use `init`, and the program has no close instruction for
+  // any of them. So everything it needs is checked *before* the first write,
+  // not discovered partway through.
+  //
+  // `open_mark` in particular binds the quote mint permanently. Reaching the
+  // loop with this unset used to register a symbol, init its risk record, and
+  // only then throw — leaving permanent accounts behind from a run that never
+  // finished. A stale address is worse still: every mark binds to a mint that
+  // does not exist, and nothing surfaces until the first `place_order` refuses
+  // with `QuoteMintMismatch`, pointing at the order rather than the cause.
+  if (!quoteMint) {
+    throw new Error(
+      'BELL_QUOTE_MINT is unset. Run scripts/demo-setup.sh for this cluster first — ' +
+        'marks bind their quote mint permanently, so this script must not start without it.',
+    )
+  }
+  if (!(await conn.getAccountInfo(quoteMint))) {
+    throw new Error(
+      `BELL_QUOTE_MINT ${quoteMint.toBase58()} does not exist on this cluster. ` +
+        `It is probably left over from a previous ledger — re-run scripts/demo-setup.sh.`,
+    )
+  }
+
   const payer = loadKeypair(PAYER_PATH)
   const attestor = attestorKeypair()
 
@@ -107,7 +131,7 @@ async function main() {
     }
 
     if (!(await readTokenRisk(conn, mint))) {
-      await send(conn, [ixInitTokenRisk(payer.publicKey, mint)], [payer])
+      await send(conn, [ixInitTokenRisk(payer.publicKey, mint, attestor.publicKey)], [payer])
     }
 
     // The mark is the queue's price input. Opened with a zero timestamp, which

@@ -188,7 +188,7 @@ fn ready(ctx: &mut Ctx) {
 
     ctx.send(&[Instruction::new_with_bytes(
         ctx.program_id,
-        &bell_session::instruction::InitTokenRisk {}.data(),
+        &bell_session::instruction::InitTokenRisk { attestor: ctx.payer.pubkey() }.data(),
         bell_session::accounts::InitTokenRisk { payer: p, mint: sm, risk: rp, system_program: system_program::ID }.to_account_metas(None),
     )], &[]).unwrap();
 

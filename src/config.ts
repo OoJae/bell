@@ -1,125 +1,70 @@
 /**
- * The allowlist.
+ * Cluster resolution for the allowlist.
  *
- * **Pinned by mint address, never by ticker.** There is a pump.fun token
- * calling itself `JPMx` with more on-chain liquidity than the real JPMorgan
- * xStock. A symbol-keyed allowlist would route users straight into it, so a
- * symbol here is a label for humans and the address is the identity.
+ * The addresses themselves live in `listings.ts`. This file decides which of
+ * them apply to the cluster we are pointed at, and refuses rather than guesses.
+ */
+import mirrors from './mirrors.json' with { type: 'json' }
+import { MAINNET_LISTINGS, type Listing } from './listings.ts'
+
+export { MAINNET_LISTINGS, SYMBOL_LEN, symbolSeed, type Issuer, type Listing } from './listings.ts'
+
+/**
+ * Devnet stand-ins for the real mints.
+ *
+ * `scripts/mirror-mints.ts` **reads each real mainnet mint** and reproduces its
+ * decimals and extension configuration — scaled-UI multiplier, pausable config,
+ * permanent delegate, transfer-hook slot — so the parser meets the same shape it
+ * meets on mainnet.
+ *
+ * It is a mirror, not the thing, and that is said here rather than hidden
+ * behind an environment variable. The 27 program tests parse real mainnet mint
+ * bytes and `scripts/localnet.sh` clones the real accounts; only a devnet
+ * deployment uses these.
+ *
+ * The generated file is **committed**: it is the devnet deployment record, and
+ * `Dockerfile.keeper` copies `src/` into the image, so a hosted keeper would
+ * otherwise boot with no mapping at all.
  */
 
-/** Which issuer minted the token, and therefore what the holder actually owns. */
-export type Issuer =
-  /** Backed: a Swiss tracker certificate. Synthetic exposure to the underlying. */
-  | 'backed'
-  /** Backpack Securities: a UCC Article 8 entitlement to the real share. */
-  | 'backpack'
+const MIRRORS: Record<string, string> = mirrors
 
-export interface Listing {
-  /** Display label. Not an identifier. */
-  symbol: string
-  /** The identifier. */
-  mint: string
-  /** Underlying ticker — the join key against Pyth's `Equity.US.<TICKER>/USD`. */
-  underlying: string
-  /** MIC of the primary listing exchange; the venue §II.H measures against. */
-  exchangeMic: string
-  issuer: Issuer
-  /** Why this one is on the list, so nobody has to guess later. */
-  note: string
+export const CLUSTER =
+  process.env.NEXT_PUBLIC_BELL_CLUSTER ?? process.env.BELL_CLUSTER ?? 'mainnet'
+
+/**
+ * The allowlist, resolved for the cluster we are pointed at.
+ *
+ * Substitution happens once, here. A mint address resolved differently in two
+ * places is exactly the bug the pinned-by-address rule exists to prevent.
+ *
+ * A missing devnet mirror is **fatal, never a fallback.** Quietly returning the
+ * mainnet address instead would be the worst outcome available: `register_symbol`
+ * accepts any pubkey without touching the mint account, so it would succeed and
+ * weld a symbol permanently to an address that cannot exist on this cluster —
+ * and there is no close instruction anywhere in the program to undo it. The
+ * same silence would leave a hosted keeper pushing sessions happily while no
+ * order could ever fill. Failing at import is the cheapest possible moment.
+ */
+function mintFor(l: Listing): string {
+  if (CLUSTER !== 'devnet') return l.mainnetMint
+  const mirror = MIRRORS[l.symbol]
+  if (!mirror) {
+    throw new Error(
+      `BELL_CLUSTER=devnet but no mirror mint for ${l.symbol} in src/mirrors.json. ` +
+        `Run scripts/mirror-mints.ts before anything that writes on-chain state — ` +
+        `registering a symbol against a mainnet address on devnet is permanent.`,
+    )
+  }
+  return mirror
 }
 
-export const ALLOWLIST: readonly Listing[] = [
-  // Deep enough that "the market is shut and it will still fill you" is a
-  // claim about real money rather than a technicality.
-  {
-    symbol: 'SPYx',
-    mint: 'XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W',
-    underlying: 'SPY',
-    exchangeMic: 'ARCX',
-    issuer: 'backed',
-    note: 'deepest pool on Solana, ~$8.5M — carries the session-gate demo',
-  },
-  {
-    symbol: 'NVDAx',
-    mint: 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh',
-    underlying: 'NVDA',
-    exchangeMic: 'XNAS',
-    issuer: 'backed',
-    note: 'most-held tokenized equity on Solana',
-  },
-  {
-    symbol: 'QQQx',
-    mint: 'Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ',
-    underlying: 'QQQ',
-    exchangeMic: 'XNAS',
-    issuer: 'backed',
-    note: 'index exposure, liquid',
-  },
-  {
-    symbol: 'TSLAx',
-    mint: 'XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB',
-    underlying: 'TSLA',
-    exchangeMic: 'XNAS',
-    issuer: 'backed',
-    note: 'liquid single name',
-  },
-  {
-    symbol: 'AAPLx',
-    mint: 'XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp',
-    underlying: 'AAPL',
-    exchangeMic: 'XNAS',
-    issuer: 'backed',
-    note: 'carries a live scaledUiAmount multiplier — exercises the rebase gate',
-  },
-
-  // Halted on NYSE Arca during the regular session. The §II.H case, live.
-  {
-    symbol: 'IWMx',
-    mint: 'XsbELVbLGBkn7xfMfyYuUipKGt1iRUc2B7pYRvFTFu3',
-    underlying: 'IWM',
-    exchangeMic: 'ARCX',
-    issuer: 'backed',
-    note: 'halted on its primary exchange: one of only two conflicts in 928 listings',
-  },
-  {
-    symbol: 'JPSTx',
-    mint: 'XsCAXu7xTaZMG9b9KJhNWYapuvNjxPuE4SysZq8uvMq',
-    underlying: 'JPST',
-    exchangeMic: 'ARCX',
-    issuer: 'backed',
-    note: 'halted, and MarketHours-only — the other conflict',
-  },
-
-  // Rights-bearing contrast. Same gates, a different legal instrument: the SEC
-  // order of 2026-09-17 excludes synthetic wrappers from "Tokenized NMS Stock"
-  // but not an entitlement to the real share. Also proves the guard is
-  // issuer-agnostic rather than hard-wired to Backed.
-  {
-    symbol: 'PFE',
-    mint: 'PFER6ENqP8r8NF3CqVt4mFowxsin3V5MLidBNQFCC3x',
-    underlying: 'PFE',
-    exchangeMic: 'XNYS',
-    issuer: 'backpack',
-    note: 'tradeable here at 0.58% while the Backed wrapper has no route at all',
-  },
-  {
-    symbol: 'LMT',
-    mint: 'LMT3i1BHgixFqPUgcyteJhnEz2dpy9i3cYy4pi9BoeV',
-    underlying: 'LMT',
-    exchangeMic: 'XNYS',
-    issuer: 'backpack',
-    note: 'second rights-bearing name',
-  },
-] as const
+export const ALLOWLIST: readonly Listing[] = MAINNET_LISTINGS.map((l) => ({
+  ...l,
+  mint: mintFor(l),
+}))
 
 export const byMint = new Map(ALLOWLIST.map((l) => [l.mint, l]))
 export const bySymbol = new Map(ALLOWLIST.map((l) => [l.symbol, l]))
-
-/** Ticker padded into the fixed-width form the program uses as a PDA seed. */
-export const SYMBOL_LEN = 12
-export function symbolSeed(symbol: string): Uint8Array {
-  if (symbol.length > SYMBOL_LEN) throw new Error(`symbol too long: ${symbol}`)
-  const out = new Uint8Array(SYMBOL_LEN).fill(0x20) // space-padded
-  out.set(new TextEncoder().encode(symbol))
-  return out
-}
+/** Look up by the real address, which is what the issuer feeds are keyed on. */
+export const byMainnetMint = new Map(ALLOWLIST.map((l) => [l.mainnetMint, l]))

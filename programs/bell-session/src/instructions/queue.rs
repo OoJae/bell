@@ -7,7 +7,7 @@ use crate::{
     },
     error::BellError,
     state::{BellOrder, SymbolMark, SymbolState, TokenRisk},
-    tokens::read_token_account,
+    tokens::read_token_account_any,
 };
 
 /// Park an intent to buy at the next open.
@@ -88,14 +88,14 @@ pub fn handle_place_order(
     // The quote leg must already be delegated to this owner's authority, for at
     // least the full order. Checking here means an unfunded order is impossible
     // rather than merely unfillable.
-    let pin = read_token_account(&ctx.accounts.payer_in.to_account_info())?;
+    let pin = read_token_account_any(&ctx.accounts.payer_in.to_account_info())?;
     require!(pin.owner == ctx.accounts.owner.key(), BellError::TokenOwnerMismatch);
     require!(pin.mint == ctx.accounts.mark.quote_mint, BellError::QuoteMintMismatch);
     require!(!pin.frozen, BellError::IssuerPaused);
     require!(pin.delegate == Some(auth), BellError::DelegationMissing);
     require!(pin.delegated_amount >= amount_in, BellError::DelegationMissing);
 
-    let pout = read_token_account(&ctx.accounts.payee_out.to_account_info())?;
+    let pout = read_token_account_any(&ctx.accounts.payee_out.to_account_info())?;
     require!(pout.owner == ctx.accounts.owner.key(), BellError::TokenOwnerMismatch);
     require!(pout.mint == ctx.accounts.symbol_state.mint, BellError::MintMismatch);
 
@@ -160,7 +160,7 @@ pub fn handle_cancel_order(ctx: Context<CancelOrder>) -> Result<()> {
         let remaining = o.amount_in.saturating_sub(o.filled_in);
         let (auth, _) =
             Pubkey::find_program_address(&[AUTH_SEED, o.owner.as_ref()], ctx.program_id);
-        let pin = read_token_account(&ctx.accounts.payer_in.to_account_info())?;
+        let pin = read_token_account_any(&ctx.accounts.payer_in.to_account_info())?;
         let defunded = pin.delegate != Some(auth) || pin.delegated_amount < remaining;
         require!(expired || defunded, BellError::NotOrderOwner);
     }

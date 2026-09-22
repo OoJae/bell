@@ -85,3 +85,110 @@ entitlement, which is what actually gates it.
 **Fix:** sessions from Pyth's free `/v2/price_feeds` metadata (`market_hours`
 plus the machine-readable `schedule`, across 1,245 equity feeds), prices from
 Backpack's free `/api/v1/tickers`. See `docs/PYTH.md`.
+
+## 2026-09-22 — the shared codec was only shared in one direction
+
+Making the front end run the keeper's own encoder was supposed to be the safe
+choice: one codec, so the panel cannot drift from what the chain enforces. It
+worked in Node and failed in the browser with
+
+    b.writeBigUInt64LE is not a function
+
+`Buffer.writeBigUInt64LE` and its three siblings are Node built-ins. Bundlers
+substitute the `buffer` npm polyfill, which implements the byte and 32-bit
+methods but **not** the BigInt ones — so every `u64`, `i64` and `u128` in the
+codec worked in tests and broke on the page. Nothing caught it, because the 38
+tests all run under Node, where the methods exist.
+
+Worth noting how it presented: the page showed *"Cannot reach the chain —
+nothing is tradeable while this is true"*. That was the fail-closed path doing
+its job, and it made a client-side bug look like an RPC outage. Failing closed
+is right, but it does mean an encoder bug and a dead network are indistinguishable
+from the outside.
+
+**Fix:** `DataView` (`setBigUint64`/`getBigUint64`/`setBigInt64`/`getBigInt64`)
+throughout `codec.ts`, which is standard in both runtimes; `Reader` now takes a
+`Uint8Array` and decodes text with `TextDecoder`. The rule that follows: code
+shared across runtimes must be written against the *intersection* of their APIs,
+and "it passes in Node" does not establish that.
+
+## 2026-09-22 — a revoked order refused with `custom 4`
+
+The cancel path is the design's best property: `revoke` is one SPL instruction
+against the user's own account, and it makes an order unfillable even with the
+gate wide open and the order still on chain. Verified exactly that — forced the
+session open with a fresh mark so all seven gates passed, and the fill still
+refused.
+
+But it refused with **`custom 4`**. `errorName()` reads the IDL, which only
+carries BELL's own errors; anchor numbers those from 6000, and this was the SPL
+token program's `OwnerMismatch`. So the system's strongest guarantee reported
+itself as an unexplained error code.
+
+**Fix:** a small `SPL_TOKEN_ERRORS` table beside the IDL lookup — the ranges
+cannot collide — naming the two that are not failures at all: `OwnerRevoked`
+(the user cancelled) and `OwnerSpentTheFunds` (they spent the money elsewhere,
+which silently invalidates the order by design). It now reads `OwnerRevoked`.
+
+## 2026-09-22 — verifying the browser path by running it in Node
+
+The `writeBigUInt64LE` fix above was incomplete, and the way it was incomplete
+is the interesting part. I swept `codec.ts`, fixed it, and then "verified the
+browser module" by importing `web/lib/queue.ts` **in Node** and submitting a
+real transaction. It worked, so I moved on.
+
+`orderPda` in `client.ts` still called `Buffer.writeBigUInt64LE`. It is a *seed*
+derivation rather than an encoder, so a sweep of the codec did not reach it, and
+a Node harness cannot fail on it by construction. Both the place and the cancel
+path go through it, so the front end's two write operations were broken while
+the test that was supposed to prove them passed.
+
+An adversarial review found it. I would not have.
+
+**Fix:** `test/portability.test.ts` deletes the six Node-only `Buffer` methods
+before importing anything and then exercises every shared path — PDAs,
+encoders, decoders, the f64 multiplier. Node's test runner gives each file its
+own process, so the amputation is contained. Confirmed to have teeth by putting
+the bug back: three tests fail.
+
+The rule: a compatibility fix needs a test that *cannot pass* in the environment
+that has the feature. Anything else is checking the wrong runtime.
+
+## 2026-09-22 — `cargo test` was green against a binary it did not build
+
+Right after changing four instruction handlers, `cargo test` reported 24/24
+green. It was testing the *previous* program: the litesvm harness loads
+`target/deploy/bell_session.so`, which is produced by `cargo build-sbf`, and
+`cargo test` never builds it.
+
+So the most dangerous possible moment — immediately after security fixes — is
+exactly when the suite is most likely to be reassuring about the wrong artefact.
+Two of the three new regression tests failed the moment the real binary was
+built, which is how it surfaced.
+
+This is the same family as the earlier `anchor build` overwrite, and the whole
+family has one shape: **the tests and the thing under test are connected by a
+file path, not by a dependency.** Nothing rebuilds, nothing notices.
+
+**Fix, for now:** `touch src/lib.rs && cargo build-sbf --arch v1 --tools-version
+v1.57` before `cargo test`, every time, and treat a green suite that followed a
+source change without a rebuild as no evidence at all.
+
+## 2026-09-22 — a mark binds its quote mint permanently
+
+`open_mark` uses `init` and records `quote_mint` with no instruction to change
+it afterwards. After rebuilding localnet I ran `register.ts` before
+`demo-setup.sh`, so every mark bound the quote mint from the *previous* ledger —
+an address that no longer existed. Nothing complained. The failure surfaced much
+later as `QuoteMintMismatch` on the first `place_order`, which points at the
+order, not at the mark that was mis-bound twenty minutes earlier.
+
+An adversarial reviewer had raised the general shape of this ("`open_mark` takes
+`quote_mint` as an unvalidated raw `Pubkey`") and it was refuted as
+unexploitable, which was correct — it is an operational footgun, not a
+vulnerability. It still cost a full rebuild cycle.
+
+**Fix:** `register.ts` now refuses to open marks unless the quote mint account
+actually exists on the cluster it is pointed at. The permanence stays — on
+mainnet the quote asset is USDC and never changes, and binding it is part of the
+mark's identity — but binding it to *nothing* is now impossible.

@@ -53,10 +53,28 @@ pub fn check_tradeable(
     // 3. Issuer-level freeze, proven from the mint.
     require!(!r.paused, BellError::IssuerPaused);
 
-    // 4. A scheduled rebase re-denominates every balance at a known instant.
+    // 4. A multiplier change re-denominates every balance at a known instant.
+    //    Refuse on BOTH sides of it. Before, because the order would settle in
+    //    a different denomination than it was built for. After, because a
+    //    dividend steps value-per-raw-unit up at that instant and leaves the
+    //    pool stale-low by exactly the dividend until arbitrage catches up —
+    //    which is the window the drain actually happens in. `activates_at` is
+    //    retained once it passes rather than cleared, so |at - now| covers both
+    //    halves; clearing it would have let anyone delete the second half by
+    //    calling the permissionless refresh a second after activation.
     if r.activates_at != 0 {
         let delta = r.activates_at.saturating_sub(now).abs();
         require!(delta > REBASE_GUARD_SECONDS, BellError::RebasePending);
+    }
+
+    // 4b. A change that has not yet taken effect must be classified. A split
+    //     and a dividend are identical in the extension data and opposite in
+    //     consequence for a pool, so an unclassified one is a reason not to
+    //     trade. Keyed on `pending` rather than on `activates_at`: once the
+    //     change is in force the guard window above is what protects the
+    //     trade, and holding the classification requirement open forever would
+    //     permanently freeze any mint that ever rebased unclassified.
+    if r.pending_multiplier_bits != 0 {
         require!(r.rebase_kind != RebaseKind::Unknown, BellError::RebaseUnclassified);
     }
 

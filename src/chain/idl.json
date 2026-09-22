@@ -165,9 +165,6 @@
           "signer": true
         },
         {
-          "name": "symbol_state"
-        },
-        {
           "name": "risk",
           "writable": true,
           "pda": {
@@ -431,7 +428,12 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "attestor",
+          "type": "pubkey"
+        }
+      ]
     },
     {
       "name": "open_mark",
@@ -1173,6 +1175,11 @@
       "code": 6024,
       "name": "TokenOwnerMismatch",
       "msg": "Token account owner does not match"
+    },
+    {
+      "code": 6025,
+      "name": "TokenProgramMismatch",
+      "msg": "Account is not owned by the token program it is claimed to belong to"
     }
   ],
   "types": [
@@ -1760,6 +1767,20 @@
             "type": "i64"
           },
           {
+            "name": "attestor",
+            "docs": [
+              "The only key permitted to set `rebase_kind`.",
+              "",
+              "Everything else in this account is *proven* from the mint, which is why",
+              "refreshing is permissionless. `rebase_kind` is the single exception —",
+              "split versus dividend cannot be read from the extension data, so it is",
+              "attested. An attested field inside an otherwise-permissionless, shared",
+              "account needs an authority of its own, or the weakest symbol referencing",
+              "this mint becomes the authority for every symbol referencing it."
+            ],
+            "type": "pubkey"
+          },
+          {
             "name": "bump",
             "type": "u8"
           }
@@ -1779,9 +1800,64 @@
       "value": "[109, 97, 114, 107]"
     },
     {
+      "name": "MAX_CONF_BPS",
+      "docs": [
+        "Ceiling on the mark uncertainty a client may accept."
+      ],
+      "type": "u16",
+      "value": "200"
+    },
+    {
+      "name": "MAX_MARK_AGE_SECONDS",
+      "docs": [
+        "A price goes stale far faster than a session does.",
+        "",
+        "This bound is also what makes \"filled at a price that is sane *then*\"",
+        "literally true rather than aspirational: Friday's mark is roughly sixty",
+        "hours old on Monday morning, so a weekend order cannot fill until a fresh",
+        "post-open mark lands. The gap is refused by arithmetic, not by judgement."
+      ],
+      "type": "i64",
+      "value": "60"
+    },
+    {
+      "name": "MAX_ORDER_LIFETIME_SECONDS",
+      "docs": [
+        "Orders expire so the book cannot accumulate stale intent indefinitely."
+      ],
+      "type": "i64",
+      "value": "604800"
+    },
+    {
+      "name": "MAX_SLIP_BPS",
+      "docs": [
+        "Ceiling on the spread a client may authorise on the user's behalf."
+      ],
+      "type": "u16",
+      "value": "500"
+    },
+    {
+      "name": "MAX_STATE_AGE_SECONDS",
+      "docs": [
+        "Session state older than this is not evidence that the market is open.",
+        "The bound is deliberately tight: being wrong here means trading into a halt."
+      ],
+      "type": "i64",
+      "value": "120"
+    },
+    {
       "name": "ORDER_SEED",
       "type": "bytes",
       "value": "[111, 114, 100]"
+    },
+    {
+      "name": "REBASE_GUARD_SECONDS",
+      "docs": [
+        "No fills within this window either side of a rebase activation. Matches the",
+        "issuer's own guidance that venues pause around multiplier activation."
+      ],
+      "type": "i64",
+      "value": "900"
     },
     {
       "name": "RISK_SEED",

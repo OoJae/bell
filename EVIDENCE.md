@@ -3,23 +3,23 @@
 Generated from `data/bell.db` by `scripts/evidence.ts`. Every number below is
 counted from the tick log, not written by hand.
 
-**Observation window:** 2026-09-21 19:29:56 → 2026-09-22 00:26:18 UTC (4.9h, 3258 ticks)
+**Observation window:** 2026-09-21 19:29:56 → 2026-09-22 01:59:19 UTC (6.5h, 5103 ticks)
 
 ## Per symbol
 
 | symbol | issuer | ticks | tradeable | refused | pushes |
 |---|---|---|---|---|---|
-| AAPLx | backed | 362 | 34 (9%) | 328 | 184 |
-| IWMx | backed | 362 | 0 (0%) | 362 | 183 |
-| JPSTx | backed | 362 | 0 (0%) | 362 | 183 |
-| LMT | backpack | 362 | 40 (11%) | 322 | 184 |
-| NVDAx | backed | 362 | 34 (9%) | 328 | 184 |
-| PFE | backpack | 362 | 40 (11%) | 322 | 184 |
-| QQQx | backed | 362 | 34 (9%) | 328 | 184 |
-| SPYx | backed | 362 | 34 (9%) | 328 | 184 |
-| TSLAx | backed | 362 | 34 (9%) | 328 | 184 |
+| AAPLx | backed | 567 | 34 (6%) | 533 | 284 |
+| IWMx | backed | 567 | 0 (0%) | 567 | 283 |
+| JPSTx | backed | 567 | 0 (0%) | 567 | 283 |
+| LMT | backpack | 567 | 40 (7%) | 527 | 284 |
+| NVDAx | backed | 567 | 34 (6%) | 533 | 284 |
+| PFE | backpack | 567 | 40 (7%) | 527 | 284 |
+| QQQx | backed | 567 | 34 (6%) | 533 | 284 |
+| SPYx | backed | 567 | 34 (6%) | 533 | 284 |
+| TSLAx | backed | 567 | 34 (6%) | 533 | 284 |
 
-Across the window, **3008 of 3258** symbol-observations were not tradeable.
+Across the window, **4853 of 5103** symbol-observations were not tradeable.
 
 ## Confidence
 
@@ -29,8 +29,8 @@ confirm against and the log says so rather than implying agreement.
 
 | confidence | ticks |
 |---|---|
-| conflict | 1635 |
-| confirmed | 1623 |
+| conflict | 2660 |
+| confirmed | 2443 |
 
 ## Source disagreement
 
@@ -40,11 +40,11 @@ publishes a reason code.
 
 | symbol | ticks |
 |---|---|
-| AAPLx | 327 |
-| NVDAx | 327 |
-| QQQx | 327 |
-| SPYx | 327 |
-| TSLAx | 327 |
+| AAPLx | 532 |
+| NVDAx | 532 |
+| QQQx | 532 |
+| SPYx | 532 |
+| TSLAx | 532 |
 | IWMx | 40 |
 | JPSTx | 40 |
 

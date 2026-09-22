@@ -136,7 +136,7 @@ export function decide(obs: Observation): Decision[] {
 
     let issuer = null
     if (listing.issuer === 'backed') {
-      const x = obs.xstocks.get(listing.mint)
+      const x = obs.xstocks.get(listing.mainnetMint)
       if (x) {
         issuer = {
           openNow: x.openNow,
@@ -208,10 +208,14 @@ export async function readMarks(
   const out: MarkReading[] = []
   for (const listing of ALLOWLIST) {
     const mint = new Web3PublicKey(listing.mint)
-    const decimals = decimalsByMint.get(listing.mint)
+    // Decimals are a property of the security, and the devnet mirror is created
+    // to match, so the real address is the right key for both.
+    const decimals = decimalsByMint.get(listing.mainnetMint)
     if (decimals === undefined) continue
 
-    const q = await quote(USDC, listing.mint, usdc(MARK_NOTIONAL_USD))
+    // Priced against the real mint: Jupiter only knows mainnet, and what SPY is
+    // worth is a fact about SPY rather than about the cluster we deployed to.
+    const q = await quote(USDC, listing.mainnetMint, usdc(MARK_NOTIONAL_USD))
     if (!q || q.outAmount === 0n) continue
 
     const risk = await readTokenRisk(conn, mint)
@@ -242,6 +246,14 @@ export interface TickResult {
   marked: string[]
   signature: string | null
   dryRun: boolean
+  /**
+   * Why pricing failed this tick, if it did. Null on success.
+   *
+   * Surfaced rather than swallowed: no fresh mark means nothing can fill, which
+   * is a real degradation even though the venue stays open. An operator should
+   * see it, and a run of them means the quote source needs attention.
+   */
+  markError: string | null
 }
 
 /**
@@ -302,40 +314,65 @@ export async function tick(args: {
 
   // Marks refresh far more often than sessions: MAX_MARK_AGE_SECONDS is 60, so
   // a price older than a minute cannot settle anything.
+  //
+  // Isolated from the session push on purpose. Pricing needs nine Jupiter
+  // quotes a tick, roughly two thousand times a day, against an endpoint that
+  // rate-limits and times out — and every one of those failures used to throw
+  // out of `tick()` before the session attestation was ever sent, so a routine
+  // sensor hiccup closed the entire venue 120 seconds later. That is
+  // fail-closed working exactly as designed, on the wrong input.
+  //
+  // The two are not equally critical: a stale session is a safety question, a
+  // stale mark only means nothing can fill. Degrading to "no fresh price" is
+  // the honest outcome, and the gate still refuses those fills by itself.
   const marked: string[] = []
+  let markError: string | null = null
   if (args.withMarks !== false) {
-    const decimals = new Map(
-      [...(await fetchTokens(ALLOWLIST.map((l) => l.mint)))].map(([m, t]) => [m, t.decimals]),
-    )
-    for (const m of await readMarks(conn, decimals)) {
-      const existing = await readMark(conn, m.symbol)
-      if (!existing) continue // not opened yet
-      markIxs.push(
-        ixPushMark({
-          attestor: attestor.publicKey,
-          symbol: m.symbol,
-          rateQ64: m.rateQ64,
-          pxNum: m.pxNum,
-          pxExpo: m.pxExpo,
-          confBps: m.confBps,
-          source: m.source,
-          observedAt: BigInt(nowSeconds),
-        }),
+    try {
+      const decimals = new Map(
+        [...(await fetchTokens(ALLOWLIST.map((l) => l.mainnetMint)))].map(([m, t]) => [m, t.decimals]),
       )
-      marked.push(m.symbol)
+      for (const m of await readMarks(conn, decimals)) {
+        const existing = await readMark(conn, m.symbol)
+        if (!existing) continue // not opened yet
+        markIxs.push(
+          ixPushMark({
+            attestor: attestor.publicKey,
+            symbol: m.symbol,
+            rateQ64: m.rateQ64,
+            pxNum: m.pxNum,
+            pxExpo: m.pxExpo,
+            confBps: m.confBps,
+            source: m.source,
+            observedAt: BigInt(nowSeconds),
+          }),
+        )
+        marked.push(m.symbol)
+      }
+    } catch (e) {
+      markError = (e as Error).message
+      markIxs.length = 0
+      marked.length = 0
     }
   }
 
   let signature: string | null = null
   if (!dryRun) {
+    // Sessions first, and in their own transaction. If the mark push then
+    // fails, the attestation that keeps the venue open has already landed.
     if (sessionIxs.length > 0) signature = await send(conn, sessionIxs, [attestor])
     if (markIxs.length > 0) {
-      const markSig = await send(conn, markIxs, [attestor])
-      signature = signature ?? markSig
+      try {
+        const markSig = await send(conn, markIxs, [attestor])
+        signature = signature ?? markSig
+      } catch (e) {
+        markError = (e as Error).message
+        marked.length = 0
+      }
     }
   }
 
-  return { at: obs.at, decisions, pushed, marked, signature, dryRun }
+  return { at: obs.at, decisions, pushed, marked, signature, dryRun, markError }
 }
 
 export { HaltState, fairOut }

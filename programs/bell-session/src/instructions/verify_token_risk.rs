@@ -69,8 +69,16 @@ fn read_mint(mint_info: &AccountInfo, now: i64) -> Result<MintFacts> {
                 let at = i64::from(c.new_multiplier_effective_timestamp);
 
                 if at != 0 && now >= at {
-                    // Already in force. Nothing is pending.
-                    (incoming, 0, 0)
+                    // Already in force, so nothing is *pending* — but the
+                    // instant is kept rather than zeroed. Gate 4 measures
+                    // |activates_at - now|, so dropping it here would delete
+                    // the half of the guard window that sits *after* the
+                    // activation, and anyone could do it by calling the
+                    // permissionless refresh one second past T. That window is
+                    // the dangerous one: a dividend steps value-per-raw-unit up
+                    // at a known instant, leaving the pool stale-low by exactly
+                    // the dividend until arbitrage catches up.
+                    (incoming, 0, at)
                 } else if at != 0 && incoming != outgoing {
                     // Scheduled and published ahead of time — which is exactly
                     // what makes the dividend drain predictable, and refusable.
@@ -122,6 +130,13 @@ fn apply(risk: &mut TokenRisk, mint: Pubkey, facts: MintFacts, now: i64) {
 
 /// Create the risk record for a mint. Permissionless — anyone may do this once.
 ///
+/// The caller names the `rebase_kind` attestor, exactly as `register_symbol`
+/// does, so rent can be paid by a cold deploy key while the hot keeper key
+/// holds the attestation authority. Every other field is proven from the mint
+/// and stays permissionlessly refreshable; only the attested one needs an
+/// owner. First-come-first-served per mint, which is why the nine listed mints
+/// are initialised at deploy.
+///
 /// Deliberately separate from `refresh_token_risk` rather than using
 /// `init_if_needed`: keeping creation and update distinct means there is no
 /// path on which an existing record is silently re-initialised.
@@ -144,10 +159,11 @@ pub struct InitTokenRisk<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_init_token_risk(ctx: Context<InitTokenRisk>) -> Result<()> {
+pub fn handle_init_token_risk(ctx: Context<InitTokenRisk>, attestor: Pubkey) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
     let facts = read_mint(&ctx.accounts.mint.to_account_info(), now)?;
     ctx.accounts.risk.rebase_kind = RebaseKind::None;
+    ctx.accounts.risk.attestor = attestor;
     ctx.accounts.risk.bump = ctx.bumps.risk;
     apply(&mut ctx.accounts.risk, ctx.accounts.mint.key(), facts, now);
     Ok(())

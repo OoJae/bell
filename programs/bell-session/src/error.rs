@@ -58,4 +58,6 @@ pub enum BellError {
     BadParameters,
     #[msg("Token account owner does not match")]
     TokenOwnerMismatch,
+    #[msg("Account is not owned by the token program it is claimed to belong to")]
+    TokenProgramMismatch,
 }

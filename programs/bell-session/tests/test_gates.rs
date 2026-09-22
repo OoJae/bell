@@ -129,9 +129,13 @@ fn sym(s: &str) -> [u8; SYMBOL_LEN] {
 }
 
 fn ix_init_risk(ctx: &Ctx, mint: Pubkey) -> Instruction {
+    ix_init_risk_for(ctx, mint, ctx.payer.pubkey())
+}
+
+fn ix_init_risk_for(ctx: &Ctx, mint: Pubkey, attestor: Pubkey) -> Instruction {
     Instruction::new_with_bytes(
         ctx.program_id,
-        &bell_session::instruction::InitTokenRisk {}.data(),
+        &bell_session::instruction::InitTokenRisk { attestor }.data(),
         bell_session::accounts::InitTokenRisk {
             payer: ctx.payer.pubkey(),
             mint,
@@ -440,4 +444,91 @@ fn an_attestation_cannot_be_dated_in_the_future() {
             &[&attestor]
         )
         .is_err());
+}
+
+// ------------------------------------------------- regressions from the audit
+//
+// Each of these failed before the fix in the same commit. They are here because
+// the fixes changed instruction shapes without breaking a single existing test,
+// which is precisely the condition under which a security fix quietly regresses.
+
+fn ix_classify(ctx: &Ctx, mint: Pubkey, attestor: Pubkey, kind: RebaseKind) -> Instruction {
+    Instruction::new_with_bytes(
+        ctx.program_id,
+        &bell_session::instruction::ClassifyRebase { kind }.data(),
+        bell_session::accounts::ClassifyRebase {
+            attestor,
+            risk: ctx.risk_pda(&mint),
+        }
+        .to_account_metas(None),
+    )
+}
+
+#[test]
+fn a_stranger_cannot_classify_a_rebase() {
+    // The original hole: `classify_rebase` read its authority from a
+    // `SymbolState` that carried no seed constraint, while `register_symbol` is
+    // permissionless and takes both the mint and the attestor as caller-supplied
+    // arguments. So anyone could register an unused ticker naming a real mint,
+    // name themselves attestor, and write `rebase_kind` on that mint's shared
+    // `TokenRisk` — clearing it to disarm gate 4 during a corporate action, or
+    // setting it to `Unknown` to freeze every symbol on the mint.
+    let mut ctx = Ctx::new();
+    let mint = ctx.install_mint(AAPLX, include_bytes!("fixtures/aaplx.bin"));
+    ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+
+    let impostor = Keypair::new();
+    ctx.svm.airdrop(&impostor.pubkey(), 1_000_000_000).unwrap();
+
+    // The exact escalation the audit described: squat a ticker on someone
+    // else's mint, naming yourself as its attestor. Registering still succeeds —
+    // it is a ticker nobody uses — but it must buy no authority over the mint.
+    ctx.send(
+        ix_register(&ctx, sym("AAPLX9"), mint, impostor.pubkey()),
+        &[],
+    )
+    .unwrap();
+
+    assert!(
+        ctx.send(ix_classify(&ctx, mint, impostor.pubkey(), RebaseKind::Split), &[&impostor])
+            .is_err(),
+        "a self-registered symbol must not confer authority over a shared TokenRisk"
+    );
+}
+
+#[test]
+fn the_risk_records_its_own_classification_authority() {
+    // And the key that created the record still can.
+    let mut ctx = Ctx::new();
+    let mint = ctx.install_mint(AAPLX, include_bytes!("fixtures/aaplx.bin"));
+    ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+    let risk = ctx.read_risk(&ctx.risk_pda(&mint));
+    assert_eq!(risk.attestor, ctx.payer.pubkey());
+
+    ctx.send(ix_classify(&ctx, mint, ctx.payer.pubkey(), RebaseKind::Dividend), &[])
+        .unwrap();
+    assert_eq!(ctx.read_risk(&ctx.risk_pda(&mint)).rebase_kind, RebaseKind::Dividend);
+}
+
+#[test]
+fn the_activation_instant_survives_the_change_taking_effect() {
+    // Netflix's mint carries a 10:1 split whose activation timestamp is in the
+    // past relative to our pinned clock. `read_mint` used to zero
+    // `activates_at` once it passed, which deleted the half of the rebase guard
+    // window that sits *after* the activation — the window in which a dividend
+    // has already stepped value-per-raw-unit up and the pool is stale-low by
+    // exactly that amount. Anyone could trigger that deletion, because
+    // refreshing is permissionless.
+    let mut ctx = Ctx::new();
+    let mint = ctx.install_mint(NFLXX, include_bytes!("fixtures/nflxx.bin"));
+    ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+    let risk = ctx.read_risk(&ctx.risk_pda(&mint));
+
+    assert_ne!(
+        risk.activates_at, 0,
+        "an activation that has already happened must still be recorded"
+    );
+    // It is in force, so nothing is pending and no classification is demanded.
+    assert_eq!(risk.pending_multiplier_bits, 0);
+    assert_eq!(risk.rebase_kind, RebaseKind::None);
 }

@@ -64,6 +64,9 @@ async function once() {
     const parts = []
     if (result.pushed.length) parts.push(`sessions: ${result.pushed.join(', ')}`)
     if (result.marked.length) parts.push(`marks: ${result.marked.length}`)
+    // A pricing failure is not a tick failure — the venue stays open, but
+    // nothing can fill until a fresh mark lands, so say so out loud.
+    if (result.markError) parts.push(`marks UNPRICED (${result.markError})`)
     console.log(`  ${parts.join('  |  ')}${result.signature ? `  sig=${result.signature.slice(0, 16)}…` : ''}`)
   }
 

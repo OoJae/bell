@@ -9,7 +9,7 @@
  * the user signs once. The approval is what funds the order — their USDC never
  * leaves their wallet.
  */
-import { PublicKey, Transaction, TransactionInstruction, sendAndConfirmTransaction } from '@solana/web3.js'
+import { PublicKey, Transaction, sendAndConfirmTransaction } from '@solana/web3.js'
 import {
   authPda,
   connect,
@@ -18,56 +18,14 @@ import {
   readMark,
   readOrder,
   readOrders,
-  TOKEN_PROGRAM,
 } from '../src/chain/client.ts'
+import { ixApproveChecked, ixRevoke } from '../src/chain/spl.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { fairOut } from '../src/chain/codec.ts'
 import { bySymbol } from '../src/config.ts'
 
 const PAYER_PATH = process.env.BELL_PAYER_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`
 const QUOTE_DECIMALS = 6
-
-/**
- * `ApproveChecked`, built directly.
- *
- * Same reasoning as the transfer in `fill_order`: a ten-byte payload with a
- * stable wire format is shorter to write than a dependency that would have to
- * agree with anchor about which `Pubkey` is which.
- */
-function approveCheckedIx(args: {
-  source: PublicKey
-  mint: PublicKey
-  delegate: PublicKey
-  owner: PublicKey
-  amount: bigint
-  decimals: number
-}): TransactionInstruction {
-  const data = Buffer.alloc(10)
-  data.writeUInt8(13, 0) // TokenInstruction::ApproveChecked
-  data.writeBigUInt64LE(args.amount, 1)
-  data.writeUInt8(args.decimals, 9)
-  return new TransactionInstruction({
-    programId: TOKEN_PROGRAM,
-    keys: [
-      { pubkey: args.source, isSigner: false, isWritable: true },
-      { pubkey: args.mint, isSigner: false, isWritable: false },
-      { pubkey: args.delegate, isSigner: false, isWritable: false },
-      { pubkey: args.owner, isSigner: true, isWritable: false },
-    ],
-    data,
-  })
-}
-
-function revokeIx(source: PublicKey, owner: PublicKey): TransactionInstruction {
-  return new TransactionInstruction({
-    programId: TOKEN_PROGRAM,
-    keys: [
-      { pubkey: source, isSigner: false, isWritable: true },
-      { pubkey: owner, isSigner: true, isWritable: false },
-    ],
-    data: Buffer.from([5]), // TokenInstruction::Revoke
-  })
-}
 
 const conn = connect()
 const user = loadKeypair(PAYER_PATH)
@@ -92,7 +50,7 @@ if (cmd === 'place') {
 
   const payerIn = quoteAccount()
   const tx = new Transaction().add(
-    approveCheckedIx({
+    ixApproveChecked({
       source: payerIn,
       mint: new PublicKey(process.env.BELL_QUOTE_MINT!),
       delegate: authPda(user.publicKey),
@@ -134,7 +92,7 @@ if (cmd === 'place') {
   // is deliberately second: even if this program were frozen, the revoke alone
   // makes the order unfillable.
   const tx = new Transaction().add(
-    revokeIx(order.payerIn, user.publicKey),
+    ixRevoke(order.payerIn, user.publicKey),
     ixCancelOrder({ signer: user.publicKey, owner: user.publicKey, nonce, payerIn: order.payerIn }),
   )
   const sig = await sendAndConfirmTransaction(conn, tx, [user], { commitment: 'confirmed' })

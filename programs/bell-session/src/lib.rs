@@ -61,8 +61,8 @@ pub mod bell_session {
     }
 
     /// Create the risk record for a mint, read from the mint. Permissionless.
-    pub fn init_token_risk(ctx: Context<InitTokenRisk>) -> Result<()> {
-        instructions::verify_token_risk::handle_init_token_risk(ctx)
+    pub fn init_token_risk(ctx: Context<InitTokenRisk>, attestor: Pubkey) -> Result<()> {
+        instructions::verify_token_risk::handle_init_token_risk(ctx, attestor)
     }
 
     /// Re-read issuer powers and pending rebases from the mint. Permissionless.

@@ -1,0 +1,56 @@
+# The keeper, for a hosted run.
+#
+# Only the keeper. The front end is a separate service and the program lives on
+# Solana — this container's whole job is to sense, reconcile and attest every 45
+# seconds, because an attestation older than MAX_STATE_AGE_SECONDS closes the
+# venue. Fail-closed means the one thing that must not stop is this.
+#
+# Needs a volume at /data: the tick log is what EVIDENCE.md is generated from,
+# and a restart that loses it loses the evidence base rather than just a cache.
+FROM node:26-slim
+
+WORKDIR /app
+
+# pnpm installed directly, not via corepack: Node stopped distributing corepack
+# at v25, so `corepack enable` fails outright on this image. Pinned to the
+# version that produced the lockfile.
+RUN npm i -g pnpm@11.1.2
+
+# `web/package.json` is copied even though the front end is not in this image.
+# The lockfile declares both workspace importers, and `--frozen-lockfile` fails
+# if one is missing. Without it pnpm silently re-resolves and mutates the
+# lockfile inside the layer, which is the opposite of a reproducible build.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY web/package.json ./web/package.json
+RUN pnpm install --prod --frozen-lockfile --ignore-scripts --filter .
+
+# `--ignore-scripts` rather than a build toolchain. better-sqlite3 ships N-API
+# prebuilds for linux-x64 and linux-arm64, so the compile that pnpm-workspace's
+# `allowBuilds` would otherwise trigger produces a binary identical to the one
+# already in the package — at the cost of ~300MB of python3/make/g++ and several
+# minutes per build. Build time is not free here: it is the length of the gap
+# during which a redeploy leaves the venue closed.
+#
+# Verified by running the image, not by reading the manifest — a prebuild that
+# is present but not loadable fails at the first tick, in production.
+
+# Node 26 runs TypeScript natively, so there is no build step and no artefact to
+# keep in sync with the source: the container runs the same files the tests ran
+# against. `src/mirrors.json` travels with `src/` and must be committed, or a
+# devnet keeper boots with no mint mapping at all.
+COPY src ./src
+COPY scripts ./scripts
+
+ENV BELL_DB=/data/bell.db
+ENV BELL_CLUSTER=devnet
+ENV BELL_RPC_URL=https://api.devnet.solana.com
+# Deliberately not defaulted: an armed keeper is a keeper that signs. It has to
+# be turned on explicitly, per deployment, after a dry run has been eyeballed.
+# ENV BELL_ARM=1
+
+# The attestor key arrives as BELL_KEY_ATTESTOR (the contents of .attestor.json),
+# never as a file in the image. Its blast radius is small by design — it can only
+# close symbols, which is the safe direction — but it still has no business
+# being baked into a layer.
+
+CMD ["node", "scripts/keeper.ts"]

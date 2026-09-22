@@ -20,4 +20,12 @@ data/snapshots/
 test-ledger/
 .filler.json
 localnet/
-.demo.env
+.demo*.env
+.env.local
+web/.env.local
+
+# Build output and environment, closed off before the repo goes public.
+.next/
+*.tsbuildinfo
+.env.*
+.railway/

@@ -1,0 +1,18 @@
+# Keep the build context small and, more importantly, keep keys out of it.
+.git
+node_modules
+target
+web/.next
+web/node_modules
+data
+localnet
+test-ledger
+*.keypair.json
+*-keypair.json
+.attestor.json
+.filler.json
+.env
+.env.*
+.demo*.env
+web/.env*
+*.png
