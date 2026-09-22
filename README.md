@@ -9,8 +9,14 @@ takes the order and fills it at the opening bell.
 The product is the refusal. Judges have seen plenty of dashboards that *say* a
 trade is risky. This is a program that declines to sign one.
 
-**Live on devnet:**
-[`56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx`](https://explorer.solana.com/address/56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx?cluster=devnet)
+**Live:** https://web-production-f46ca9.up.railway.app
+**Program:** [`56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx`](https://explorer.solana.com/address/56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx?cluster=devnet) (devnet)
+
+The site talks to Solana RPC directly from your browser — there is no backend
+between you and the chain. The keeper runs separately and only writes
+attestations, so **stop it and the site keeps working, correctly showing
+everything closed.** That is the fail-closed property as something you can
+watch rather than something we claim.
 
 Devnet rather than mainnet, deliberately. The rent is identical either way
 (2.17 SOL at exact length) and the program is byte-for-byte the same; devnet SOL

@@ -192,3 +192,33 @@ vulnerability. It still cost a full rebuild cycle.
 actually exists on the cluster it is pointed at. The permanence stays — on
 mainnet the quote asset is USDC and never changes, and binding it is part of the
 mark's identity — but binding it to *nothing* is now impossible.
+
+## 2026-09-22 — fail-closed tripping over its own feet
+
+The devnet site came up reading *"Cannot reach the chain. Nothing is tradeable
+while this is true"* across all nine symbols. The chain was fine. The keeper was
+attesting every 45 seconds and `scripts/gate.ts` agreed from the same machine.
+
+The board was making ~36 RPC requests per refresh — three `getAccountInfo` per
+symbol for state, risk and mark, plus a `simulateTransaction` each for the
+verdict — every ten seconds. Public devnet answers that with HTTP 429, the
+browser client throws, and the catch block correctly concludes that an
+unreachable chain is not permission to trade.
+
+So the error path was right and the message was true, and the result was still
+wrong: **a venue that closes itself because it asked too many questions is not
+demonstrating fail-closed, it is tripping over its own feet.** A judge sees a
+broken site, and the property we most wanted to show is what hides the cause.
+
+**Fix:** `readAllSymbols` fetches all 27 accounts in a single
+`getMultipleAccounts` (the limit is 100). The board's verdict is derived from
+those same accounts by taking the first failing gate in `check_tradeable`'s own
+order, which reproduces the answer *and* the reason. The authoritative
+simulation still runs — for the one symbol being looked at — so a disagreement
+between the derived view and the program would surface exactly where someone is
+looking. 36 calls became 2.
+
+The general lesson is about error paths that are individually correct. Rate
+limiting and a dead RPC are indistinguishable to a client, and we chose to treat
+the ambiguous case as closed. That is still the right choice. It just means the
+cost of being noisy is paid in false closures, so the client has to be quiet.
