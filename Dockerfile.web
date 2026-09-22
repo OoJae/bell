@@ -1,0 +1,40 @@
+# The front end.
+#
+# Built from the REPO ROOT, not from `web/`. Railway's per-service "root
+# directory" setting is the isolated-monorepo pattern and would break this
+# outright: `web/lib/*` imports `../../src/chain/{client,codec,spl}.ts` and
+# `../../src/config.ts`, which in turn pull in `src/chain/idl.json` and
+# `src/mirrors.json`. The front end and the keeper deliberately run the *same*
+# codec and the same policy code — a UI that reimplements the rules is a UI that
+# will eventually lie about them — and that is only possible if both trees are
+# present at build time.
+FROM node:26-slim
+
+WORKDIR /app
+
+# pnpm directly: Node stopped distributing corepack at v25.
+RUN npm i -g pnpm@11.1.2
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY web/package.json ./web/package.json
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+COPY src ./src
+COPY web ./web
+
+# NEXT_PUBLIC_* are inlined at BUILD time, not read at runtime, so they have to
+# be present here rather than only in the service's environment. Railway passes
+# service variables to the builder, which is what makes that work.
+ARG NEXT_PUBLIC_BELL_CLUSTER
+ARG NEXT_PUBLIC_BELL_RPC
+ARG NEXT_PUBLIC_BELL_QUOTE_MINT
+ENV NEXT_PUBLIC_BELL_CLUSTER=$NEXT_PUBLIC_BELL_CLUSTER
+ENV NEXT_PUBLIC_BELL_RPC=$NEXT_PUBLIC_BELL_RPC
+ENV NEXT_PUBLIC_BELL_QUOTE_MINT=$NEXT_PUBLIC_BELL_QUOTE_MINT
+
+RUN pnpm --filter bell-web build
+
+# Railway assigns the port; the local default of 3100 is not it.
+ENV PORT=3000
+EXPOSE 3000
+CMD ["sh", "-c", "cd web && pnpm exec next start -p ${PORT:-3000}"]
