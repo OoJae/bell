@@ -53,8 +53,9 @@ pub fn handle_open_mark(
 /// Attest a price.
 ///
 /// Signed by the same key that attests sessions. That is a deliberate
-/// simplification and also the system's sharpest edge: unlike a session, which
-/// can only close trading, a price can move value. See `SymbolMark`.
+/// simplification and also the system's sharpest edge: a session opens and
+/// closes trading but moves no value, while a price can. Each order's own
+/// `floor_rate_q64` bounds what a wrong price can take. See `SymbolMark`.
 #[derive(Accounts)]
 #[instruction(symbol: [u8; SYMBOL_LEN])]
 pub struct PushMark<'info> {

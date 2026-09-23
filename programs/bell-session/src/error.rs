@@ -4,9 +4,12 @@ use anchor_lang::prelude::*;
 /// these; the human-facing explanation is built off-chain from the same code.
 #[error_code]
 pub enum BellError {
-    #[msg("Primary listing exchange has halted or suspended this security")]
+    /// Covers a shut session, an exchange halt and an issuer withdrawal alike;
+    /// the attested `HaltState` says which. The message used to claim an
+    /// exchange halt for all three — including SPYx on any weeknight.
+    #[msg("Market is closed or trading in this security is stopped")]
     MarketClosed,
-    #[msg("Session state is stale; treated as halted")]
+    #[msg("Session state is stale; treated as closed")]
     StateStale,
     #[msg("Issuer has paused this mint")]
     IssuerPaused,

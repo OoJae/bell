@@ -4,7 +4,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'BELL',
-  description: 'The venue for real US securities on Solana that knows what time it is.',
+  description:
+    'BELL refuses trades in tokenized US stocks whenever the real market is closed or halted, or the token is not safe to trade — and parks your order to fill when it can.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

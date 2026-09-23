@@ -1,0 +1,55 @@
+# Tests, typechecks and the front-end build, on every push and pull request.
+#
+# Holds no secrets and sends no transactions. The TypeScript tests run on
+# fixtures, fakes and temporary files, not on a cluster, and the three
+# NEXT_PUBLIC_* values below are public: a cluster name, a public RPC endpoint
+# and the devnet quote mint's address, which the page inlines at build time.
+#
+# What it does not run: the program's own tests (`cargo test` in
+# programs/bell-session). Those load target/deploy/bell_session.so — the
+# deployed binary, which is build output and not in the repo — and producing
+# one needs the Solana toolchain. Rebuilding it here would test whatever the
+# source compiles to today, which need not be the binary on chain, so the
+# program tests stay a local step.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      # pnpm directly, not via corepack (Node stopped distributing it at v25),
+      # pinned to the version that produced the lockfile.
+      - run: npm i -g pnpm@11.1.2
+      # Both workspace importers, no build scripts — as Dockerfile.web does.
+      # better-sqlite3 carries a prebuilt linux-x64 binary inside the package,
+      # so the tests that open a database need no compiler here either.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: tests
+        run: node --test test/*.test.ts
+      - name: typecheck (root)
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: typecheck (web)
+        working-directory: web
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: build (web)
+        run: pnpm --filter bell-web build
+        env:
+          NEXT_PUBLIC_BELL_CLUSTER: devnet
+          NEXT_PUBLIC_BELL_RPC: https://api.devnet.solana.com
+          NEXT_PUBLIC_BELL_QUOTE_MINT: 8QhSxevJerJq8khpNsfW69bUPvcBjMRTXPKrxYQAtAaX

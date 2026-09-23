@@ -8,11 +8,18 @@ import {
   connection,
   explain,
   explainView,
+  explorerAddress,
   explorerTx,
   loadBoard,
   loadOrders,
+  marketLine,
+  nyClockOf,
+  nyWhenOf,
   offline,
+  PROGRAM,
   RPC_URL,
+  shortKey,
+  type GateRow,
   type Status,
   type SymbolView,
   type WalletView,
@@ -69,6 +76,40 @@ const BADGE: Record<Status, [text: string, tone: string]> = {
 function Badge({ view }: { view: SymbolView }) {
   const [text, tone] = BADGE[view.status]
   return <span className={`badge ${tone}`}>{text}</span>
+}
+
+/**
+ * A gate row's mark. A disclosure gets its own, because it is neither a pass
+ * nor a failure, and a ✓ beside "can move this token out of your wallet" would
+ * read as reassurance.
+ */
+const markOf = (ok: GateRow['ok']): [glyph: string, tone: string] =>
+  ok === 'disclosure' ? ['ⓘ', 'disclose'] : ok === null ? ['↻', 'wait'] : ok ? ['✓', 'pass'] : ['✕', 'fail']
+
+/**
+ * New York time and the US session, ticking every second. Mounted only in the
+ * browser: the server's second is never the browser's, so rendering it in
+ * both places would mismatch on every hydration.
+ */
+function Clock({ views }: { views: readonly SymbolView[] }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  const m = marketLine(views, now)
+  return (
+    <>
+      New York <strong>{m.time}</strong> ET
+      {m.state && (
+        <>
+          {' · '}
+          <span className={`mkt ${m.state}`}>US market {m.state}</span>
+        </>
+      )}
+      {m.when && <> · {m.when}</>}
+    </>
+  )
 }
 
 interface Notice {
@@ -268,7 +309,7 @@ export default function Page() {
       // change is parking an order that can never fill.
       if (!current.allowed && current.changeAt > 0 && current.changeAt < orderExpiry(now, nextOpen)) {
         throw new Error(
-          `A corporate action is scheduled for ${new Date(current.changeAt * 1000).toLocaleString()}, before this order could fill — it would be refused as resized. Place it after the change lands.`,
+          `A corporate action is scheduled for ${nyWhenOf(current.changeAt)}, before this order could fill — it would be refused as resized. Place it after the change lands.`,
         )
       }
 
@@ -462,16 +503,22 @@ export default function Page() {
             <div className="sub">
               The venue for real US securities on Solana that knows what time it is.
             </div>
+            {/* Not `.sub`: the demo script reads the second `.sub` as the board line. */}
+            <p className="what">
+              BELL refuses trades in tokenized US stocks whenever the real market is closed or
+              halted, or the token is not safe to trade — and parks your order to fill when it can.
+            </p>
           </div>
           {mounted && <WalletMultiButton />}
         </div>
+        <div className="clock">{mounted && <Clock views={views} />}</div>
         <div className="sub" style={{ marginTop: 8 }}>
           {views.length > 0 && (
             <>
               {tradeable} of {views.length} tradeable ·{' '}
             </>
           )}
-          {updatedAt ? `updated ${updatedAt.toLocaleTimeString()}` : 'loading…'} ·{' '}
+          {updatedAt ? `updated ${nyClockOf(updatedAt)}` : 'loading…'} ·{' '}
           <span style={{ opacity: 0.6 }}>{RPC_URL}</span>
         </div>
         {publicKey && wallet && (
@@ -555,17 +602,24 @@ export default function Page() {
             )}
           </p>
 
-          {current.gates.map((g) => (
-            <div className="gate" key={g.label}>
-              <span className={`mark ${g.ok === null ? 'wait' : g.ok ? 'pass' : 'fail'}`}>
-                {g.ok === null ? '↻' : g.ok ? '✓' : '✕'}
-              </span>
-              <span className="label">{g.label}</span>
-              <span className="detail">{g.detail}</span>
-            </div>
-          ))}
+          {current.gates.map((g) => {
+            const [glyph, tone] = markOf(g.ok)
+            return (
+              <div className="gate" key={g.label}>
+                <span className={`mark ${tone}`}>{glyph}</span>
+                <span className="label">{g.label}</span>
+                <span className="detail">{g.detail}</span>
+              </div>
+            )
+          })}
 
-          <div className="note">{current.listing.note}</div>
+          {/* The note describes the real security. A devnet mirror is not it,
+              and a note like "an entitlement to the real PFE share" would be
+              false of the token actually on screen without saying so. */}
+          <div className="note">
+            {current.listing.note}
+            {CLUSTER === 'devnet' && " On devnet this is BELL's mirror of that token, not the security itself."}
+          </div>
 
           <div className="buy">
             <label className="amt">
@@ -595,7 +649,7 @@ export default function Page() {
                         : current.status === 'closed'
                           ? `Queue it for the opening bell${
                               current.nextChangeAt > 0
-                                ? ` · ${new Date(current.nextChangeAt * 1000).toLocaleString()}`
+                                ? ` · ${nyWhenOf(current.nextChangeAt)}`
                                 : ''
                             }`
                           : `Park it — fills when ${clearsWhen(current)}`}
@@ -646,7 +700,7 @@ export default function Page() {
                           : !view || view.status === 'closed'
                             ? ' · waiting for the bell'
                             : ` · parked — fills when ${clearsWhen(view)}`}{' '}
-                  · slip ≤ {o.maxSlipBps}bps · until {new Date(Number(o.expiresAt) * 1000).toLocaleString()}
+                  · slip ≤ {o.maxSlipBps}bps · until {nyWhenOf(Number(o.expiresAt))}
                 </span>
                 <button className="mini" disabled={busy} onClick={() => void cancel(o)}>
                   cancel
@@ -663,6 +717,21 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      <footer className="foot">
+        <span>
+          source{' '}
+          <a href="https://github.com/OoJae/bell" target="_blank" rel="noreferrer">
+            github.com/OoJae/bell ↗
+          </a>
+        </span>
+        <span>
+          program{' '}
+          <a href={explorerAddress(PROGRAM)} target="_blank" rel="noreferrer">
+            {shortKey(PROGRAM)} on Solana Explorer ↗
+          </a>
+        </span>
+      </footer>
     </div>
   )
 }

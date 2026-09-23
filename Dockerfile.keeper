@@ -49,8 +49,14 @@ ENV BELL_RPC_URL=https://api.devnet.solana.com
 # ENV BELL_ARM=1
 
 # The attestor key arrives as BELL_KEY_ATTESTOR (the contents of .attestor.json),
-# never as a file in the image. Its blast radius is small by design — it can only
-# close symbols, which is the safe direction — but it still has no business
-# being baked into a layer.
+# never as a file in the image. It can open or close a symbol, set its price
+# and classify a pending corporate action; it cannot touch the program, transfer
+# anyone else's tokens, or place an order in anyone else's name. But filling is
+# permissionless, so a leaked key can open a symbol, push an inflated price and
+# fill parked orders against it itself. What bounds that is each order's loss floor
+# (three quarters of the placement-time mark, set by the page and
+# scripts/queue.ts in src/policy/order.ts; none on an order placed before the
+# first mark) and the program's $1,000 per-order cap. Bounded is not harmless,
+# so it has no business being baked into a layer.
 
 CMD ["node", "scripts/keeper.ts"]

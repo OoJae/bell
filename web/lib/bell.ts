@@ -17,18 +17,22 @@ import {
 } from '../../src/chain/client.ts'
 import { ataFor, decodeTokenAccount, TOKEN_2022 } from '../../src/chain/spl.ts'
 import {
+  LIMITS,
   MAX_MARK_AGE_SECONDS,
   MAX_RISK_AGE_SECONDS,
   MAX_STATE_AGE_SECONDS,
   Mode,
   multiplierOf,
+  PROGRAM_ID,
   REBASE_GUARD_SECONDS,
   RebaseKind,
   rebaseKindName,
   type BellOrder,
+  type SymbolMark,
   type TokenRisk,
 } from '../../src/chain/codec.ts'
-import { ALLOWLIST, type Listing } from '../../src/config.ts'
+import { ALLOWLIST, CLUSTER, type Issuer, type Listing } from '../../src/config.ts'
+import { confCap } from '../../src/policy/order.ts'
 import { HaltState } from '../../src/policy/reconcile.ts'
 
 export const RPC_URL = process.env.NEXT_PUBLIC_BELL_RPC ?? 'http://127.0.0.1:8899'
@@ -42,9 +46,20 @@ export const RPC_URL = process.env.NEXT_PUBLIC_BELL_RPC ?? 'http://127.0.0.1:889
 export const connection = () =>
   new Connection(RPC_URL, { commitment: 'confirmed', disableRetryOnRateLimit: true })
 
+const explorerCluster = RPC_URL.includes('devnet') ? '?cluster=devnet' : ''
+
 /** A devnet explorer link for a signature, so every claim on the page can be checked. */
-export const explorerTx = (sig: string) =>
-  `https://explorer.solana.com/tx/${sig}${RPC_URL.includes('devnet') ? '?cluster=devnet' : ''}`
+export const explorerTx = (sig: string) => `https://explorer.solana.com/tx/${sig}${explorerCluster}`
+
+/** An explorer link for an account, on the same cluster as `explorerTx`. */
+export const explorerAddress = (key: string) =>
+  `https://explorer.solana.com/address/${key}${explorerCluster}`
+
+/** The program this page talks to, from the IDL the client is built from. */
+export const PROGRAM = PROGRAM_ID.toBase58()
+
+/** A key short enough to sit in a sentence and still be matched by eye. */
+export const shortKey = (key: string) => `${key.slice(0, 4)}…${key.slice(-4)}`
 
 /**
  * Display names keyed by the named `HaltState` constants, not by position. A
@@ -63,8 +78,13 @@ const HALT_NAMES: Record<number, string> = {
 /** One row of the gate panel: what this check saw, and whether it is happy. */
 export interface GateRow {
   label: string
-  /** Null for "in between": a price that is due to be replaced, not a failure. */
-  ok: boolean | null
+  /**
+   * Null for "in between": a price that is due to be replaced, not a failure.
+   * `'disclosure'` for a fact a holder should know that no check can pass or
+   * fail, such as who can move the token out of their wallet. A disclosure
+   * never carries `refuses`, so it never votes on the verdict.
+   */
+  ok: boolean | null | 'disclosure'
   detail: string
   /**
    * The `BellError` this row stands for in `check_tradeable`, or absent when the
@@ -210,6 +230,74 @@ function classifiedDetail(r: TokenRisk): string {
 }
 
 /**
+ * The permanent delegate each issuer's real mainnet mints name. Two keys cover
+ * all nine listings (README, verified against the mainnet accounts), and the
+ * mainnet mint fixtures the program tests parse carry the same two.
+ */
+const ISSUER_DELEGATE: Record<Issuer, { name: string; key: string }> = {
+  backed: { name: 'Backed', key: '5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq' },
+  backpack: { name: 'Backpack', key: '2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a' },
+}
+
+/**
+ * The key BELL deploys with. `scripts/mirror-mints.ts` reproduces each real
+ * mint's extensions on devnet, permanent delegate included, and the only key it
+ * can name there is the one creating the mirror.
+ */
+const DEVNET_DEPLOY_KEY = 'Dqp6DbUh6j5Jddff9VHPAK1UpByo85NhLVw83S58Ziqs'
+
+/**
+ * Who can take this token out of a wallet without its holder's signature.
+ *
+ * A disclosure, not a gate: every one of these mints has a permanent delegate,
+ * so refusing on it would refuse the asset class, and no venue can change it.
+ * What the page can do is name the key the chain records — never the one we
+ * expect — and say whose it is.
+ */
+function delegateRow(listing: Listing, r: TokenRisk): GateRow {
+  const label = 'permanent delegate'
+  const onChain = r.permanentDelegate?.toBase58() ?? null
+  if (!onChain) {
+    return { label, ok: 'disclosure', detail: "none — no key can move this token without its holder's signature" }
+  }
+  const issuer = ISSUER_DELEGATE[listing.issuer]
+  const power = `${shortKey(onChain)} can move or burn this token in any wallet, without the holder's signature`
+  const whose =
+    CLUSTER === 'devnet'
+      ? onChain === DEVNET_DEPLOY_KEY
+        ? `On this devnet mirror that is BELL's own deploy key; on the real mint it is ${issuer.name}'s ${shortKey(issuer.key)}.`
+        : `It is not the key this devnet mirror was made with.`
+      : onChain === issuer.key
+        ? `It is ${issuer.name}'s key.`
+        : `It is not ${issuer.name}'s known key, ${shortKey(issuer.key)}.`
+  return { label, ok: 'disclosure', detail: `${power}. ${whose}` }
+}
+
+/**
+ * How precisely the price is attested, against what an order here accepts.
+ *
+ * Informational: it gates a *fill* (`MarkTooWide`), not `assert_tradeable`.
+ * The figure is the attestor's own uncertainty about the mark, and an order
+ * snapshots its listing's cap when placed. A mark nobody has pushed yet opens
+ * with the widest possible figure and a zero timestamp, which means "no
+ * price", not "a wide one".
+ */
+function precisionRow(listing: Listing, mark: SymbolMark | null | undefined): GateRow {
+  const label = 'price precise enough'
+  const cap = confCap(listing)
+  if (!mark || mark.observedAt <= 0n) {
+    return { label, ok: false, detail: 'no price attested yet, so there is nothing to fill against' }
+  }
+  return mark.confBps <= cap
+    ? { label, ok: true, detail: `attested to within ${mark.confBps}bps; an order here accepts up to ${cap}bps` }
+    : {
+        label,
+        ok: false,
+        detail: `attested only to within ${mark.confBps}bps — wider than the ${cap}bps an order here accepts, so a fill waits`,
+      }
+}
+
+/**
  * Read one symbol and build its panel.
  *
  * The gate rows are derived from account state for display. The verdict comes
@@ -280,7 +368,7 @@ export async function loadSymbol(
           : state.halt !== HaltState.Unspecified
             ? `halted on ${state.exchangeMic}: ${HALT_NAMES[state.halt] ?? 'halted'}`
             : listing.withdrawn
-              ? `the issuer has withdrawn this token — ${listing.underlying} itself is not halted`
+              ? `the issuer has withdrawn this token — its stop, not a halt of ${listing.underlying}`
               : 'trading stopped; no reason published',
     },
     {
@@ -355,6 +443,8 @@ export async function loadSymbol(
               ? `${markAge}s old — refreshing; a fill waits for the next price`
               : `${markAge}s old — stale`,
     },
+    precisionRow(listing, mark),
+    delegateRow(listing, risk),
   ]
 
   let allowed: boolean | null = null
@@ -376,7 +466,12 @@ export async function loadSymbol(
       attestationAge: age,
       nextChangeAt: Number(state.nextChangeAt),
       openNow: state.openNow,
-      priceUsd: mark && mark.pxNum > 0n ? Number(mark.pxNum) / 1e6 : null,
+      // A mark at the program's 200bps ceiling is a $200 quote that moved its
+      // pool by 2% or more — a withdrawn wrapper's empty pool quotes IWMx at
+      // several times IWM's price. That is a fact about the pool, not a price
+      // for the security, so the tile does not show it as one.
+      priceUsd:
+        mark && mark.pxNum > 0n && mark.confBps < LIMITS.MAX_CONF_BPS ? Number(mark.pxNum) / 1e6 : null,
       registered: true,
       halt: state.halt,
       markRateQ64: mark && mark.observedAt > 0n && mark.rateQ64 > 0n ? mark.rateQ64 : null,
@@ -422,6 +517,100 @@ export async function loadSymbol(
  */
 export const offline = (views: SymbolView[]): SymbolView[] =>
   views.map((v) => ({ ...v, allowed: false, reason: 'unavailable', status: 'offline' as const }))
+
+const NY = 'America/New_York'
+const nyClock = new Intl.DateTimeFormat('en-US', { timeZone: NY, hour: 'numeric', minute: '2-digit', second: '2-digit' })
+const nyTime = new Intl.DateTimeFormat('en-US', { timeZone: NY, hour: 'numeric', minute: '2-digit' })
+const nyDay = new Intl.DateTimeFormat('en-CA', { timeZone: NY, year: 'numeric', month: '2-digit', day: '2-digit' })
+const nyWeekday = new Intl.DateTimeFormat('en-US', { timeZone: NY, weekday: 'short' })
+const nyDate = new Intl.DateTimeFormat('en-US', { timeZone: NY, weekday: 'short', month: 'short', day: 'numeric' })
+
+/**
+ * A moment as New York wall-clock time, to the second. Everything the page
+ * timestamps sits beside the New York clock, so it reads in the same zone.
+ */
+export const nyClockOf = (d: Date) => `${nyClock.format(d)} ET`
+
+/** "9:30 AM" today, "Thu 9:30 AM" this week, "Mon, Oct 5 9:30 AM" beyond — all New York time. */
+function nyWhen(at: number, now: number): string {
+  const d = new Date(at * 1000)
+  if (nyDay.format(d) === nyDay.format(new Date(now * 1000))) return nyTime.format(d)
+  return `${(at - now < 6 * 86_400 ? nyWeekday : nyDate).format(d)} ${nyTime.format(d)}`
+}
+
+/**
+ * A future instant for the page's own text — the bell on the queue button, a
+ * scheduled corporate action, an order's expiry — in New York time and
+ * labelled, so it cannot disagree with the clock above it for a viewer
+ * elsewhere. They used to be the viewer's local time, unlabelled.
+ */
+export const nyWhenOf = (at: number) => `${nyWhen(at, Math.floor(Date.now() / 1000))} ET`
+
+/** "42s", "7m", "2h 5m", "2d 17h". */
+function span(s: number): string {
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ${m % 60}m`
+  return `${Math.floor(h / 24)}d ${h % 24}h`
+}
+
+export interface MarketLine {
+  /** New York wall-clock time, to the second. */
+  time: string
+  /**
+   * The US session as attested, or null when no attestation can vouch for it
+   * or its scheduled change is due and not yet attested.
+   */
+  state: 'open' | 'closed' | 'halted' | null
+  /** When that changes, or why it is stopped; null when not known. */
+  when: string | null
+}
+
+/**
+ * Whether a symbol's attestation speaks for the US session: read, fresh, and
+ * not stopped for a reason that is about this one security or its issuer. A
+ * market-wide circuit breaker is the one halt that is about the whole market.
+ */
+const speaksForSession = (v: SymbolView) =>
+  v.registered &&
+  v.status !== 'offline' &&
+  v.status !== 'loading' &&
+  v.attestationAge !== null &&
+  v.attestationAge <= MAX_STATE_AGE_SECONDS &&
+  (v.halt === HaltState.None || v.halt === HaltState.MarketWide)
+
+/**
+ * The New York clock, and the US session as the board's attestations state it.
+ *
+ * Only the attested state, never a calendar kept by the page: a second source
+ * of market hours here would be a second answer to disagree with the gate.
+ * Read from the first listing (SPYx) whenever its attestation can vouch for
+ * the session, and otherwise from the next one that can — every listing is a
+ * US security on the same regular session, and a wrapper its issuer has
+ * stopped says nothing about the market. When none can, the line says nothing
+ * about the market at all.
+ */
+export function marketLine(views: readonly SymbolView[], nowMs: number): MarketLine {
+  const now = Math.floor(nowMs / 1000)
+  const line: MarketLine = { time: nyClock.format(new Date(nowMs)), state: null, when: null }
+  const v = views.find(speaksForSession)
+  if (!v) return line
+  if (v.halt === HaltState.MarketWide) return { ...line, state: 'halted', when: 'market-wide circuit breaker' }
+
+  const state = v.openNow ? 'open' : 'closed'
+  const next = v.nextChangeAt
+  if (next <= 0) return { ...line, state }
+  // The scheduled change has passed but the attestation saying so has not
+  // landed yet; the keeper re-attests within a minute. The line names neither
+  // state: the old one is no longer true of the market, and the new one is not
+  // yet what the gate answers from, so it says only that the change is due.
+  if (now >= next) {
+    return { ...line, when: `the ${nyTime.format(new Date(next * 1000))} ${v.openNow ? 'close' : 'open'} is due; awaiting its attestation` }
+  }
+  return { ...line, state, when: `${v.openNow ? 'closes' : 'opens'} ${nyWhen(next, now)}, in ${span(next - now)}` }
+}
 
 /**
  * The whole board, in one RPC round trip plus one simulation.
@@ -539,7 +728,7 @@ export function explainView(v: SymbolView): string {
     case 'halted':
       return `Halted on its primary exchange (${HALT_NAMES[v.halt] ?? 'halted'}). Nothing trades until it resumes.`
     case 'withdrawn':
-      return `The issuer has withdrawn this token; ${v.listing.underlying} itself is not halted. BELL refuses it as a withdrawal, not an exchange halt.`
+      return `The issuer has withdrawn this token. That is the issuer's stop, not a halt of ${v.listing.underlying}, and BELL refuses it as a withdrawal.`
     case 'suspended':
       return 'Trading in this security has stopped, and no reason has been published.'
     default:
@@ -579,7 +768,7 @@ export function explain(reason: string | null): string {
     case 'RiskStale':
       return "Nobody has re-read this token's issuer settings recently enough to trust them."
     case 'MarkTooWide':
-      return 'The price sources disagree by more than this order accepts, so it waits for them to agree.'
+      return 'The price is attested less precisely than this order accepts, so it waits for a tighter one.'
     case 'AlreadyClosed':
       return 'That order is already closed — filled, or tidied up after its funding was revoked.'
     case 'unavailable':

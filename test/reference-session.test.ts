@@ -1,3 +1,9 @@
+/**
+ * Tests of the reference model in `reference/session.ts`, which nothing runs.
+ * A pass here says the model is consistent with itself, not that the program
+ * behaves this way — the gates that decide are tested against the compiled
+ * program in `programs/bell-session/tests/test_gates.rs`.
+ */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -7,7 +13,7 @@ import {
   type TokenRisk,
   type OracleReading,
   type Order,
-} from '../src/policy/session.ts'
+} from '../reference/session.ts'
 
 const NOW = 1_800_000_000_000
 

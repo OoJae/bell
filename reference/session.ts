@@ -1,12 +1,26 @@
 /**
- * Deterministic trade policy — the logic the on-chain guard mirrors.
+ * A reference model of the trade gates. Nothing runs it.
+ *
+ * Written off-chain alongside the program's first scaffold, to pin down the
+ * design, and kept because its tests (`test/reference-session.test.ts`) state
+ * that intent in executable form. The keeper, the crank and the page do not
+ * import it, and no decision anywhere in the running system comes from
+ * `evaluate`.
+ *
+ * The program is the authority: `check_tradeable` in
+ * `programs/bell-session/src/instructions/assert_tradeable.rs`, which
+ * `assert_tradeable` and `fill_order` both run. Where the two disagree, the
+ * program is right — and they do disagree. This model has no token-risk age
+ * check (gate 2b) and no multiplier-moved check (gate 5), and it adds oracle,
+ * basis and price-impact checks that the gate does not make; the queue's fill
+ * path checks its own mark age and spread instead.
+ *
+ * It lives outside `src/` so that it cannot be mistaken for code that decides
+ * anything.
  *
  * Pure functions, no I/O, no clock of their own: every decision is a function
- * of (market state, order, now). That is what makes it testable off-chain and
- * portable into the Anchor program, where it becomes the real authority.
- *
- * Design rule: FAIL CLOSED. Anything unknown, stale, or unclassified is a
- * refusal, never a fill.
+ * of (market state, order, now). The rule it models is the program's: FAIL
+ * CLOSED. Anything unknown, stale, or unclassified is a refusal, never a fill.
  */
 
 /** How much off-hours risk the caller is willing to take. */

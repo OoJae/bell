@@ -4,7 +4,9 @@
 //! for byte, pulled with `getAccountInfo`. Testing extension parsing against a
 //! synthetic mint would only prove we can read a mint we built ourselves; these
 //! prove we read Apple, Netflix, SPY and a Backpack entitlement as they
-//! actually exist on chain today.
+//! actually exist on chain today. Where a gate needs issuer state that no
+//! fixture carries today — a pause, an armed hook — the test changes that one
+//! field inside a real mint rather than building a mint of its own.
 
 use {
     anchor_lang::{
@@ -14,6 +16,8 @@ use {
     },
     bell_session::{
         constants::{RISK_SEED, SYMBOL_SEED, SYMBOL_LEN},
+        error::BellError,
+        instructions::assert_tradeable::Mode,
         state::{HaltState, HoursMode, RebaseKind, SymbolState, TokenRisk},
     },
     anchor_lang::solana_program::clock::Clock,
@@ -23,6 +27,17 @@ use {
     solana_message::{Message, VersionedMessage},
     solana_signer::Signer,
     solana_transaction::versioned::VersionedTransaction,
+    spl_token_2022::{
+        extension::{
+            pausable::PausableConfig, transfer_hook::TransferHook, AccountType,
+            BaseStateWithExtensions, ExtensionType, StateWithExtensions,
+        },
+        state::{Account as SplAccount, Mint as SplMint, PackedSizeOf},
+    },
+    std::{
+        mem::{offset_of, size_of},
+        ops::Range,
+    },
 };
 
 /// anchor-lang and spl-token-2022 use different `Pubkey` types; bridge by bytes.
@@ -69,7 +84,9 @@ impl Ctx {
         Self { svm, payer, program_id }
     }
 
-    /// Drop a real mainnet mint account into the test ledger unchanged.
+    /// Drop a mint account into the test ledger at its real address, owned by
+    /// Token-2022. The bytes are a mainnet fixture, unchanged unless a test has
+    /// deliberately altered one field of it (see `paused` and `with_hook`).
     fn install_mint(&mut self, address: &str, fixture: &[u8]) -> Pubkey {
         let key: Pubkey = address.parse().unwrap();
         self.svm
@@ -136,6 +153,44 @@ fn sym(s: &str) -> [u8; SYMBOL_LEN] {
     let mut out = [b' '; SYMBOL_LEN];
     out[..s.len()].copy_from_slice(s.as_bytes());
     out
+}
+
+/// Codes derived from the enum, never typed by hand: hand-typed codes were
+/// off by one the first time, because counting variants by eye skipped one.
+const fn code(e: BellError) -> u32 {
+    anchor_lang::error::ERROR_CODE_OFFSET + e as u32
+}
+const MARKET_CLOSED: u32 = code(BellError::MarketClosed);
+const STATE_STALE: u32 = code(BellError::StateStale);
+const ISSUER_PAUSED: u32 = code(BellError::IssuerPaused);
+const REBASE_PENDING: u32 = code(BellError::RebasePending);
+const REBASE_UNCLASSIFIED: u32 = code(BellError::RebaseUnclassified);
+const MULTIPLIER_MOVED: u32 = code(BellError::MultiplierMoved);
+const HOOK_ARMED: u32 = code(BellError::HookArmed);
+const NOT_TOKEN_2022: u32 = code(BellError::NotToken2022);
+const NOT_ATTESTOR: u32 = code(BellError::NotAttestor);
+const TIMESTAMP_IN_FUTURE: u32 = code(BellError::TimestampInFuture);
+const RISK_STALE: u32 = code(BellError::RiskStale);
+
+/// Assert a refusal by its code. A bare `is_err()` keeps passing after the
+/// reason has changed underneath it — exactly what happened when the TokenRisk
+/// age bound arrived and a mark-staleness test quietly started failing on
+/// RiskStale.
+fn assert_code(r: Result<(), String>, code: u32, why: &str) {
+    match r {
+        Ok(()) => panic!("expected Custom({code}) — {why} — but it passed"),
+        Err(e) => assert!(e.contains(&format!("Custom({code})")), "expected Custom({code}) — {why} — got {e}"),
+    }
+}
+
+fn strict() -> Mode {
+    Mode::Strict
+}
+
+/// A caller that accepts off-hours risk. Used where a refusal must be shown
+/// not to come from gate 7, the only gate the mode changes.
+fn guarded() -> Mode {
+    Mode::Guarded
 }
 
 fn ix_init_risk(ctx: &Ctx, mint: Pubkey) -> Instruction {
@@ -276,22 +331,45 @@ fn is_issuer_agnostic() {
 
 #[test]
 fn rejects_a_mint_that_is_not_token_2022() {
+    // The bytes are the real AAPLx mint, which Token-2022's parser accepts, so
+    // the only thing wrong is who owns the account. Zeroed bytes would not do:
+    // they fail to unpack, which `read_mint` also reports as NotToken2022, and
+    // the test would keep passing with the owner check deleted. Anyone can copy
+    // a mint's bytes into an account their own program owns and set a pause
+    // flag or a multiplier to whatever they like there.
+    let aapl = include_bytes!("fixtures/aaplx.bin");
+    let classic: Pubkey = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".parse().unwrap();
+    for (owner, who) in [
+        (classic, "a genuine mint's bytes under the classic token program"),
+        (Pubkey::new_unique(), "a genuine mint's bytes under a program the caller wrote"),
+    ] {
+        let mut ctx = Ctx::new();
+        let key = Pubkey::new_unique();
+        ctx.svm
+            .set_account(
+                key,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: aapl.to_vec(),
+                    owner,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            )
+            .unwrap();
+        assert_code(ctx.send(ix_init_risk(&ctx, key), &[]), NOT_TOKEN_2022, who);
+    }
+
+    // The same bytes under Token-2022 are read, so the owner was the reason.
     let mut ctx = Ctx::new();
     let key = Pubkey::new_unique();
     ctx.svm
         .set_account(
             key,
-            Account {
-                lamports: 1_000_000_000,
-                data: vec![0u8; 82],
-                owner: system_program::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
+            Account { lamports: 1_000_000_000, data: aapl.to_vec(), owner: token_2022(), executable: false, rent_epoch: 0 },
         )
         .unwrap();
-    let err = ctx.send(ix_init_risk(&ctx, key), &[]).unwrap_err();
-    assert!(err.contains("NotToken2022") || err.contains("Custom"), "got {err}");
+    ctx.send(ix_init_risk(&ctx, key), &[]).unwrap();
 }
 
 // ---------------------------------------------------------------- the gate
@@ -321,11 +399,7 @@ fn open_market(ctx: &mut Ctx) -> ([u8; SYMBOL_LEN], Pubkey, Keypair, u64) {
 fn an_open_market_passes() {
     let mut ctx = Ctx::new();
     let (symbol, mint, _a, bits) = open_market(&mut ctx);
-    ctx.send(
-        ix_assert(&ctx, symbol, mint, bell_session::instructions::assert_tradeable::Mode::Strict, bits),
-        &[],
-    )
-    .unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]).unwrap();
 }
 
 #[test]
@@ -344,13 +418,17 @@ fn a_registered_symbol_is_untradeable_until_it_is_attested() {
     assert_eq!(s.halt, HaltState::Suspension);
     assert!(!s.open_now);
 
+    // Refused at gate 1, before the halt is looked at: registration writes
+    // `observed_at = 0`, so a record nobody has attested is older than any
+    // freshness bound. The `Suspension` default is the second line of defence,
+    // and cannot be the reason here, because the only way to make the record
+    // fresh is a push that overwrites it.
     let bits = ctx.read_risk(&ctx.risk_pda(&mint)).multiplier_bits;
-    assert!(ctx
-        .send(
-            ix_assert(&ctx, symbol, mint, bell_session::instructions::assert_tradeable::Mode::Guarded, bits),
-            &[]
-        )
-        .is_err());
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]),
+        STATE_STALE,
+        "registered, never attested",
+    );
 }
 
 #[test]
@@ -364,13 +442,13 @@ fn a_halt_stops_the_trade() {
     )
     .unwrap();
 
-    let err = ctx
-        .send(
-            ix_assert(&ctx, symbol, mint, bell_session::instructions::assert_tradeable::Mode::Guarded, bits),
-            &[],
-        )
-        .unwrap_err();
-    assert!(err.contains("MarketClosed") || err.contains("Custom"), "got {err}");
+    // Gate 2. Guarded, so this is the halt refusing and not gate 7's session
+    // check, which reports the same code.
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]),
+        MARKET_CLOSED,
+        "LULD pause during an open session",
+    );
 }
 
 #[test]
@@ -386,12 +464,11 @@ fn a_stale_attestation_fails_closed() {
     )
     .unwrap();
 
-    assert!(ctx
-        .send(
-            ix_assert(&ctx, symbol, mint, bell_session::instructions::assert_tradeable::Mode::Guarded, bits),
-            &[]
-        )
-        .is_err());
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]),
+        STATE_STALE,
+        "attested MAX_STATE_AGE_SECONDS + 1 ago",
+    );
 }
 
 #[test]
@@ -405,12 +482,15 @@ fn strict_mode_refuses_a_closed_market() {
     )
     .unwrap();
 
-    let strict = bell_session::instructions::assert_tradeable::Mode::Strict;
-    assert!(ctx.send(ix_assert(&ctx, symbol, mint, strict, bits), &[]).is_err());
+    // Gate 7: no halt, just a session that is not live.
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, strict(), bits), &[]),
+        MARKET_CLOSED,
+        "strict caller, primary market closed",
+    );
 
     // ...while a guarded caller, which widens its own price bands, may proceed.
-    let guarded = bell_session::instructions::assert_tradeable::Mode::Guarded;
-    ctx.send(ix_assert(&ctx, symbol, mint, guarded, bits), &[]).unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]).unwrap();
 }
 
 #[test]
@@ -419,12 +499,11 @@ fn an_order_built_on_a_different_multiplier_is_invalidated() {
     let mut ctx = Ctx::new();
     let (symbol, mint, _a, _bits) = open_market(&mut ctx);
     let wrong = 1.0f64.to_bits();
-    assert!(ctx
-        .send(
-            ix_assert(&ctx, symbol, mint, bell_session::instructions::assert_tradeable::Mode::Strict, wrong),
-            &[]
-        )
-        .is_err());
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, strict(), wrong), &[]),
+        MULTIPLIER_MOVED,
+        "built at 1.0 against AAPLx's accumulated multiplier",
+    );
 }
 
 #[test]
@@ -434,12 +513,11 @@ fn only_the_registered_attestor_may_push() {
     let impostor = Keypair::new();
     ctx.svm.airdrop(&impostor.pubkey(), 1_000_000_000).unwrap();
     let now = ctx.now();
-    assert!(ctx
-        .send(
-            ix_push(&ctx, symbol, impostor.pubkey(), HaltState::None, true, now),
-            &[&impostor]
-        )
-        .is_err());
+    assert_code(
+        ctx.send(ix_push(&ctx, symbol, impostor.pubkey(), HaltState::None, true, now), &[&impostor]),
+        NOT_ATTESTOR,
+        "signed by a key other than the symbol's attestor",
+    );
 }
 
 #[test]
@@ -448,12 +526,11 @@ fn an_attestation_cannot_be_dated_in_the_future() {
     let mut ctx = Ctx::new();
     let (symbol, _mint, attestor, _bits) = open_market(&mut ctx);
     let future = ctx.now() + 10_000;
-    assert!(ctx
-        .send(
-            ix_push(&ctx, symbol, attestor.pubkey(), HaltState::None, true, future),
-            &[&attestor]
-        )
-        .is_err());
+    assert_code(
+        ctx.send(ix_push(&ctx, symbol, attestor.pubkey(), HaltState::None, true, future), &[&attestor]),
+        TIMESTAMP_IN_FUTURE,
+        "observed_at 10,000s ahead of the clock",
+    );
 }
 
 // ------------------------------------------------- regressions from the audit
@@ -499,10 +576,10 @@ fn a_stranger_cannot_classify_a_rebase() {
     )
     .unwrap();
 
-    assert!(
-        ctx.send(ix_classify(&ctx, mint, impostor.pubkey(), RebaseKind::Split), &[&impostor])
-            .is_err(),
-        "a self-registered symbol must not confer authority over a shared TokenRisk"
+    assert_code(
+        ctx.send(ix_classify(&ctx, mint, impostor.pubkey(), RebaseKind::Split), &[&impostor]),
+        NOT_ATTESTOR,
+        "a self-registered symbol must not confer authority over a shared TokenRisk",
     );
 }
 
@@ -551,37 +628,12 @@ fn the_activation_instant_survives_the_change_taking_effect() {
 // registration. `MAX_RISK_AGE_SECONDS` makes a stale read fail closed, the same
 // way a stale attestation does.
 
-/// Codes derived from the enum, never typed by hand: hand-typed codes were
-/// off by one the first time, because counting variants by eye skipped one.
-const fn code(e: bell_session::error::BellError) -> u32 {
-    anchor_lang::error::ERROR_CODE_OFFSET + e as u32
-}
-const MARKET_CLOSED: u32 = code(bell_session::error::BellError::MarketClosed);
-const REBASE_PENDING: u32 = code(bell_session::error::BellError::RebasePending);
-const REBASE_UNCLASSIFIED: u32 = code(bell_session::error::BellError::RebaseUnclassified);
-const MULTIPLIER_MOVED: u32 = code(bell_session::error::BellError::MultiplierMoved);
-const RISK_STALE: u32 = code(bell_session::error::BellError::RiskStale);
-
 fn ix_refresh(ctx: &Ctx, mint: Pubkey) -> Instruction {
     Instruction::new_with_bytes(
         ctx.program_id,
         &bell_session::instruction::RefreshTokenRisk {}.data(),
         bell_session::accounts::RefreshTokenRisk { mint, risk: ctx.risk_pda(&mint) }.to_account_metas(None),
     )
-}
-
-/// Assert a refusal by its code. A bare `is_err()` keeps passing after the
-/// reason has changed underneath it — exactly what happened when this bound
-/// arrived and a mark-staleness test quietly started failing on RiskStale.
-fn assert_code(r: Result<(), String>, code: u32, why: &str) {
-    match r {
-        Ok(()) => panic!("expected Custom({code}) — {why} — but it passed"),
-        Err(e) => assert!(e.contains(&format!("Custom({code})")), "expected Custom({code}) — {why} — got {e}"),
-    }
-}
-
-fn strict() -> bell_session::instructions::assert_tradeable::Mode {
-    bell_session::instructions::assert_tradeable::Mode::Strict
 }
 
 #[test]
@@ -701,4 +753,148 @@ fn a_dividend_walked_end_to_end_on_the_real_apple_mint() {
     ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
     assert_code(ctx.send(ix_assert(&ctx, symbol, mint, strict(), old_bits), &[]), MULTIPLIER_MOVED, "old multiplier after T");
     ctx.send(ix_assert(&ctx, symbol, mint, strict(), new_bits), &[]).unwrap();
+}
+
+// ------------------------------------- issuer powers, armed on real issuer bytes
+//
+// On mainnet today no fixture is paused and every transfer-hook slot is empty,
+// so gates 3 and 6 never fire against the fixtures as pulled. Building a mint
+// from scratch would only prove we can read a mint we wrote. Instead each of
+// these takes a real mint and changes one field inside one extension, leaving
+// every other byte as the issuer wrote it, so the program still parses the
+// issuer's own layout.
+
+/// The byte range of one extension's value inside a Token-2022 mint, found by
+/// walking the TLV entries the way Token-2022 does.
+///
+/// Walked rather than indexed because the extension order is the issuer's
+/// choice, and the fixtures show that it varies: Backpack's PFE carries
+/// `Pausable` sixty bytes earlier than Backed's mints do. A hardcoded offset
+/// taken from one issuer would, on the other, silently flip a byte inside
+/// whichever extension happens to sit there.
+fn extension_value(data: &[u8], want: ExtensionType) -> Range<usize> {
+    // Extensions begin after the base state padded to a token account's
+    // length, plus the one byte that says which kind of account this is.
+    let base = <SplAccount as PackedSizeOf>::SIZE_OF;
+    assert_eq!(data[base], AccountType::Mint as u8, "not a Token-2022 mint with extensions");
+    let mut at = base + 1;
+    while at + 4 <= data.len() {
+        let ty = u16::from_le_bytes([data[at], data[at + 1]]);
+        let len = u16::from_le_bytes([data[at + 2], data[at + 3]]) as usize;
+        // Nothing is ever written after an uninitialized entry.
+        if ty == ExtensionType::Uninitialized as u16 {
+            break;
+        }
+        let value = at + 4..at + 4 + len;
+        assert!(value.end <= data.len(), "TLV entry {ty} runs past the end of the account");
+        if ty == want as u16 {
+            return value;
+        }
+        at = value.end;
+    }
+    panic!("{want:?} is not among this mint's extensions");
+}
+
+/// A copy of `fixture` with the issuer's `PausableConfig.paused` flag set.
+fn paused(fixture: &[u8]) -> Vec<u8> {
+    let mut data = fixture.to_vec();
+    let v = extension_value(&data, ExtensionType::Pausable);
+    assert_eq!(v.len(), size_of::<PausableConfig>(), "Pausable entry has an unexpected length");
+    let flag = v.start + offset_of!(PausableConfig, paused);
+    assert_eq!(data[flag], 0, "fixture should ship unpaused");
+    data[flag] = 1; // PodBool true
+    // Read back through Token-2022's own parser, the one the program uses, so
+    // the test cannot have written somewhere the program does not look.
+    let mint = StateWithExtensions::<SplMint>::unpack(&data).unwrap();
+    assert!(bool::from(mint.get_extension::<PausableConfig>().unwrap().paused));
+    data
+}
+
+/// A copy of `fixture` whose transfer-hook slot names `program`.
+fn with_hook(fixture: &[u8], program: &Pubkey) -> Vec<u8> {
+    let mut data = fixture.to_vec();
+    let v = extension_value(&data, ExtensionType::TransferHook);
+    assert_eq!(v.len(), size_of::<TransferHook>(), "TransferHook entry has an unexpected length");
+    let key = program.to_bytes();
+    let slot = v.start + offset_of!(TransferHook, program_id);
+    assert_eq!(data[slot..slot + key.len()], [0u8; 32], "fixture's hook slot should ship empty");
+    data[slot..slot + key.len()].copy_from_slice(&key);
+    let mint = StateWithExtensions::<SplMint>::unpack(&data).unwrap();
+    assert_eq!(mint.get_extension::<TransferHook>().unwrap().program_id.0.to_bytes(), key);
+    data
+}
+
+#[test]
+fn an_issuer_pause_on_the_mint_stops_the_trade() {
+    // Gate 3. The pause is Backed's own flag on the real AAPLx mint, set as
+    // the issuer's pause authority would set it, and seen by nothing but a
+    // permissionless re-read of the mint.
+    let mut ctx = Ctx::new();
+    let (symbol, mint, _a, bits) = open_market(&mut ctx);
+    let real = include_bytes!("fixtures/aaplx.bin");
+
+    ctx.install_mint(AAPLX, &paused(real));
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    assert!(ctx.read_risk(&ctx.risk_pda(&mint)).paused, "the refresh read the flag from the mint");
+    // Guarded: the pause binds a caller that accepts off-hours risk too.
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]),
+        ISSUER_PAUSED,
+        "AAPLx paused by its issuer",
+    );
+
+    // Unpaused and re-read, the same record trades again: the flag, and
+    // nothing else the synthesis touched, was the reason.
+    ctx.install_mint(AAPLX, real);
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]).unwrap();
+}
+
+#[test]
+fn a_pause_is_read_on_either_issuers_extension_layout() {
+    // Backed and Backpack order their extensions differently, so the same flag
+    // sits at different offsets. The program reads it by type on both, and so
+    // does the synthesis — which the first assertion keeps honest, by failing
+    // if the fixtures ever stop disagreeing about where it is.
+    let aapl = &include_bytes!("fixtures/aaplx.bin")[..];
+    let pfe = &include_bytes!("fixtures/pfe_backpack.bin")[..];
+    assert_ne!(
+        extension_value(aapl, ExtensionType::Pausable).start,
+        extension_value(pfe, ExtensionType::Pausable).start,
+        "the two issuers' layouts should place Pausable differently"
+    );
+
+    let mut ctx = Ctx::new();
+    for (address, fixture) in [(AAPLX, aapl), (PFE_BACKPACK, pfe)] {
+        let mint = ctx.install_mint(address, &paused(fixture));
+        ctx.send(ix_init_risk(&ctx, mint), &[]).unwrap();
+        assert!(ctx.read_risk(&ctx.risk_pda(&mint)).paused, "{address} should read as paused");
+    }
+}
+
+#[test]
+fn an_armed_transfer_hook_stops_the_trade() {
+    // Gate 6. Every fixture ships with the hook slot present and empty, which
+    // is how the issuer keeps the power to arm one later. Arming it routes
+    // every transfer through a program nobody here has read, so the mint
+    // stops being tradeable at the instant a re-read sees it.
+    let mut ctx = Ctx::new();
+    let (symbol, mint, _a, bits) = open_market(&mut ctx);
+    let real = include_bytes!("fixtures/aaplx.bin");
+    let hook_program = Pubkey::new_unique();
+
+    ctx.install_mint(AAPLX, &with_hook(real, &hook_program));
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    assert_eq!(ctx.read_risk(&ctx.risk_pda(&mint)).hook, Some(hook_program));
+    assert_code(
+        ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]),
+        HOOK_ARMED,
+        "AAPLx with a transfer-hook program set",
+    );
+
+    // Disarmed and re-read, it trades again.
+    ctx.install_mint(AAPLX, real);
+    ctx.send(ix_refresh(&ctx, mint), &[]).unwrap();
+    assert_eq!(ctx.read_risk(&ctx.risk_pda(&mint)).hook, None);
+    ctx.send(ix_assert(&ctx, symbol, mint, guarded(), bits), &[]).unwrap();
 }

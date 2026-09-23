@@ -58,10 +58,21 @@ export async function clusterTime(conn: Connection): Promise<number> {
 export interface MarkReading {
   symbol: string
   rateQ64: bigint
+  /**
+   * The price as `pxNum × 10^pxExpo`, in quote units (USDC) per share. The
+   * scaled-UI multiplier is already applied, so this is per share, not per
+   * raw token.
+   */
   pxNum: bigint
   pxExpo: number
   confBps: number
   source: MarkSource
+}
+
+/** A mark as a tick sent it: the reading, and the instant it attested to. */
+export interface PushedMark extends MarkReading {
+  /** The `observed_at` in the instruction, in unix seconds on the cluster's clock. */
+  observedAt: number
 }
 
 /** Everything the loop needs, gathered once per tick. */
@@ -70,19 +81,23 @@ export interface Observation {
   xstocks: Map<string, XStock>
   pyth: Map<string, PythSession>
   halts: Map<string, Halt>
+  /** Null when Backpack's lists could not be read in full this tick. */
   backpack: {
     sessions: SessionWindow[]
     holidays: HolidayWindow[]
     /** Asset -> that security's own session names. */
     supported: Map<string, string[]>
-  }
+  } | null
+  /** Why `backpack` is null, when it is. */
+  backpackError: string | null
 }
 
 export async function sense(): Promise<Observation> {
   // Only the allowlisted Backed names, not all 928: nine small reads instead of
   // thirteen pages, which keeps a tick well clear of the refresh threshold.
   const backedSymbols = ALLOWLIST.filter((l) => l.issuer === 'backed').map((l) => l.symbol)
-  const [assets, pyth, halts, sessions, holidays, securities] = await Promise.all([
+  let backpackError: string | null = null
+  const [assets, pyth, halts, backpack] = await Promise.all([
     // Each asset on its own: one withdrawn token answering 404 used to fail
     // the whole tick, and a tick that pushes nothing closes all nine symbols
     // two minutes later. A missing reading closes only its own symbol —
@@ -90,9 +105,28 @@ export async function sense(): Promise<Observation> {
     Promise.all(backedSymbols.map((s) => fetchAsset(s).catch(() => null))),
     fetchEquitySessions(),
     fetchHalts(),
-    fetchSessions(),
-    fetchHolidays(),
-    fetchSecurities(),
+    // Backpack's three lists stand or fall together, and only for Backpack's
+    // own listings. Nothing a Backed token's verdict reads comes from them, yet
+    // an outage there, or a holiday row that will not parse, used to fail the
+    // whole tick and close all nine symbols. Without them a Backpack listing
+    // has no issuer reading, which `reconcile` closes.
+    //
+    // The halt feed and Pyth stay tick-fatal on purpose. A missing halt feed
+    // reads as "no halts", which is fail-open; and without Pyth every listing
+    // here closes anyway.
+    Promise.all([fetchSessions(), fetchHolidays(), fetchSecurities()]).then(
+      ([sessions, holidays, securities]) => ({
+        sessions,
+        holidays,
+        supported: new Map(
+          securities.map((s) => [s.asset, (s.sessions ?? []).map((x) => x.name)]),
+        ),
+      }),
+      (e: unknown) => {
+        backpackError = (e as Error).message
+        return null
+      },
+    ),
   ])
   return {
     at: new Date(),
@@ -101,13 +135,8 @@ export async function sense(): Promise<Observation> {
     ),
     pyth,
     halts,
-    backpack: {
-      sessions,
-      holidays,
-      supported: new Map(
-        securities.map((s) => [s.asset, (s.sessions ?? []).map((x) => x.name)]),
-      ),
-    },
+    backpack,
+    backpackError,
   }
 }
 
@@ -155,7 +184,7 @@ export function decide(obs: Observation): Decision[] {
           nextChangeAt: x.nextChangeAt,
         }
       }
-    } else {
+    } else if (obs.backpack) {
       const supported = obs.backpack.supported.get(`${listing.underlying}.US`)
       if (supported) {
         const s = resolveSession({
@@ -253,10 +282,28 @@ export async function readMarks(
 export interface TickResult {
   at: Date
   decisions: Decision[]
+  /** Symbols whose session was pushed, or would have been in a dry run. */
   pushed: string[]
+  /** Symbols whose mark was pushed, or would have been in a dry run. */
   marked: string[]
+  /**
+   * The marks behind `marked`, with the values sent. Returned so the caller can
+   * log the price that was actually attested rather than re-deriving it.
+   * Empty when pricing or the mark transaction failed, since then nothing
+   * landed. In a dry run it holds what would have been sent and nothing
+   * landed either, so a caller recording what was on chain must check `dryRun`
+   * (or `markSignature`) as well.
+   */
+  marks: PushedMark[]
   signature: string | null
+  /** The transaction that carried `marks`; null in a dry run or when none landed. */
+  markSignature: string | null
   dryRun: boolean
+  /**
+   * Why Backpack's lists could not be read this tick, if they could not. Its
+   * listings are closed for the tick; everything else is unaffected.
+   */
+  backpackError: string | null
   /**
    * Why pricing failed this tick, if it did. Null on success.
    *
@@ -354,7 +401,7 @@ export async function tick(args: {
   // The two are not equally critical: a stale session is a safety question, a
   // stale mark only means nothing can fill. Degrading to "no fresh price" is
   // the honest outcome, and the gate still refuses those fills by itself.
-  const marked: string[] = []
+  const marks: PushedMark[] = []
   let markError: string | null = null
   if (args.withMarks !== false) {
     try {
@@ -376,16 +423,17 @@ export async function tick(args: {
             observedAt: BigInt(nowSeconds),
           }),
         )
-        marked.push(m.symbol)
+        marks.push({ ...m, observedAt: nowSeconds })
       }
     } catch (e) {
       markError = (e as Error).message
       markIxs.length = 0
-      marked.length = 0
+      marks.length = 0
     }
   }
 
   let signature: string | null = null
+  let markSignature: string | null = null
   let refreshed = 0
   let riskError: string | null = null
   if (!dryRun) {
@@ -420,16 +468,29 @@ export async function tick(args: {
 
     if (markIxs.length > 0) {
       try {
-        const markSig = await send(conn, markIxs, [attestor])
-        signature = signature ?? markSig
+        markSignature = await send(conn, markIxs, [attestor])
+        signature = signature ?? markSignature
       } catch (e) {
         markError = (e as Error).message
-        marked.length = 0
+        marks.length = 0
       }
     }
   }
 
-  return { at: obs.at, decisions, pushed, marked, signature, dryRun, markError, refreshed, riskError }
+  return {
+    at: obs.at,
+    decisions,
+    pushed,
+    marked: marks.map((m) => m.symbol),
+    marks,
+    signature,
+    markSignature,
+    dryRun,
+    backpackError: obs.backpackError,
+    markError,
+    refreshed,
+    riskError,
+  }
 }
 
 export { HaltState, fairOut }

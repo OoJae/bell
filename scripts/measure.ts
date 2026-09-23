@@ -45,13 +45,18 @@ async function main() {
   console.log(`  reported volume that's real   ${pct(organic / reported)}`)
 
   console.log('\n## Market state right now (the input no Solana app reads)')
+  // Backed's `isTradingHalted` is Backed stopping its own token, not a report
+  // of a halt on the primary exchange: IWMx and JPSTx carried it when neither
+  // IWM nor JPST was halted on its exchange. The label names the source, not a
+  // cause the flag does not state. The JSON keys below stay `halted` so
+  // snapshots from before this label still line up.
   const halted = rows.filter((r) => r.halted)
   const modes = new Map<string, number>()
   for (const r of rows) modes.set(r.hoursMode ?? 'unknown', (modes.get(r.hoursMode ?? 'unknown') ?? 0) + 1)
-  console.log(`  halted by the primary exchange ${halted.length}` +
+  console.log(`  stopped by the issuer (isTradingHalted)   ${halted.length}` +
     (halted.length ? `  → ${halted.map((h) => h.symbol).join(', ')}` : ''))
-  console.log(`  session modes in use           ${[...modes].map(([k, v]) => `${k}=${v}`).join('  ')}`)
-  console.log(`  issuance/redemption open now   ${rows.filter((r) => (r.maxOrderUsdNow ?? 0) > 0).length} of ${rows.length}`)
+  console.log(`  session modes in use                      ${[...modes].map(([k, v]) => `${k}=${v}`).join('  ')}`)
+  console.log(`  issuance/redemption open now              ${rows.filter((r) => (r.maxOrderUsdNow ?? 0) > 0).length} of ${rows.length}`)
 
   // What a $1,000 order actually costs, across the liquidity spectrum.
   console.log(`\n## Executable cost of a ${usd(PROBE_USD)} buy`)

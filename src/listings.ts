@@ -44,21 +44,25 @@ export interface Listing {
   /** MIC of the primary listing exchange; the venue §II.H measures against. */
   exchangeMic: string
   issuer: Issuer
-  /** Why this one is on the list, so nobody has to guess later. */
+  /**
+   * One line for a user, shown under the gate panel: what the security is and
+   * which instrument this token is. Why each name is on the list is in the
+   * comments on the groups below, not here.
+   */
   note: string
   /**
-   * The issuer has stopped trading its own token. Not an exchange halt: the
-   * underlying trades normally. Used to label the refusal truthfully and to
+   * The issuer has stopped trading its own token. That is the issuer's stop,
+   * not an exchange halt of the underlying. Used to label the refusal truthfully and to
    * stop the page queueing an order that would wait on the issuer, not a bell.
    * The chain still decides — this only changes the words.
    */
   withdrawn?: boolean
   /**
-   * Widest price disagreement, in bps, an order in this name will accept at
-   * fill time. The keeper attests the spread it sees between sources; a thin
-   * name routinely shows more than a deep one, and a cap tighter than its
-   * normal spread silently refuses half its fills as MarkTooWide. Default 50;
-   * the program's ceiling is 200.
+   * Widest mark uncertainty, in bps, an order in this name will accept at fill
+   * time. The keeper attests the price impact of the executable quote it
+   * prices from; a thin name routinely shows more than a deep one, and a cap
+   * tighter than its normal impact silently refuses half its fills as
+   * MarkTooWide. Default 50; the program's ceiling is 200.
    */
   maxConfBps?: number
 }
@@ -72,7 +76,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'SPY',
     exchangeMic: 'ARCX',
     issuer: 'backed',
-    note: 'deepest pool on Solana, ~$8.5M — carries the session-gate demo',
+    note: 'The SPDR S&P 500 ETF (SPY) as a Backed tracker certificate: synthetic exposure to SPY, not SPY shares.',
   },
   {
     symbol: 'NVDAx',
@@ -80,7 +84,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'NVDA',
     exchangeMic: 'XNAS',
     issuer: 'backed',
-    note: 'most-held tokenized equity on Solana',
+    note: 'NVIDIA (NVDA) as a Backed tracker certificate: synthetic exposure to NVDA, not NVDA shares.',
   },
   {
     symbol: 'QQQx',
@@ -88,7 +92,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'QQQ',
     exchangeMic: 'XNAS',
     issuer: 'backed',
-    note: 'index exposure, liquid',
+    note: 'Invesco QQQ, the Nasdaq-100 ETF, as a Backed tracker certificate: synthetic exposure to QQQ, not QQQ shares.',
   },
   {
     symbol: 'TSLAx',
@@ -96,7 +100,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'TSLA',
     exchangeMic: 'XNAS',
     issuer: 'backed',
-    note: 'liquid single name',
+    note: 'Tesla (TSLA) as a Backed tracker certificate: synthetic exposure to TSLA, not TSLA shares.',
   },
   {
     symbol: 'AAPLx',
@@ -104,7 +108,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'AAPL',
     exchangeMic: 'XNAS',
     issuer: 'backed',
-    note: 'carries a live scaledUiAmount multiplier — exercises the rebase gate',
+    note: 'Apple (AAPL) as a Backed tracker certificate. Each dividend steps its scaled-UI multiplier; BELL refuses trades around each scheduled step.',
   },
 
   // Withdrawn by their issuer while the underlying trades normally — the two
@@ -118,7 +122,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'IWM',
     exchangeMic: 'ARCX',
     issuer: 'backed',
-    note: 'Backed has withdrawn its wrapper; IWM itself is not halted. BELL refuses it as an issuer withdrawal, not an exchange halt',
+    note: 'The iShares Russell 2000 ETF (IWM) as a Backed tracker certificate. Backed has withdrawn it; that is not a halt of IWM itself.',
     withdrawn: true,
   },
   {
@@ -127,7 +131,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'JPST',
     exchangeMic: 'ARCX',
     issuer: 'backed',
-    note: 'Backed has withdrawn its wrapper; JPST itself is not halted. MarketHours-only, the other conflict',
+    note: 'The JPMorgan Ultra-Short Income ETF (JPST) as a Backed tracker certificate. Backed has withdrawn it; that is not a halt of JPST itself.',
     withdrawn: true,
   },
 
@@ -141,7 +145,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'PFE',
     exchangeMic: 'XNYS',
     issuer: 'backpack',
-    note: 'tradeable here at 0.58% while the Backed wrapper has no route at all',
+    note: 'Pfizer (PFE) through Backpack: an entitlement to the real PFE share under UCC Article 8, not a tracker certificate.',
     // Its attested spread exceeded 50bps in 17 of 31 samples.
     maxConfBps: 100,
   },
@@ -151,7 +155,7 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     underlying: 'LMT',
     exchangeMic: 'XNYS',
     issuer: 'backpack',
-    note: 'second rights-bearing name',
+    note: 'Lockheed Martin (LMT) through Backpack: an entitlement to the real LMT share under UCC Article 8, not a tracker certificate.',
     maxConfBps: 100,
   },
 ] as const

@@ -1,0 +1,9029 @@
+{
+ "at": "2026-09-23T19:51:06.788Z",
+ "finishedAt": "2026-09-23T19:51:50.176Z",
+ "listings": 1124,
+ "withPythFeed": 678,
+ "noPythFeed": 446,
+ "agree": 675,
+ "disagree": 3,
+ "disagreements": [
+  {
+   "symbol": "JPSTx",
+   "underlying": "JPST",
+   "exchange": "ARCX",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IWMx",
+   "underlying": "IWM",
+   "exchange": "ARCX",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TQQQx",
+   "underlying": "TQQQ",
+   "exchange": "XNAS",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  }
+ ],
+ "rows": [
+  {
+   "symbol": "XRXx",
+   "underlying": "XRX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FLNCx",
+   "underlying": "FLNC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WGSx",
+   "underlying": "WGS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WRLDx",
+   "underlying": "WRLD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INDIx",
+   "underlying": "INDI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PCTx",
+   "underlying": "PCT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "METCx",
+   "underlying": "METC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "QUBTx",
+   "underlying": "QUBT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WYFIx",
+   "underlying": "WYFI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BETRx",
+   "underlying": "BETR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AIx",
+   "underlying": "AI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MIDDx",
+   "underlying": "MIDD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ALMx",
+   "underlying": "ALM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RITMx",
+   "underlying": "RITM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RNGx",
+   "underlying": "RNG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SHCx",
+   "underlying": "SHC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WHx",
+   "underlying": "WH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "REYNx",
+   "underlying": "REYN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VSNTx",
+   "underlying": "VSNT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CARx",
+   "underlying": "CAR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OZKx",
+   "underlying": "OZK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IRDMx",
+   "underlying": "IRDM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GXOx",
+   "underlying": "GXO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FBINx",
+   "underlying": "FBIN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AMTMx",
+   "underlying": "AMTM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MTNx",
+   "underlying": "MTN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PSNx",
+   "underlying": "PSN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PEGAx",
+   "underlying": "PEGA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SAICx",
+   "underlying": "SAIC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EXLSx",
+   "underlying": "EXLS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EPAMx",
+   "underlying": "EPAM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CRUSx",
+   "underlying": "CRUS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "Mx",
+   "underlying": "M",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ELFx",
+   "underlying": "ELF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNDRx",
+   "underlying": "SNDR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VNOx",
+   "underlying": "VNO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EXPx",
+   "underlying": "EXP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VIRTx",
+   "underlying": "VIRT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MKTXx",
+   "underlying": "MKTX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HXLx",
+   "underlying": "HXL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CPBx",
+   "underlying": "CPB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VFCx",
+   "underlying": "VFC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NXSTx",
+   "underlying": "NXST",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ADTx",
+   "underlying": "ADT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BCx",
+   "underlying": "BC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ACIx",
+   "underlying": "ACI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KRMNx",
+   "underlying": "KRMN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GTESx",
+   "underlying": "GTES",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HRBx",
+   "underlying": "HRB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AXSx",
+   "underlying": "AXS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DLBx",
+   "underlying": "DLB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RYNx",
+   "underlying": "RYN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "POOLx",
+   "underlying": "POOL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TFXx",
+   "underlying": "TFX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LWx",
+   "underlying": "LW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AAONx",
+   "underlying": "AAON",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SONx",
+   "underlying": "SON",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INGMx",
+   "underlying": "INGM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TTDx",
+   "underlying": "TTD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HRx",
+   "underlying": "HR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RLIx",
+   "underlying": "RLI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CLFx",
+   "underlying": "CLF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STWDx",
+   "underlying": "STWD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MSMx",
+   "underlying": "MSM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CZRx",
+   "underlying": "CZR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OMFx",
+   "underlying": "OMF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CROXx",
+   "underlying": "CROX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CHEx",
+   "underlying": "CHE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "Gx",
+   "underlying": "G",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ALGMx",
+   "underlying": "ALGM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MTGx",
+   "underlying": "MTG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BEPCx",
+   "underlying": "BEPC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MTDRx",
+   "underlying": "MTDR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INGRx",
+   "underlying": "INGR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LYFTx",
+   "underlying": "LYFT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BYDx",
+   "underlying": "BYD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "STAGx",
+   "underlying": "STAG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FNBx",
+   "underlying": "FNB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MBGLx",
+   "underlying": "MBGL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CACCx",
+   "underlying": "CACC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ECGx",
+   "underlying": "ECG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LKQx",
+   "underlying": "LKQ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BROSx",
+   "underlying": "BROS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FNDx",
+   "underlying": "FND",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LSTRx",
+   "underlying": "LSTR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WEXx",
+   "underlying": "WEX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LEAx",
+   "underlying": "LEA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "POWLx",
+   "underlying": "POWL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GTLBx",
+   "underlying": "GTLB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSAx",
+   "underlying": "MSA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GAPx",
+   "underlying": "GAP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AVTx",
+   "underlying": "AVT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CWENx",
+   "underlying": "CWEN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AUGOx",
+   "underlying": "AUGO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CHDNx",
+   "underlying": "CHDN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JANx",
+   "underlying": "JAN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NOVx",
+   "underlying": "NOV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KEXx",
+   "underlying": "KEX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "Sx",
+   "underlying": "S",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "XEx",
+   "underlying": "XE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ETSYx",
+   "underlying": "ETSY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DBXx",
+   "underlying": "DBX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FAFx",
+   "underlying": "FAF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CAIx",
+   "underlying": "CAI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BLDRx",
+   "underlying": "BLDR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PPCx",
+   "underlying": "PPC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AGCOx",
+   "underlying": "AGCO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SFMx",
+   "underlying": "SFM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AWIx",
+   "underlying": "AWI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SSDx",
+   "underlying": "SSD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PRIx",
+   "underlying": "PRI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ACMx",
+   "underlying": "ACM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ESIx",
+   "underlying": "ESI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MORNx",
+   "underlying": "MORN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "THGx",
+   "underlying": "THG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IDAx",
+   "underlying": "IDA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SFDx",
+   "underlying": "SFD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SAROx",
+   "underlying": "SARO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EMNx",
+   "underlying": "EMN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AOSx",
+   "underlying": "AOS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Zx",
+   "underlying": "Z",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "APPFx",
+   "underlying": "APPF",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PATHx",
+   "underlying": "PATH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "REXRx",
+   "underlying": "REXR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CBSHx",
+   "underlying": "CBSH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LNCx",
+   "underlying": "LNC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MOSx",
+   "underlying": "MOS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PRMBx",
+   "underlying": "PRMB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TKRx",
+   "underlying": "TKR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PCTYx",
+   "underlying": "PCTY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KNSLx",
+   "underlying": "KNSL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TAPx",
+   "underlying": "TAP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KMXx",
+   "underlying": "KMX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FRx",
+   "underlying": "FR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "XPx",
+   "underlying": "XP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NFGx",
+   "underlying": "NFG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BOKFx",
+   "underlying": "BOKF",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LADx",
+   "underlying": "LAD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WALx",
+   "underlying": "WAL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ATRx",
+   "underlying": "ATR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HLIx",
+   "underlying": "HLI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AVAVx",
+   "underlying": "AVAV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "QRVOx",
+   "underlying": "QRVO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CNMx",
+   "underlying": "CNM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NNNx",
+   "underlying": "NNN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CHRDx",
+   "underlying": "CHRD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "UGIx",
+   "underlying": "UGI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AXTAx",
+   "underlying": "AXTA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VOYAx",
+   "underlying": "VOYA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CAGx",
+   "underlying": "CAG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NCLHx",
+   "underlying": "NCLH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COLBx",
+   "underlying": "COLB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ADCx",
+   "underlying": "ADC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FPSx",
+   "underlying": "FPS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BRXx",
+   "underlying": "BRX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AALx",
+   "underlying": "AAL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FORMx",
+   "underlying": "FORM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TPGx",
+   "underlying": "TPG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VICRx",
+   "underlying": "VICR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CUBEx",
+   "underlying": "CUBE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BRKRx",
+   "underlying": "BRKR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BIOx",
+   "underlying": "BIO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NEUx",
+   "underlying": "NEU",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AMGx",
+   "underlying": "AMG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BAHx",
+   "underlying": "BAH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CELHx",
+   "underlying": "CELH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AREx",
+   "underlying": "ARE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MTCHx",
+   "underlying": "MTCH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CGNXx",
+   "underlying": "CGNX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OGEx",
+   "underlying": "OGE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TTCx",
+   "underlying": "TTC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LINEx",
+   "underlying": "LINE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MSGSx",
+   "underlying": "MSGS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AVTRx",
+   "underlying": "AVTR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MHKx",
+   "underlying": "MHK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TTEKx",
+   "underlying": "TTEK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VIAVx",
+   "underlying": "VIAV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RRCx",
+   "underlying": "RRC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "Rx",
+   "underlying": "R",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DDSx",
+   "underlying": "DDS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VMIx",
+   "underlying": "VMI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RMBSx",
+   "underlying": "RMBS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CHWYx",
+   "underlying": "CHWY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WLKx",
+   "underlying": "WLK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ORIx",
+   "underlying": "ORI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OSKx",
+   "underlying": "OSK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SIRIx",
+   "underlying": "SIRI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PODDx",
+   "underlying": "PODD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PAYCx",
+   "underlying": "PAYC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FLSx",
+   "underlying": "FLS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AYIx",
+   "underlying": "AYI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FRTx",
+   "underlying": "FRT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HSICx",
+   "underlying": "HSIC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SANMx",
+   "underlying": "SANM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CFRx",
+   "underlying": "CFR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RGENx",
+   "underlying": "RGEN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WTFCx",
+   "underlying": "WTFC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PCORx",
+   "underlying": "PCOR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WYNNx",
+   "underlying": "WYNN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UHSx",
+   "underlying": "UHS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MUSAx",
+   "underlying": "MUSA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SSBx",
+   "underlying": "SSB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LFUSx",
+   "underlying": "LFUS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IONSx",
+   "underlying": "IONS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MODx",
+   "underlying": "MOD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ENSGx",
+   "underlying": "ENSG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SMMTx",
+   "underlying": "SMMT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DARx",
+   "underlying": "DAR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DRSx",
+   "underlying": "DRS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SCIx",
+   "underlying": "SCI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SAILx",
+   "underlying": "SAIL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BSYx",
+   "underlying": "BSY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GSATx",
+   "underlying": "GSAT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MPx",
+   "underlying": "MP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DVAx",
+   "underlying": "DVA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DCIx",
+   "underlying": "DCI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GDDYx",
+   "underlying": "GDDY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RYANx",
+   "underlying": "RYAN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BXPx",
+   "underlying": "BXP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DYx",
+   "underlying": "DY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FRHCx",
+   "underlying": "FRHC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WMSx",
+   "underlying": "WMS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AMx",
+   "underlying": "AM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FDSx",
+   "underlying": "FDS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALSNx",
+   "underlying": "ALSN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SMTCx",
+   "underlying": "SMTC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SFx",
+   "underlying": "SF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AXSMx",
+   "underlying": "AXSM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EGPx",
+   "underlying": "EGP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BPOPx",
+   "underlying": "BPOP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TTMIx",
+   "underlying": "TTMI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AEISx",
+   "underlying": "AEIS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DPZx",
+   "underlying": "DPZ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KTOSx",
+   "underlying": "KTOS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HRLx",
+   "underlying": "HRL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PAGx",
+   "underlying": "PAG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SEICx",
+   "underlying": "SEIC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HIIx",
+   "underlying": "HII",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EHCx",
+   "underlying": "EHC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GFLx",
+   "underlying": "GFL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ARx",
+   "underlying": "AR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MGMx",
+   "underlying": "MGM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DOCUx",
+   "underlying": "DOCU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HALOx",
+   "underlying": "HALO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WTRGx",
+   "underlying": "WTRG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AFGx",
+   "underlying": "AFG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HUBSx",
+   "underlying": "HUBS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AMKRx",
+   "underlying": "AMKR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GMEDx",
+   "underlying": "GMED",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JKHYx",
+   "underlying": "JKHY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IESCx",
+   "underlying": "IESC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OCx",
+   "underlying": "OC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRx",
+   "underlying": "CR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BMRNx",
+   "underlying": "BMRN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JEFx",
+   "underlying": "JEF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AMHx",
+   "underlying": "AMH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FIVEx",
+   "underlying": "FIVE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ITx",
+   "underlying": "IT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MDGLx",
+   "underlying": "MDGL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VNOMx",
+   "underlying": "VNOM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "UHALx",
+   "underlying": "UHAL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AHRx",
+   "underlying": "AHR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IVZx",
+   "underlying": "IVZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CORTx",
+   "underlying": "CORT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "STRLx",
+   "underlying": "STRL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NWSAx",
+   "underlying": "NWSA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AURx",
+   "underlying": "AUR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Hx",
+   "underlying": "H",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ARWRx",
+   "underlying": "ARWR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GWREx",
+   "underlying": "GWRE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NWSx",
+   "underlying": "NWS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MANHx",
+   "underlying": "MANH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CACIx",
+   "underlying": "CACI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BAXx",
+   "underlying": "BAX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RVTYx",
+   "underlying": "RVTY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TXRHx",
+   "underlying": "TXRH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CNAx",
+   "underlying": "CNA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "Wx",
+   "underlying": "W",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FNx",
+   "underlying": "FN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BBIOx",
+   "underlying": "BBIO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DINOx",
+   "underlying": "DINO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DOCNx",
+   "underlying": "DOCN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AGNCx",
+   "underlying": "AGNC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MEDPx",
+   "underlying": "MEDP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WTSx",
+   "underlying": "WTS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CCKx",
+   "underlying": "CCK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ULSx",
+   "underlying": "ULS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HLx",
+   "underlying": "HL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RBRKx",
+   "underlying": "RBRK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OWLx",
+   "underlying": "OWL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRBGx",
+   "underlying": "CRBG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NVRx",
+   "underlying": "NVR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Ux",
+   "underlying": "U",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BENx",
+   "underlying": "BEN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CDEx",
+   "underlying": "CDE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IOTx",
+   "underlying": "IOT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IONQx",
+   "underlying": "IONQ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ASx",
+   "underlying": "AS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GFSx",
+   "underlying": "GFS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TOSTx",
+   "underlying": "TOST",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AFRMx",
+   "underlying": "AFRM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GHx",
+   "underlying": "GH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "UIx",
+   "underlying": "UI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TEFx",
+   "underlying": "TEFE",
+   "exchange": "XMAD",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DRAMx",
+   "underlying": "DRAM",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MVLLx",
+   "underlying": "MVLL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MUUx",
+   "underlying": "MUU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AXTIx",
+   "underlying": "AXTI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DJTx",
+   "underlying": "DJT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KORUx",
+   "underlying": "KORU",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INTWx",
+   "underlying": "INTW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SOXSx",
+   "underlying": "SOXS",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNXXx",
+   "underlying": "SNXX",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SHEINx",
+   "underlying": "625",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VOW3x",
+   "underlying": "VOW3D",
+   "exchange": "XETR",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BWYx",
+   "underlying": "BWYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "QQ.GBx",
+   "underlying": "QQL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ULVRx",
+   "underlying": "ULVRL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DRXx",
+   "underlying": "DRXL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RS1.GBx",
+   "underlying": "RS1L",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SN.GBx",
+   "underlying": "SNL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AJBx",
+   "underlying": "AJBL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SCT.GBx",
+   "underlying": "SCTL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MNDIx",
+   "underlying": "MNDIL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SVTx",
+   "underlying": "SVTL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EMGx",
+   "underlying": "EMGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "STJ.GBx",
+   "underlying": "STJL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SPX.GBx",
+   "underlying": "SPXL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TW.GBx",
+   "underlying": "TWL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WTBx",
+   "underlying": "WTBL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "STANx",
+   "underlying": "STANL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SSEx",
+   "underlying": "SSEL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MNGx",
+   "underlying": "MNGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SMIN.GBx",
+   "underlying": "SMINL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WEIRx",
+   "underlying": "WEIRL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SBRYx",
+   "underlying": "SBRYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CURYx",
+   "underlying": "CURYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HIK.GBx",
+   "underlying": "HIKL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BKG.GBx",
+   "underlying": "BKGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HILSx",
+   "underlying": "HILSL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MROx",
+   "underlying": "MROL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GRG.GBx",
+   "underlying": "GRGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INCHx",
+   "underlying": "INCHL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "UU.GBx",
+   "underlying": "UUL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TCAPx",
+   "underlying": "TCAPL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HBR.GBx",
+   "underlying": "HBRL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MKS.GBx",
+   "underlying": "MKSL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SGE.GBx",
+   "underlying": "SGEL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PSONx",
+   "underlying": "PSONL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RMVx",
+   "underlying": "RMVL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NG.GBx",
+   "underlying": "NGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LGENx",
+   "underlying": "LGENL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LSEGx",
+   "underlying": "LSEGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "REL.GBx",
+   "underlying": "RELL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RR.GBx",
+   "underlying": "RRL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HSXx",
+   "underlying": "HSXL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LLOYx",
+   "underlying": "LLOYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INVPx",
+   "underlying": "INVPL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IMIx",
+   "underlying": "IMIL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HWDNx",
+   "underlying": "HWDNL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "INF.GBx",
+   "underlying": "INFL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JD.GBx",
+   "underlying": "JDL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KGFx",
+   "underlying": "KGFL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IGGx",
+   "underlying": "IGGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IMBx",
+   "underlying": "IMBL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GLENx",
+   "underlying": "GLENL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GAWx",
+   "underlying": "GAWL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRDAx",
+   "underlying": "CRDAL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HLMAx",
+   "underlying": "HLMAL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ENTx",
+   "underlying": "ENTL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BTRWx",
+   "underlying": "BTRWL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EXPNx",
+   "underlying": "EXPNL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FRESx",
+   "underlying": "FRESL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CTEC.GBx",
+   "underlying": "CTECL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DPLMx",
+   "underlying": "DPLML",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HSBAx",
+   "underlying": "HSBAL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EDV.GBx",
+   "underlying": "EDVL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BPx",
+   "underlying": "BPL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BRBYx",
+   "underlying": "BRBYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AV.GBx",
+   "underlying": "AVL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "DGEx",
+   "underlying": "DGEL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BT.Ax",
+   "underlying": "BTL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BNZLx",
+   "underlying": "BNZLL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BARCx",
+   "underlying": "BARCL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BEZ.GBx",
+   "underlying": "BEZL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AUTO.GBx",
+   "underlying": "AUTOL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BGEOx",
+   "underlying": "BGEOL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BA.GBx",
+   "underlying": "BAL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BATSx",
+   "underlying": "BATSL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BAB.GBx",
+   "underlying": "BABL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ICG.GBx",
+   "underlying": "ICGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CNA.GBx",
+   "underlying": "CNAL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ANTOx",
+   "underlying": "ANTOL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CWK.GBx",
+   "underlying": "CWKL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ABFx",
+   "underlying": "ABFL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WPPx",
+   "underlying": "WPPL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GNS.GBx",
+   "underlying": "GNSL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ABDNx",
+   "underlying": "ABDNL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IAG.GBx",
+   "underlying": "IAGL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CCC.GBx",
+   "underlying": "CCCL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PSN.GBx",
+   "underlying": "PSNL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NXT.GBx",
+   "underlying": "NXTL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BBY.GBx",
+   "underlying": "BBYL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RTOx",
+   "underlying": "RTOL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AAFx",
+   "underlying": "AAFL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NWGx",
+   "underlying": "NWGL",
+   "exchange": null,
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SHELx",
+   "underlying": "SHELL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VODx",
+   "underlying": "VODL",
+   "exchange": "XLON",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BANKCx",
+   "underlying": "3988",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SUOPTx",
+   "underlying": "2382",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MMGx",
+   "underlying": "1208",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TNGYIx",
+   "underlying": "322",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ZHAOMx",
+   "underlying": "1818",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LAOPGx",
+   "underlying": "6181",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JDLOGx",
+   "underlying": "2618",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CTINSx",
+   "underlying": "966",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KUNLx",
+   "underlying": "135",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WRFHDx",
+   "underlying": "4",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HAIDLx",
+   "underlying": "6862",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SNBIOx",
+   "underlying": "1177",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SZIGHx",
+   "underlying": "2313",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ENNHLx",
+   "underlying": "2688",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SMOIHx",
+   "underlying": "6969",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HRZRBx",
+   "underlying": "9660",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRESBx",
+   "underlying": "291",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CMERPx",
+   "underlying": "144",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CSPCx",
+   "underlying": "1093",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JTGEXx",
+   "underlying": "1519",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRESMx",
+   "underlying": "1209",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WXXDCx",
+   "underlying": "2268",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CMENDx",
+   "underlying": "2319",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BDWAPx",
+   "underlying": "1876",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MIXUx",
+   "underlying": "2097",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ASMPTx",
+   "underlying": "522",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WHRFRx",
+   "underlying": "1997",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SITCx",
+   "underlying": "1308",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JDHLTx",
+   "underlying": "6618",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SNDSCx",
+   "underlying": "1928",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRESPx",
+   "underlying": "836",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PRADx",
+   "underlying": "1913",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SINOTx",
+   "underlying": "3808",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CTFJWx",
+   "underlying": "1929",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CLONPx",
+   "underlying": "916",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WHGROx",
+   "underlying": "288",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SINOx",
+   "underlying": "83",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CTPCAx",
+   "underlying": "293",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PWAHLx",
+   "underlying": "6",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CLPHDx",
+   "underlying": "2",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GENTEx",
+   "underlying": "27",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRAUTx",
+   "underlying": "9973",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "WUXIBx",
+   "underlying": "2269",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SWPRPx",
+   "underlying": "1972",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CKAHx",
+   "underlying": "1113",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CKINFx",
+   "underlying": "1038",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HKCGAx",
+   "underlying": "3",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KUAIx",
+   "underlying": "1024",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HKEXCx",
+   "underlying": "388",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NONGx",
+   "underlying": "9633",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "COVELx",
+   "underlying": "688",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CHONGx",
+   "underlying": "1378",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MEITx",
+   "underlying": "3690",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GEELx",
+   "underlying": "175",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MTRCPx",
+   "underlying": "66",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HNDLDx",
+   "underlying": "12",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PICCx",
+   "underlying": "2328",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "COSCx",
+   "underlying": "1919",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CKHUTx",
+   "underlying": "1",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": null
+  },
+  {
+   "symbol": "POPMTx",
+   "underlying": "9992",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BOCOMx",
+   "underlying": "3328",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CPETCx",
+   "underlying": "386",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BOCHKx",
+   "underlying": "2388",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CITICx",
+   "underlying": "267",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ANTASx",
+   "underlying": "2020",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRESLx",
+   "underlying": "1109",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "HAIERx",
+   "underlying": "6690",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ZJGLDx",
+   "underlying": "2259",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PSBOCx",
+   "underlying": "1658",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ICBCx",
+   "underlying": "1398",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AIAGRx",
+   "underlying": "1299",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CCONBx",
+   "underlying": "939",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BYDCOx",
+   "underlying": "1211",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "XIAOx",
+   "underlying": "1810",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CSHEEx",
+   "underlying": "1088",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PICOx",
+   "underlying": "2318",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CLINSx",
+   "underlying": "2628",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TCENTx",
+   "underlying": "700",
+   "exchange": "XHKG",
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRWVx",
+   "underlying": "CRWV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TWSTx",
+   "underlying": "TWST",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CBRSx",
+   "underlying": "CBRS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SHAZx",
+   "underlying": "SHAZ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TEx",
+   "underlying": "TE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NBISx",
+   "underlying": "NBIS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "QUREx",
+   "underlying": "QURE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AAOIx",
+   "underlying": "AAOI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ARMx",
+   "underlying": "ARM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BEx",
+   "underlying": "BE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JMKEx",
+   "underlying": "JMKE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SKHYx",
+   "underlying": "SKHY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BKRx",
+   "underlying": "BKR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VIKx",
+   "underlying": "VIK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "PENx",
+   "underlying": "PEN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BJx",
+   "underlying": "BJ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FDXFx",
+   "underlying": "FDXF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RNRx",
+   "underlying": "RNR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TLNx",
+   "underlying": "TLN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ELANx",
+   "underlying": "ELAN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NYTx",
+   "underlying": "NYT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BNYx",
+   "underlying": "BNY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MKCx",
+   "underlying": "MKC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SJMx",
+   "underlying": "SJM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "QSRx",
+   "underlying": "QSR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CDWx",
+   "underlying": "CDW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FHNx",
+   "underlying": "FHN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EGx",
+   "underlying": "EG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APGx",
+   "underlying": "APG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RBAx",
+   "underlying": "RBA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CLXx",
+   "underlying": "CLX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROIVx",
+   "underlying": "ROIV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "VLTOx",
+   "underlying": "VLTO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APAx",
+   "underlying": "APA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TWx",
+   "underlying": "TW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CHTRx",
+   "underlying": "CHTR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KNXx",
+   "underlying": "KNX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TRMBx",
+   "underlying": "TRMB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HASx",
+   "underlying": "HAS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PNWx",
+   "underlying": "PNW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GGGx",
+   "underlying": "GGG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AITx",
+   "underlying": "AIT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CPTx",
+   "underlying": "CPT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TYLx",
+   "underlying": "TYL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DTx",
+   "underlying": "DT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALLYx",
+   "underlying": "ALLY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ELSx",
+   "underlying": "ELS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ALGNx",
+   "underlying": "ALGN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ZBRAx",
+   "underlying": "ZBRA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CGx",
+   "underlying": "CG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SAIAx",
+   "underlying": "SAIA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "ARWx",
+   "underlying": "ARW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "AVYx",
+   "underlying": "AVY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NTNXx",
+   "underlying": "NTNX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AIZx",
+   "underlying": "AIZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RIVNx",
+   "underlying": "RIVN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PRx",
+   "underlying": "PR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PINSx",
+   "underlying": "PINS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TRUx",
+   "underlying": "TRU",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UDRx",
+   "underlying": "UDR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GLPIx",
+   "underlying": "GLPI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ZSx",
+   "underlying": "ZS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SWKx",
+   "underlying": "SWK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DOCx",
+   "underlying": "DOC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COOx",
+   "underlying": "COO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PTCx",
+   "underlying": "PTC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JLLx",
+   "underlying": "JLL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SOLSx",
+   "underlying": "SOLS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LECOx",
+   "underlying": "LECO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WRBx",
+   "underlying": "WRB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BRx",
+   "underlying": "BR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OHIx",
+   "underlying": "OHI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FNFx",
+   "underlying": "FNF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SUIx",
+   "underlying": "SUI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WSOx",
+   "underlying": "WSO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROLx",
+   "underlying": "ROL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MAAx",
+   "underlying": "MAA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CSGPx",
+   "underlying": "CSGP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "THCx",
+   "underlying": "THC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EQHx",
+   "underlying": "EQH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "GLx",
+   "underlying": "GL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RGAx",
+   "underlying": "RGA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EXELx",
+   "underlying": "EXEL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "UNMx",
+   "underlying": "UNM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DECKx",
+   "underlying": "DECK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NBIXx",
+   "underlying": "NBIX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SGIx",
+   "underlying": "SGI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "REGx",
+   "underlying": "REG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LDOSx",
+   "underlying": "LDOS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Jx",
+   "underlying": "J",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DKSx",
+   "underlying": "DKS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PNFPx",
+   "underlying": "PNFP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PFGCx",
+   "underlying": "PFGC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EVRx",
+   "underlying": "EVR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROKUx",
+   "underlying": "ROKU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LAMRx",
+   "underlying": "LAMR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BWAx",
+   "underlying": "BWA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BALLx",
+   "underlying": "BALL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DKNGx",
+   "underlying": "DKNG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RRXx",
+   "underlying": "RRX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GENx",
+   "underlying": "GEN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RPMx",
+   "underlying": "RPM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CBREx",
+   "underlying": "CBRE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SSNCx",
+   "underlying": "SSNC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ARMKx",
+   "underlying": "ARMK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RLx",
+   "underlying": "RL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CLHx",
+   "underlying": "CLH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GPCx",
+   "underlying": "GPC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XYZx",
+   "underlying": "XYZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AAx",
+   "underlying": "AA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TOLx",
+   "underlying": "TOL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RDDTx",
+   "underlying": "RDDT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KMIx",
+   "underlying": "KMI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HEIx",
+   "underlying": "HEI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CVNAx",
+   "underlying": "CVNA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SCCOx",
+   "underlying": "SCCO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BBYx",
+   "underlying": "BBY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Px",
+   "underlying": "P",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TEAMx",
+   "underlying": "TEAM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LVSx",
+   "underlying": "LVS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CSLx",
+   "underlying": "CSL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NDAQx",
+   "underlying": "NDAQ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MLIx",
+   "underlying": "MLI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GNRCx",
+   "underlying": "GNRC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WPCx",
+   "underlying": "WPC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MASx",
+   "underlying": "MAS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ITTx",
+   "underlying": "ITT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OKTAx",
+   "underlying": "OKTA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TSNx",
+   "underlying": "TSN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OVVx",
+   "underlying": "OVV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "NLYx",
+   "underlying": "NLY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IBKRx",
+   "underlying": "IBKR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CFx",
+   "underlying": "CF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ARESx",
+   "underlying": "ARES",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ELx",
+   "underlying": "EL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ONTOx",
+   "underlying": "ONTO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CPNGx",
+   "underlying": "CPNG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GPNx",
+   "underlying": "GPN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DASHx",
+   "underlying": "DASH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NDSNx",
+   "underlying": "NDSN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TWLOx",
+   "underlying": "TWLO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FCNCAx",
+   "underlying": "FCNCA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STZx",
+   "underlying": "STZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UPSx",
+   "underlying": "UPS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MDBx",
+   "underlying": "MDB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CTSHx",
+   "underlying": "CTSH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ZTSx",
+   "underlying": "ZTS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ABNBx",
+   "underlying": "ABNB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INCYx",
+   "underlying": "INCY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BAMx",
+   "underlying": "BAM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "LENx",
+   "underlying": "LEN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VEEVx",
+   "underlying": "VEEV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TXTx",
+   "underlying": "TXT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WDAYx",
+   "underlying": "WDAY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SBACx",
+   "underlying": "SBAC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NKEx",
+   "underlying": "NKE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MARx",
+   "underlying": "MAR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TSCOx",
+   "underlying": "TSCO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MDLZx",
+   "underlying": "MDLZ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CMEx",
+   "underlying": "CME",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DDOGx",
+   "underlying": "DDOG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APHx",
+   "underlying": "APH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FISVx",
+   "underlying": "FISV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KEYx",
+   "underlying": "KEY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SYFx",
+   "underlying": "SYF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PFGx",
+   "underlying": "PFG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CHDx",
+   "underlying": "CHD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FISx",
+   "underlying": "FIS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FTVx",
+   "underlying": "FTV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALBx",
+   "underlying": "ALB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WWDx",
+   "underlying": "WWD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DRIx",
+   "underlying": "DRI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DGXx",
+   "underlying": "DGX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WSTx",
+   "underlying": "WST",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UTHRx",
+   "underlying": "UTHR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OMCx",
+   "underlying": "OMC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DGx",
+   "underlying": "DG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TROWx",
+   "underlying": "TROW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WCCx",
+   "underlying": "WCC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RFx",
+   "underlying": "RF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ESSx",
+   "underlying": "ESS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EVRGx",
+   "underlying": "EVRG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Lx",
+   "underlying": "L",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IPx",
+   "underlying": "IP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EXEx",
+   "underlying": "EXE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ZBHx",
+   "underlying": "ZBH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BROx",
+   "underlying": "BRO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JBHTx",
+   "underlying": "JBHT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EWBCx",
+   "underlying": "EWBC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PKGx",
+   "underlying": "PKG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ILMNx",
+   "underlying": "ILMN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FFIVx",
+   "underlying": "FFIV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INVHx",
+   "underlying": "INVH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MRNAx",
+   "underlying": "MRNA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HPQx",
+   "underlying": "HPQ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KHCx",
+   "underlying": "KHC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IEXx",
+   "underlying": "IEX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BURLx",
+   "underlying": "BURL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LSCCx",
+   "underlying": "LSCC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNXx",
+   "underlying": "SNX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ZMx",
+   "underlying": "ZM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VRSKx",
+   "underlying": "VRSK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MTDx",
+   "underlying": "MTD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ESx",
+   "underlying": "ES",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CHRWx",
+   "underlying": "CHRW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DOWx",
+   "underlying": "DOW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VRSNx",
+   "underlying": "VRSN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EXPDx",
+   "underlying": "EXPD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LUVx",
+   "underlying": "LUV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AWKx",
+   "underlying": "AWK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CPAYx",
+   "underlying": "CPAY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CMSx",
+   "underlying": "CMS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "USFDx",
+   "underlying": "USFD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MTZx",
+   "underlying": "MTZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NIx",
+   "underlying": "NI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BWXTx",
+   "underlying": "BWXT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MKSIx",
+   "underlying": "MKSI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VTRSx",
+   "underlying": "VTRS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INSMx",
+   "underlying": "INSM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HSTx",
+   "underlying": "HST",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ATIx",
+   "underlying": "ATI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MKLx",
+   "underlying": "MKL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LNTx",
+   "underlying": "LNT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FWONKx",
+   "underlying": "FWONK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WYx",
+   "underlying": "WY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CINFx",
+   "underlying": "CINF",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KIMx",
+   "underlying": "KIM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EFXx",
+   "underlying": "EFX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RSx",
+   "underlying": "RS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XYLx",
+   "underlying": "XYL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WSMx",
+   "underlying": "WSM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SOFIx",
+   "underlying": "SOFI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ULTAx",
+   "underlying": "ULTA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TPLx",
+   "underlying": "TPL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DLTRx",
+   "underlying": "DLTR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XPOx",
+   "underlying": "XPO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GISx",
+   "underlying": "GIS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AKAMx",
+   "underlying": "AKAM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RGLDx",
+   "underlying": "RGLD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CPRTx",
+   "underlying": "CPRT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IFFx",
+   "underlying": "IFF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FEx",
+   "underlying": "FE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LPLAx",
+   "underlying": "LPLA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RJFx",
+   "underlying": "RJF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNAx",
+   "underlying": "SNA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HSYx",
+   "underlying": "HSY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ENTGx",
+   "underlying": "ENTG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PPLx",
+   "underlying": "PPL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MTSIx",
+   "underlying": "MTSI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FTAIx",
+   "underlying": "FTAI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NRGx",
+   "underlying": "NRG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HUBBx",
+   "underlying": "HUBB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EIXx",
+   "underlying": "EIX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FICOx",
+   "underlying": "FICO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CRSx",
+   "underlying": "CRS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PPGx",
+   "underlying": "PPG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FSLRx",
+   "underlying": "FSLR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ATOx",
+   "underlying": "ATO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LIIx",
+   "underlying": "LII",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LYVx",
+   "underlying": "LYV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BSPx",
+   "underlying": "BSP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DXCMx",
+   "underlying": "DXCM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EQTx",
+   "underlying": "EQT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NTRSx",
+   "underlying": "NTRS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Ax",
+   "underlying": "A",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MLMx",
+   "underlying": "MLM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CNPx",
+   "underlying": "CNP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSCIx",
+   "underlying": "MSCI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KVUEx",
+   "underlying": "KVUE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RVMDx",
+   "underlying": "RVMD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TDYx",
+   "underlying": "TDY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PCGx",
+   "underlying": "PCG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IQVx",
+   "underlying": "IQV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WECx",
+   "underlying": "WEC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PAYXx",
+   "underlying": "PAYX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CASYx",
+   "underlying": "CASY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NTRAx",
+   "underlying": "NTRA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AEEx",
+   "underlying": "AEE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VICIx",
+   "underlying": "VICI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FANGx",
+   "underlying": "FANG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OTISx",
+   "underlying": "OTIS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STLDx",
+   "underlying": "STLD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DOVx",
+   "underlying": "DOV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FERGx",
+   "underlying": "FERG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CFGx",
+   "underlying": "CFG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RMDx",
+   "underlying": "RMD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Qx",
+   "underlying": "Q",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EMEx",
+   "underlying": "EME",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KMBx",
+   "underlying": "KMB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IRx",
+   "underlying": "IR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EXCx",
+   "underlying": "EXC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GEHCx",
+   "underlying": "GEHC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HIGx",
+   "underlying": "HIG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IRMx",
+   "underlying": "IRM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EXRx",
+   "underlying": "EXR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DTEx",
+   "underlying": "DTE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OXYx",
+   "underlying": "OXY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TTWOx",
+   "underlying": "TTWO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KRx",
+   "underlying": "KR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NTAPx",
+   "underlying": "NTAP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PRUx",
+   "underlying": "PRU",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EDx",
+   "underlying": "ED",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CWx",
+   "underlying": "CW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WATx",
+   "underlying": "WAT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HALx",
+   "underlying": "HAL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BIIBx",
+   "underlying": "BIIB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CNCx",
+   "underlying": "CNC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IDXXx",
+   "underlying": "IDXX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AXONx",
+   "underlying": "AXON",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CMGx",
+   "underlying": "CMG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HUMx",
+   "underlying": "HUM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROPx",
+   "underlying": "ROP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ADMx",
+   "underlying": "ADM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CCIx",
+   "underlying": "CCI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DHIx",
+   "underlying": "DHI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BDXx",
+   "underlying": "BDX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PSAx",
+   "underlying": "PSA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VMCx",
+   "underlying": "VMC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALNYx",
+   "underlying": "ALNY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMPx",
+   "underlying": "AMP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SYYx",
+   "underlying": "SYY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MTBx",
+   "underlying": "MTB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AFLx",
+   "underlying": "AFL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CORx",
+   "underlying": "COR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VTRx",
+   "underlying": "VTR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TPRx",
+   "underlying": "TPR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HBANx",
+   "underlying": "HBAN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FASTx",
+   "underlying": "FAST",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XELx",
+   "underlying": "XEL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UALx",
+   "underlying": "UAL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ODFLx",
+   "underlying": "ODFL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ETRx",
+   "underlying": "ETR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ONx",
+   "underlying": "ON",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "YUMx",
+   "underlying": "YUM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PEGx",
+   "underlying": "PEG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CTVAx",
+   "underlying": "CTVA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MCHPx",
+   "underlying": "MCHP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JBLx",
+   "underlying": "JBL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WABx",
+   "underlying": "WAB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OKEx",
+   "underlying": "OKE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STTx",
+   "underlying": "STT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KDPx",
+   "underlying": "KDP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AIGx",
+   "underlying": "AIG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RSGx",
+   "underlying": "RSG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "METx",
+   "underlying": "MET",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EWx",
+   "underlying": "EW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CARRx",
+   "underlying": "CARR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CAHx",
+   "underlying": "CAH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DALx",
+   "underlying": "DAL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ADSKx",
+   "underlying": "ADSK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALABx",
+   "underlying": "ALAB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AZOx",
+   "underlying": "AZO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMEx",
+   "underlying": "AME",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FITBx",
+   "underlying": "FITB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TRGPx",
+   "underlying": "TRGP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DVNx",
+   "underlying": "DVN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AJGx",
+   "underlying": "AJG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROKx",
+   "underlying": "ROK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Ox",
+   "underlying": "O",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "REGNx",
+   "underlying": "REGN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CIENx",
+   "underlying": "CIEN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Dx",
+   "underlying": "D",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MCOx",
+   "underlying": "MCO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SREx",
+   "underlying": "SRE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TRVx",
+   "underlying": "TRV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EOGx",
+   "underlying": "EOG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LHXx",
+   "underlying": "LHX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SPGx",
+   "underlying": "SPG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GWWx",
+   "underlying": "GWW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SHWx",
+   "underlying": "SHW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MPWRx",
+   "underlying": "MPWR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MPCx",
+   "underlying": "MPC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APOx",
+   "underlying": "APO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FIXx",
+   "underlying": "FIX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Fx",
+   "underlying": "F",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KKRx",
+   "underlying": "KKR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NOCx",
+   "underlying": "NOC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APDx",
+   "underlying": "APD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DLRx",
+   "underlying": "DLR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TFCx",
+   "underlying": "TFC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CTASx",
+   "underlying": "CTAS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KEYSx",
+   "underlying": "KEYS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NUEx",
+   "underlying": "NUE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COHRx",
+   "underlying": "COHR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ALLx",
+   "underlying": "ALL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PCARx",
+   "underlying": "PCAR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HCAx",
+   "underlying": "HCA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AEPx",
+   "underlying": "AEP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSIx",
+   "underlying": "MSI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ECLx",
+   "underlying": "ECL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CLx",
+   "underlying": "CL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NSCx",
+   "underlying": "NSC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TDGx",
+   "underlying": "TDG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "URIx",
+   "underlying": "URI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HPEx",
+   "underlying": "HPE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BSXx",
+   "underlying": "BSX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VLOx",
+   "underlying": "VLO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FDXx",
+   "underlying": "FDX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INTUx",
+   "underlying": "INTU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HLTx",
+   "underlying": "HLT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ORLYx",
+   "underlying": "ORLY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ITWx",
+   "underlying": "ITW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ROSTx",
+   "underlying": "ROST",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PSXx",
+   "underlying": "PSX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ICEx",
+   "underlying": "ICE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CIx",
+   "underlying": "CI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GMx",
+   "underlying": "GM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNOWx",
+   "underlying": "SNOW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WMx",
+   "underlying": "WM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EMRx",
+   "underlying": "EMR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ELVx",
+   "underlying": "ELV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MMMx",
+   "underlying": "MMM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CSXx",
+   "underlying": "CSX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SNPSx",
+   "underlying": "SNPS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMTx",
+   "underlying": "AMT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FTNTx",
+   "underlying": "FTNT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BXx",
+   "underlying": "BX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ADPx",
+   "underlying": "ADP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PNCx",
+   "underlying": "PNC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MRSHx",
+   "underlying": "MRSH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WMBx",
+   "underlying": "WMB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CMIx",
+   "underlying": "CMI",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FCXx",
+   "underlying": "FCX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SOx",
+   "underlying": "SO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MCKx",
+   "underlying": "MCK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CDNSx",
+   "underlying": "CDNS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "USBx",
+   "underlying": "USB",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GDx",
+   "underlying": "GD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SYKx",
+   "underlying": "SYK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EQIXx",
+   "underlying": "EQIX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NOWx",
+   "underlying": "NOW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HWMx",
+   "underlying": "HWM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DUKx",
+   "underlying": "DUK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LMTx",
+   "underlying": "LMT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VRTXx",
+   "underlying": "VRTX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NEMx",
+   "underlying": "NEM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SBUXx",
+   "underlying": "SBUX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COFx",
+   "underlying": "COF",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COPx",
+   "underlying": "COP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BMYx",
+   "underlying": "BMY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PHx",
+   "underlying": "PH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DEx",
+   "underlying": "DE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MOx",
+   "underlying": "MO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CVSx",
+   "underlying": "CVS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WELLx",
+   "underlying": "WELL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PGRx",
+   "underlying": "PGR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PLDx",
+   "underlying": "PLD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LOWx",
+   "underlying": "LOW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TJXx",
+   "underlying": "TJX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DISx",
+   "underlying": "DIS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GLWx",
+   "underlying": "GLW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UNPx",
+   "underlying": "UNP",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SCHWx",
+   "underlying": "SCHW",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ISRGx",
+   "underlying": "ISRG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GILDx",
+   "underlying": "GILD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BAx",
+   "underlying": "BA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NEEx",
+   "underlying": "NEE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMGNx",
+   "underlying": "AMGN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VZx",
+   "underlying": "VZ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "QCOMx",
+   "underlying": "QCOM",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RTXx",
+   "underlying": "RTX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSx",
+   "underlying": "MS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Cx",
+   "underlying": "C",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TXNx",
+   "underlying": "TXN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WDCx",
+   "underlying": "WDC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GEx",
+   "underlying": "GE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ADIx",
+   "underlying": "ADI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WFCx",
+   "underlying": "WFC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CATx",
+   "underlying": "CAT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BOTx",
+   "underlying": "BOT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SPCXx",
+   "underlying": "SPCX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MDLNx",
+   "underlying": "MDLN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ENHAx",
+   "underlying": "ENHA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EWYx",
+   "underlying": "EWY",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DAXx",
+   "underlying": "DAX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SATAx",
+   "underlying": "SATA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SOXXx",
+   "underlying": "SOXX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EWUx",
+   "underlying": "EWU",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "EWGx",
+   "underlying": "EWG",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "EWQx",
+   "underlying": "EWQ",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BITXx",
+   "underlying": "BITX",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VOOx",
+   "underlying": "VOO",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NLRx",
+   "underlying": "NLR",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GDXx",
+   "underlying": "GDX",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FEZx",
+   "underlying": "FEZ",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "JAAAx",
+   "underlying": "JAAA",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JPSTx",
+   "underlying": "JPST",
+   "exchange": "ARCX",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FLQMx",
+   "underlying": "FLQM",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "USPXx",
+   "underlying": "USPX",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FSMLx",
+   "underlying": "FSML",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FLBLx",
+   "underlying": "FLBL",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "IQMx",
+   "underlying": "IQM",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "YLDEx",
+   "underlying": "YLDE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "FAAAx",
+   "underlying": "FAAA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SOXLx",
+   "underlying": "SOXL",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VIDAx",
+   "underlying": "VIDA",
+   "exchange": "XASE",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "RCATx",
+   "underlying": "RCAT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ONDSx",
+   "underlying": "ONDS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IRENx",
+   "underlying": "IREN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HIMSx",
+   "underlying": "HIMS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NETx",
+   "underlying": "NET",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LNGx",
+   "underlying": "LNG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "FGDLx",
+   "underlying": "FGDL",
+   "exchange": null,
+   "issuerOpen": false,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "MOOx",
+   "underlying": "MOO",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "XOPx",
+   "underlying": "XOP",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VGKx",
+   "underlying": "VGK",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ITAx",
+   "underlying": "ITA",
+   "exchange": "BATS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VXUSx",
+   "underlying": "VXUS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SGOVx",
+   "underlying": "SGOV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VUGx",
+   "underlying": "VUG",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SMHx",
+   "underlying": "SMH",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "URAx",
+   "underlying": "URA",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XLEx",
+   "underlying": "XLE",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VCXx",
+   "underlying": "VCX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "SNDKx",
+   "underlying": "SNDK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LITEx",
+   "underlying": "LITE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SMRx",
+   "underlying": "SMR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APLDx",
+   "underlying": "APLD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PWRx",
+   "underlying": "PWR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TERx",
+   "underlying": "TER",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ETNx",
+   "underlying": "ETN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KLACx",
+   "underlying": "KLAC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GEVx",
+   "underlying": "GEV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CEGx",
+   "underlying": "CEG",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SMCIx",
+   "underlying": "SMCI",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DELLx",
+   "underlying": "DELL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VRTx",
+   "underlying": "VRT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMATx",
+   "underlying": "AMAT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LRCXx",
+   "underlying": "LRCX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ANETx",
+   "underlying": "ANET",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "USARx",
+   "underlying": "USAR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UUUUx",
+   "underlying": "UUUU",
+   "exchange": "XASE",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PPLTx",
+   "underlying": "PPLT",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PALLx",
+   "underlying": "PALL",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COPXx",
+   "underlying": "COPX",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SLMTx",
+   "underlying": "SLMT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "KRAQx",
+   "underlying": "KRAQ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BTGOx",
+   "underlying": "BTGO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SLVx",
+   "underlying": "SLV",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STRKx",
+   "underlying": "STRK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "STRCx",
+   "underlying": "STRC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VTx",
+   "underlying": "VT",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SCHFx",
+   "underlying": "SCHF",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IEMGx",
+   "underlying": "IEMG",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IJRx",
+   "underlying": "IJR",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IWMx",
+   "underlying": "IWM",
+   "exchange": "ARCX",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TMUSx",
+   "underlying": "TMUS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BTBTx",
+   "underlying": "BTBT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HUTx",
+   "underlying": "HUT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CORZx",
+   "underlying": "CORZ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RKLBx",
+   "underlying": "RKLB",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PLx",
+   "underlying": "PL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SPCEx",
+   "underlying": "SPCE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WBDx",
+   "underlying": "WBD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MUx",
+   "underlying": "MU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RBLXx",
+   "underlying": "RBLX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PANWx",
+   "underlying": "PANW",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LULUx",
+   "underlying": "LULU",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ASMLx",
+   "underlying": "ASML",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMDx",
+   "underlying": "AMD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TSMx",
+   "underlying": "TSM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WENx",
+   "underlying": "WEN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ASTSx",
+   "underlying": "ASTS",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PYPLx",
+   "underlying": "PYPL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CLSKx",
+   "underlying": "CLSK",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SBETx",
+   "underlying": "SBET",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UBERx",
+   "underlying": "UBER",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ADBEx",
+   "underlying": "ADBE",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WULFx",
+   "underlying": "WULF",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "RIOTx",
+   "underlying": "RIOT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MARAx",
+   "underlying": "MARA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "OKLOx",
+   "underlying": "OKLO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GLXYx",
+   "underlying": "GLXY",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TONXx",
+   "underlying": "TONX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "BMNRx",
+   "underlying": "BMNR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSTRx",
+   "underlying": "MSTR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TBLLx",
+   "underlying": "TBLL",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "OPENx",
+   "underlying": "OPEN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DFDVx",
+   "underlying": "DFDV",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "CRCLx",
+   "underlying": "CRCL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMBRx",
+   "underlying": "AMBR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TQQQx",
+   "underlying": "TQQQ",
+   "exchange": "XNAS",
+   "issuerOpen": false,
+   "issuerHalted": true,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GLDx",
+   "underlying": "GLD",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "VTIx",
+   "underlying": "VTI",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "QQQx",
+   "underlying": "QQQ",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "SPYx",
+   "underlying": "SPY",
+   "exchange": "ARCX",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "COINx",
+   "underlying": "COIN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GMEx",
+   "underlying": "GME",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GSx",
+   "underlying": "GS",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CRWDx",
+   "underlying": "CRWD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HOODx",
+   "underlying": "HOOD",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MRVLx",
+   "underlying": "MRVL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "APPx",
+   "underlying": "APP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PLTRx",
+   "underlying": "PLTR",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ACNx",
+   "underlying": "ACN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "INTCx",
+   "underlying": "INTC",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PMx",
+   "underlying": "PM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HONx",
+   "underlying": "HON",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MDTx",
+   "underlying": "MDT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CMCSAx",
+   "underlying": "CMCSA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "IBMx",
+   "underlying": "IBM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "DHRx",
+   "underlying": "DHR",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MCDx",
+   "underlying": "MCD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NFLXx",
+   "underlying": "NFLX",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ABTx",
+   "underlying": "ABT",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BACx",
+   "underlying": "BAC",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "TMOx",
+   "underlying": "TMO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AZNx",
+   "underlying": "AZN",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CRMx",
+   "underlying": "CRM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LINx",
+   "underlying": "LIN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ORCLx",
+   "underlying": "ORCL",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NVOx",
+   "underlying": "NVO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CSCOx",
+   "underlying": "CSCO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "WMTx",
+   "underlying": "WMT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "KOx",
+   "underlying": "KO",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PEPx",
+   "underlying": "PEP",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "ABBVx",
+   "underlying": "ABBV",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MRKx",
+   "underlying": "MRK",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PFEx",
+   "underlying": "PFE",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "CVXx",
+   "underlying": "CVX",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "HDx",
+   "underlying": "HD",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "PGx",
+   "underlying": "PG",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MAx",
+   "underlying": "MA",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "LLYx",
+   "underlying": "LLY",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "Vx",
+   "underlying": "V",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JPMx",
+   "underlying": "JPM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "JNJx",
+   "underlying": "JNJ",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "XOMx",
+   "underlying": "XOM",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "UNHx",
+   "underlying": "UNH",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "BRK.Bx",
+   "underlying": "BRK.B",
+   "exchange": "XNYS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": null
+  },
+  {
+   "symbol": "TSLAx",
+   "underlying": "TSLA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AVGOx",
+   "underlying": "AVGO",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "GOOGLx",
+   "underlying": "GOOGL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "METAx",
+   "underlying": "META",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AMZNx",
+   "underlying": "AMZN",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "MSFTx",
+   "underlying": "MSFT",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "NVDAx",
+   "underlying": "NVDA",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  },
+  {
+   "symbol": "AAPLx",
+   "underlying": "AAPL",
+   "exchange": "XNAS",
+   "issuerOpen": true,
+   "issuerHalted": false,
+   "pythOpen": true
+  }
+ ]
+}

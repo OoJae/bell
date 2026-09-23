@@ -3,6 +3,9 @@
   --panel: #14181d;
   --line: #232a32;
   --text: #e7ecf2;
+  /* Used by several rules from the start and never defined, so balances and
+     banner emphasis silently inherited the dim colour of their parent. */
+  --fg: var(--text);
   --dim: #8b97a6;
   --ok: #3fb950;
   --no: #f0883e;
@@ -113,6 +116,27 @@ th { color: var(--dim); font-weight: 500; }
 /* the emergency exit: always findable, never loud */
 .revoke { display: flex; gap: 12px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--dim); }
 
+/* what BELL does, in plain words, for someone who arrives mid-session */
+.what { margin: 10px 0 0; max-width: 620px; color: var(--text); font-size: 13px; line-height: 1.55; }
+
+/* New York time and the attested session; the height is reserved because it mounts in the browser */
+.clock { margin-top: 12px; min-height: 20px; font-size: 13px; color: var(--dim); }
+.clock strong { color: var(--text); font-weight: 600; }
+.mkt.open { color: var(--ok); }
+.mkt.closed { color: var(--no); }
+.mkt.halted { color: var(--stop); }
+
+/* a disclosure is neither a pass nor a failure, so it takes neither one's color */
+.disclose { color: var(--accent); }
+
+/* the way out to the source and to the program itself */
+.foot {
+  display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 32px; padding-top: 16px;
+  border-top: 1px solid var(--line); font-size: 12px; color: var(--dim);
+}
+.foot a { text-decoration: none; }
+.foot a:hover { text-decoration: underline; }
+
 /* phones: the gate panel's fixed label column would push details off-screen */
 @media (max-width: 560px) {
   .wrap { padding: 20px 16px 60px; }
@@ -123,4 +147,6 @@ th { color: var(--dim); font-weight: 500; }
   .buy { flex-direction: column; }
   .order { flex-wrap: wrap; }
   .bal { flex-wrap: wrap; gap: 10px 14px; }
+  /* the clock line wraps to two lines here, and it mounts after first paint */
+  .clock { min-height: 40px; }
 }

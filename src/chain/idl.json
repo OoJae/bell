@@ -1054,12 +1054,12 @@
     {
       "code": 6000,
       "name": "MarketClosed",
-      "msg": "Primary listing exchange has halted or suspended this security"
+      "msg": "Market is closed or trading in this security is stopped"
     },
     {
       "code": 6001,
       "name": "StateStale",
-      "msg": "Session state is stale; treated as halted"
+      "msg": "Session state is stale; treated as closed"
     },
     {
       "code": 6002,

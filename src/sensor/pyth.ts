@@ -71,9 +71,36 @@ export async function fetchEquitySessions(): Promise<Map<string, PythSession>> {
     signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) throw new Error(`pyth price_feeds: HTTP ${res.status}`)
+  return parseEquitySessions(await res.json())
+}
 
+/** How many rows the last parse dropped, so a standing problem is reported once. */
+let lastDropped = 0
+
+/**
+ * The `/v2/price_feeds` body, one row at a time.
+ *
+ * Parsing the list as a whole meant one malformed row among 1,245 threw the
+ * entire feed, and with it the keeper's tick; a tick that pushes nothing closes
+ * all nine symbols 120 seconds later. A bad row now costs only its own ticker,
+ * which reads as having no feed at all, and `reconcile` closes a US listing
+ * with no feed. Fail-closed is unchanged; only its reach is.
+ *
+ * A body that is not a list is still an error: that is a different API, not a
+ * bad row, and there is nothing to salvage from it.
+ */
+export function parseEquitySessions(body: unknown): Map<string, PythSession> {
+  const rows = z.array(z.unknown()).parse(body)
   const out = new Map<string, PythSession>()
-  for (const f of z.array(Feed).parse(await res.json())) {
+  let dropped = 0
+  let example = ''
+  for (const row of rows) {
+    const parsed = Feed.safeParse(row)
+    if (!parsed.success) {
+      if (dropped++ === 0) example = describe(row, parsed.error.issues[0])
+      continue
+    }
+    const f = parsed.data
     const ticker = tickerOf(f.attributes?.symbol)
     if (!ticker || !f.market_hours) continue
     out.set(ticker, {
@@ -85,5 +112,25 @@ export async function fetchEquitySessions(): Promise<Map<string, PythSession>> {
       schedule: f.attributes?.schedule ?? null,
     })
   }
+  // Said when the count changes rather than every tick: a row Pyth keeps
+  // publishing malformed would otherwise print the same line two thousand
+  // times a day and bury everything else in the log.
+  if (dropped !== lastDropped) {
+    console.warn(
+      dropped === 0
+        ? `pyth price_feeds: every row parses again (${lastDropped} were being dropped)`
+        : `pyth price_feeds: dropped ${dropped} of ${rows.length} rows that did not parse, e.g. ${example}; ` +
+            'a dropped ticker reads as having no feed, and a US listing with no feed is closed',
+    )
+    lastDropped = dropped
+  }
   return out
+}
+
+/** Enough of a rejected row to find it in the feed: its symbol and what was wrong. */
+function describe(row: unknown, issue: { path: PropertyKey[]; message: string } | undefined): string {
+  const r = (row ?? {}) as { id?: unknown; attributes?: { symbol?: unknown } }
+  const name =
+    typeof r.attributes?.symbol === 'string' ? r.attributes.symbol : typeof r.id === 'string' ? r.id : 'a row'
+  return issue ? `${name} (${issue.path.map(String).join('.') || 'row'}: ${issue.message})` : name
 }

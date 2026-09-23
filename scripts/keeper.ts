@@ -1,17 +1,18 @@
 /**
  * Run the keeper.
  *
- *   node scripts/keeper.ts            # dry run: decide, print, write nothing
+ *   node scripts/keeper.ts            # dry run: decide, print, send nothing
  *   BELL_ARM=1 node scripts/keeper.ts # actually push
  *
  * Dry run is the default, following the same invariant as Ripcord: a process
  * that writes to a chain should never do so because someone forgot a flag.
  */
 import { connect, readAllSymbols } from '../src/chain/client.ts'
+import { MarkSource } from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
-import { Recorder } from '../src/record.ts'
+import { Recorder, type TransitionRow } from '../src/record.ts'
 
 const INTERVAL_MS = Number(process.env.BELL_INTERVAL_MS ?? 45_000)
 /**
@@ -25,10 +26,32 @@ const ATTESTOR_PATH = process.env.BELL_ATTESTOR_KEYPAIR ?? '.attestor.json'
 const ONCE = process.argv.includes('--once')
 const dryRun = process.env.BELL_ARM !== '1'
 
-const recorder = new Recorder()
+/**
+ * The evidence log, when it can be opened.
+ *
+ * The log records the keeper; it is not the keeper. A database that would not
+ * open used to crash the process on start, and a keeper that is not running
+ * closes every symbol two minutes later: the venue shut because its log was
+ * unwritable. So the keeper runs without it, tries again every tick, and says
+ * so on every tick until it opens.
+ */
+let recorder: Recorder | null = null
+let recorderError: string | null = null
+function openRecorder() {
+  try {
+    recorder = new Recorder()
+    recorderError = null
+  } catch (e) {
+    recorderError = (e as Error).message
+  }
+}
+openRecorder()
+if (recorderError) console.error(`evidence log unavailable, running without it: ${recorderError}`)
 
 const haltName = (h: number) =>
   Object.entries(HaltState).find(([, v]) => v === h)?.[0] ?? String(h)
+const sourceName = (s: number) =>
+  Object.entries(MarkSource).find(([, v]) => v === s)?.[0] ?? String(s)
 
 async function once() {
   const conn = connect()
@@ -51,22 +74,65 @@ async function once() {
         `age=${age === null ? 'never' : age + 's'}  ${d.verdict.detail}`,
     )
   }
-  const pushedSet = new Set(result.pushed)
-  const transitions = recorder.record(
-    result.decisions.map((d) => ({
-      at: Math.floor(result.at.getTime() / 1000),
-      symbol: d.listing.symbol,
-      mint: d.listing.mint,
-      issuer: d.listing.issuer,
-      openNow: d.verdict.openNow,
-      halt: d.verdict.halt,
-      confidence: d.verdict.confidence,
-      detail: d.verdict.detail,
-      ...d.sources,
-      pushed: pushedSet.has(d.listing.symbol),
-      signature: result.signature,
-    })),
-  )
+
+  // Recording is best-effort. The chain writes are done by now, and a log that
+  // cannot be written must not turn a good tick into a failed one: the loop
+  // would count it against the watchdog and restart a keeper whose only fault
+  // was its log. Ticks and marks are written separately, so that one failing
+  // does not cost the other.
+  //
+  // A dry run records its ticks, since what the keeper saw and decided is true
+  // either way, but nothing it did not push. `pushed` is false for every row
+  // and no mark is written: the marks table is the prices that were on chain,
+  // where a fill could settle against them, and the report reads it as what a
+  // buyer paid. A price nobody could have paid does not belong in it. The
+  // summary below still prints what a dry run would have pushed.
+  const at = Math.floor(result.at.getTime() / 1000)
+  const unrecorded: string[] = []
+  let transitions: TransitionRow[] = []
+  if (!recorder) openRecorder()
+  if (!recorder) unrecorded.push(`log unavailable: ${recorderError}`)
+  else {
+    const pushedSet = new Set(result.dryRun ? [] : result.pushed)
+    try {
+      transitions = recorder.record(
+        result.decisions.map((d) => ({
+          at,
+          symbol: d.listing.symbol,
+          mint: d.listing.mint,
+          issuer: d.listing.issuer,
+          openNow: d.verdict.openNow,
+          halt: d.verdict.halt,
+          confidence: d.verdict.confidence,
+          detail: d.verdict.detail,
+          ...d.sources,
+          pushed: pushedSet.has(d.listing.symbol),
+          signature: result.signature,
+        })),
+      )
+    } catch (e) {
+      unrecorded.push(`ticks: ${(e as Error).message}`)
+    }
+    if (!result.dryRun && result.markSignature && result.marks.length > 0) {
+      try {
+        recorder.recordMarks(
+          result.marks.map((m) => ({
+            at,
+            observedAt: m.observedAt,
+            symbol: m.symbol,
+            pxNum: m.pxNum,
+            pxExpo: m.pxExpo,
+            confBps: m.confBps,
+            source: sourceName(m.source),
+            rateQ64: m.rateQ64,
+            signature: result.markSignature,
+          })),
+        )
+      } catch (e) {
+        unrecorded.push(`marks: ${(e as Error).message}`)
+      }
+    }
+  }
 
   if (result.pushed.length === 0 && result.marked.length === 0) console.log('  (no change)')
   else {
@@ -83,6 +149,10 @@ async function once() {
     if (result.riskError) parts.push(`risk UNREFRESHED (${result.riskError})`)
     console.log(`  ${parts.join('  |  ')}${result.signature ? `  sig=${result.signature.slice(0, 16)}…` : ''}`)
   }
+  // Outside the branch above on purpose: either can happen on a tick that
+  // pushed nothing, and each is a standing fault an operator has to see.
+  if (result.backpackError) console.log(`  backpack UNREAD, its listings closed (${result.backpackError})`)
+  if (unrecorded.length) console.log(`  evidence UNRECORDED (${unrecorded.join('; ')})`)
 
   for (const t of transitions) {
     console.log(

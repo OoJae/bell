@@ -31,14 +31,32 @@ const PAYER_PATH =
   process.env.BELL_PAYER_KEYPAIR ?? `${process.env.HOME}/.config/solana/id.json`
 
 /**
- * The attestor's only power is `push_session`. Keeping it separate from the
- * deploy authority means a leaked attestor can close symbols — the fail-closed
- * direction — but can never touch the program.
+ * The attestor is a hot key with three powers: it opens or closes a symbol
+ * (`push_session`), sets its price (`push_mark`), and classifies a pending
+ * corporate action (`classify_rebase`). It cannot touch the program, transfer
+ * anyone else's tokens, or place an order in anyone else's name — that is what
+ * keeping it separate from the deploy authority buys.
+ *
+ * Closing a symbol is the safe direction; opening one and pricing it are not.
+ * `fill_order` is permissionless, so the key that sets the price can also be
+ * the filler: a leaked attestor can open a symbol, push an inflated price and
+ * fill every parked order against it itself, delivering too little stock.
+ * What bounds that is the order. The page and `scripts/queue.ts` give each one
+ * a loss floor at three quarters of what the mark said it was worth at
+ * placement (`src/policy/order.ts`), and it will not fill below that; an order
+ * placed before a symbol's first mark, or by a client that sets no floor, has
+ * none. The program refuses any order over $1,000. A swap guarded by
+ * `assert_tradeable` elsewhere gets neither bound: a wrongly opened symbol lets
+ * it through, limited only by its own slippage.
+ *
+ * A newly generated key is written owner-only (0600). It signs every
+ * attestation the venue trusts, so no other account on this machine should be
+ * able to read it.
  */
 function attestorKeypair(): Keypair {
   if (existsSync(ATTESTOR_PATH)) return loadKeypair(ATTESTOR_PATH)
   const kp = Keypair.generate()
-  writeFileSync(ATTESTOR_PATH, JSON.stringify([...kp.secretKey]))
+  writeFileSync(ATTESTOR_PATH, JSON.stringify([...kp.secretKey]), { mode: 0o600 })
   console.log(`  generated attestor -> ${ATTESTOR_PATH}`)
   return kp
 }
@@ -82,9 +100,13 @@ async function main() {
   if (balance === 0) throw new Error('payer has no SOL')
 
   // The attestor pays its own transaction fees, so it needs a working balance.
-  // Deliberately small: its only power is push_session, and a thin balance
-  // bounds what a leaked key can spend. At ~5,000 lamports per batched push
-  // every 45s, 0.05 SOL runs for roughly five days.
+  // Deliberately small: this balance is the only SOL the key can spend, so a
+  // thin one bounds what a leaked key burns. It is a starting balance, not a
+  // running one — an armed keeper signs three transactions a tick (sessions,
+  // token-risk refresh, marks), about 15,000 lamports every 45 seconds, which
+  // spends 0.05 SOL in under two days. `scripts/health.ts` fails below the
+  // same 0.05, so a freshly funded attestor reads as low after its first armed
+  // tick: top it up past that before arming the keeper.
   const attestorBalance = await conn.getBalance(attestor.publicKey)
   const FLOOR = 0.05 * LAMPORTS_PER_SOL
   if (attestorBalance < FLOOR) {
@@ -109,10 +131,14 @@ async function main() {
     if (existing) {
       console.log(`${l.symbol.padEnd(7)} already registered`)
     } else {
-      // Backed publishes hours mode per asset; Backpack's securities all trade
-      // the extended sessions, so they are 24/5.
-      const hoursMode =
-        l.issuer === 'backpack' ? HoursMode.TwentyFourFive : HoursMode.TwentyFourFive
+      // Every symbol is registered as 24/5, whatever its issuer publishes.
+      // `hours_mode` is a label, not a control: the program stores it here and
+      // nothing acts on it afterwards — no gate consults it and no instruction
+      // can change it. Whether a symbol's market is open right now is
+      // `open_now`, which the attestor sets on every `push_session` and gate 7
+      // checks for strict callers. A per-asset mode here would change what the
+      // account says and nothing about what it allows.
+      const hoursMode = HoursMode.TwentyFourFive
       await send(
         conn,
         [

@@ -6,15 +6,18 @@
  * own 24/5 wrapper consider itself tradeable.
  *
  * Measured live across the whole universe on 2026-09-21: 635 agree, 291 have
- * no Pyth feed, and exactly **2 disagree — JPSTx and IWMx, the two halted
- * securities**. Pyth said the session was open, because it was; the issuer said
- * the security was not tradeable, because it was halted.
+ * no Pyth feed, and exactly **2 disagree — JPSTx and IWMx**. Re-measured by
+ * `scripts/agreement.ts` on 2026-09-23 at 15:51 ET: 675 of 678 agree, and the
+ * three that do not — JPSTx, IWMx, TQQQx — are the three the issuer has
+ * stopped. Pyth said the session was open, because it was; the issuer said the
+ * token was not tradeable, because it had withdrawn it (an issuer's stop, not
+ * an exchange halt — see `IssuerView`).
  *
- * So the disagreement is not noise to be smoothed over. It *is* the halt.
+ * So the disagreement is not noise to be smoothed over. It *is* the stop.
  * Neither source alone is sufficient, which is the argument for the gate.
  *
- * Pure functions, no I/O, no clock of their own — same contract as
- * `policy/session.ts`, for the same reason.
+ * Pure functions, no I/O, no clock of their own, so every verdict is a function
+ * of its inputs and can be tested without a network or a calendar.
  */
 
 /**
