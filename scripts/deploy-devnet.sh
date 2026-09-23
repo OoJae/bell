@@ -33,8 +33,11 @@ done
 
 RPC=https://api.devnet.solana.com
 LOCALNET=http://127.0.0.1:8899
-# 2.9244 deploy (see --max-len) + mirrors + PDAs + ATAs + attestor + filler.
-# The old 2.4 predated --max-len and would pass a wallet that then failed mid-deploy.
+# Deploy rent (see --max-len) + mirrors + PDAs + ATAs + attestor + filler. The
+# program account for 420,000 bytes measured 2.1345 SOL on devnet and mainnet
+# alike; this floor was set at the textbook 6,960 lamports/byte (2.92 SOL) and
+# is kept as headroom. The old 2.4 predated --max-len and would pass a wallet
+# that then failed mid-deploy.
 NEEDED=3300000000
 
 # Pin the payer. `solana address`, spl-token's implicit fee payer and
@@ -58,7 +61,7 @@ fi
 # ---------------------------------------------------------------- pre-flight
 # Read-only. All of it must pass before anything is spent.
 
-# An orphan buffer from a failed deploy holds ~2.17 SOL. Re-running deploy
+# An orphan buffer from a failed deploy holds ~1.59 SOL (for the 312KB binary). Re-running deploy
 # without --buffer creates a second and fails for funds — one dropped write
 # turning into a dead wallet.
 # Match an actual base58 buffer address, not the table header the command
@@ -103,7 +106,7 @@ file target/deploy/bell_session.so | grep -q "unknown arch 0x107" \
 # --max-len buys ~108KB of growth room. Sized exactly, any later fix that adds a
 # byte needs a NEW program address, invalidating every signature and link in the
 # submission. Judging runs to Oct 2, so in-place upgrade must stay possible.
-echo "deploying (2.92 SOL rent, recoverable via program close)..."
+echo "deploying (~2.13 SOL rent, recoverable via program close)..."
 solana program deploy target/deploy/bell_session.so \
   --url "$RPC" \
   --program-id target/deploy/bell_session-keypair.json \

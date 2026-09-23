@@ -51,7 +51,10 @@ const HAS_ENOUGH_LAMPORTS = 5_000_000
  * rent, whenever it held less than that.
  */
 const RESERVE_LAMPORTS = 10_000_000
-/** A new quote account's rent, as an upper bound (mainnet's rate; devnet is lower). */
+/**
+ * A new quote account's rent, as an upper bound: 165 bytes at the textbook
+ * 6,960 lamports/byte. Both devnet and mainnet charge less than that today.
+ */
 const QUOTE_ACCOUNT_RENT = 2_039_280
 const FEE_LAMPORTS = 10_000
 const FLOOR_QUOTE = GRANT_QUOTE

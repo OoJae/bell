@@ -1,76 +1,79 @@
 # Getting a Pyth API key
 
-## Why this is on the critical path
+> **Historical.** Committed on 21 Sep, when the plan assumed BELL would read
+> prices from Pyth. It does not, and it needs no key. BELL uses Pyth for one
+> thing: whether a US equity session is open, from the free, keyless
+> `hermes.pyth.network/v2/price_feeds` metadata (`market_hours` on each equity
+> feed). Prices come from the keeper: one executable Jupiter quote per symbol
+> for $200 of USDC, attested on chain as the mark, whose `conf_bps` is that
+> quote's price impact, capped at 200. What a free key turned out to unlock is
+> below.
+
+## Why this was on the critical path
 
 The **Pyth Core upgrade of 2026-08-26** put every Hermes *price* route behind an
-API key. Verified just now:
+API key. Re-checked 23 Sep:
 
 ```
 GET https://hermes.pyth.network/v2/updates/price/latest?ids[]=<AAPL feed>   → 401
 GET https://hermes.pyth.network/v2/price_feeds                              → 200
 ```
 
-Feed *metadata* is still public — which is how we read each feed's
-machine-readable `schedule` string — but you cannot read a price without a key.
+Feed *metadata* is still public — which is where BELL reads each feed's
+`market_hours` — but you cannot read a price without a key.
 
-You also cannot fall back to the on-chain sponsored feeds: the push-oracle
-accounts for equities are abandoned. `Equity.US.AAPL/USD` was last updated ~37
-days ago and `Crypto.AAPLON/USD` has no account at all. Anything real has to
-pull from Hermes and post the update itself.
+You also cannot fall back to the on-chain sponsored feeds. On mainnet the
+push-oracle account for `Equity.US.AAPL/USD` was last updated on 14 Aug, and
+`Crypto.AAPLON/USD` has no account at all (both checked 23 Sep).
 
-## Steps
+## Checking a key
 
-1. Sign up at **<https://pythdata.app>** (Pyth Terminal). The account itself is free.
-2. In the dashboard, click **🔑 View your API key**.
-3. Test it:
+1. A key comes with a free Pyth Terminal account at <https://pythdata.app>.
+2. Test it:
 
    ```sh
    PYTH_API_KEY=... node scripts/check-pyth.ts
    ```
 
-4. Use it against `https://pyth.dourolabs.app/hermes` with
-   `Authorization: Bearer <key>`.
+   It probes the public routes, then the keyed one
+   (`https://pyth.dourolabs.app/hermes` with `Authorization: Bearer <key>`),
+   and prints what comes back.
 
-## The catch, stated honestly
+## What the key unlocked
 
-Pyth's own docs describe the Terminal account as free and the key as something
-you simply view. Independent coverage of the Core upgrade says the opposite for
-*API* access — that free Terminal is view-and-explore only, and live API reads
-need a **Starter or Pro** subscription starting around **$500/month**.
+Whether a free key could read prices was unclear, so we asked the API. A free
+key authenticates but is entitled to crypto only: **403** for
+`Equity.US.AAPL/USD`, `Crypto.AAPLX/USD` and the `.RR` redemption-rate feed, 200
+for `Crypto.SOL/USD` (`FRICTION.md`, 2026-09-21).
 
-These two claims conflict, so `scripts/check-pyth.ts` settles it empirically
-rather than trusting either: it reads a real equity price and reports what
-actually comes back.
+## The gate reads no price
 
-If the free key turns out to be view-only, the routes are:
+`assert_tradeable` runs these checks, in this order, and none of them reads a
+price:
 
-- **Ask the sponsor.** Pyth is a Stocklana sponsor and the bounty prize is
-  literally *three months of Pyth Pro*, so they know the data is gated. A
-  hackathon key is a reasonable ask in the hackathon channel.
-- **Ship without it.** See below — this does not block the build.
+| Gate | Refuses with | Reads |
+|---|---|---|
+| 1. Session attestation older than 120s | `StateStale` | the attestation |
+| 2. Attested halt state is not `None` (exchange halt, issuer not trading it, or no issuer reading) | `MarketClosed` | the attestation |
+| 2b. Mint state last read more than 600s ago | `RiskStale` | the `TokenRisk` record |
+| 3. Issuer pause | `IssuerPaused` | `TokenRisk`, as last read from the Token-2022 mint |
+| 4. Within 15 minutes either side of a multiplier change's activation | `RebasePending` | `TokenRisk` |
+| 4b. A pending change still unclassified (`Unknown`) | `RebaseUnclassified` | `TokenRisk`, including the attestor's classification |
+| 5. Multiplier moved since the order was built | `MultiplierMoved` | `TokenRisk` |
+| 6. Transfer hook armed | `HookArmed` | `TokenRisk` |
+| 7. Strict mode only: session not open | `MarketClosed` | the attestation |
 
-## BELL does not block on Pyth
+Pyth sits upstream of gates 2 and 7: the keeper's session verdict combines
+Pyth's `market_hours` with the issuer's state and Nasdaq's halt feed, and a
+listing with no Pyth feed is closed. If `/v2/price_feeds` cannot be read, the
+tick sends nothing and every symbol refuses with `StateStale` within 120
+seconds. Nothing waits on a Pyth key.
 
-Deliberate design consequence, not a consolation. The gates that make BELL
-distinctive need **no oracle at all**:
-
-| Gate | Needs a price? |
-|---|---|
-| Session / halt | no — issuer + exchange feeds |
-| Issuer pause | no — read from the Token-2022 mint |
-| Rebase window | no — read from the mint |
-| Transfer hook armed | no — read from the mint |
-| Multiplier moved | no — read from the mint |
-| Oracle freshness / confidence | **yes** |
-| Basis vs reference | **yes** |
-| Price impact | no — router quote |
-
-So the halt demo, the rebase demo and the on-chain revert all work with zero
-Pyth access.
-
-For the two gates that do need a mark, there is a free fallback: Backpack's
-`GET /api/v1/tickers` is unauthenticated and returns live prices for **21 stock
-markets**, including 24/7 equity perps (SPY, QQQ, NVDA, TSLA, AMD, INTC, MU).
-That covers the majors around the clock. It is narrower than Pyth's ~1,045 US
-equity feeds, so Pyth remains the right answer for breadth — but the demo is not
-hostage to it.
+On the trade path, the program checks a price only when a parked order fills.
+`fill_order` runs the same gate in strict mode, then requires the mark to be at most 60 seconds old
+(`MarkStale`) and its `conf_bps` within the order's cap (`MarkTooWide`), and
+refuses a delivery below the greater of the order's band and its loss floor
+(`PriceOutOfBand`). The mark is the keeper's Jupiter quote. Backpack's free
+tickers, the fallback this page once proposed, are not used: most are
+perpetuals trading 38–275bps below spot, and a low mark is the unsafe direction
+(`src/chain/keeper.ts`).

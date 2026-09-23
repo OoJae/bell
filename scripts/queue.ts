@@ -22,7 +22,7 @@ import {
   readOrders,
   send,
 } from '../src/chain/client.ts'
-import { ixApproveChecked, ixRevoke } from '../src/chain/spl.ts'
+import { ataFor, ixApproveChecked, ixCreateAtaIdempotent, ixRevoke, TOKEN_2022 } from '../src/chain/spl.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { fairOut, type BellOrder } from '../src/chain/codec.ts'
 import { ALLOWLIST, bySymbol } from '../src/config.ts'
@@ -36,16 +36,14 @@ const conn = connect()
 const user = loadKeypair(PAYER_PATH)
 const [cmd, ...rest] = process.argv.slice(2)
 
-const quoteAccount = () => {
-  const v = process.env.BELL_USER_QUOTE
-  if (!v) throw new Error('BELL_USER_QUOTE unset')
-  return new PublicKey(v)
-}
 const quoteMint = () => {
   const v = process.env.BELL_QUOTE_MINT
-  if (!v) throw new Error('BELL_QUOTE_MINT unset')
+  if (!v) throw new Error('BELL_QUOTE_MINT unset — run with node --env-file=.demo.env (demo-setup.sh writes it)')
   return new PublicKey(v)
 }
+/** The wallet's quote account: BELL_USER_QUOTE if set, else its associated account, as the page uses. */
+const quoteAccount = () =>
+  process.env.BELL_USER_QUOTE ? new PublicKey(process.env.BELL_USER_QUOTE) : ataFor(user.publicKey, quoteMint())
 
 /**
  * What this wallet's delegation must cover besides a given order: every other
@@ -74,12 +72,15 @@ if (cmd === 'place') {
   const [symbol, usdArg] = rest
   const listing = bySymbol.get(symbol)
   if (!listing) throw new Error(`unknown symbol ${symbol}`)
-  const stockAccount = process.env[`BELL_USER_STOCK_${symbol}`]
-  if (!stockAccount) throw new Error(`BELL_USER_STOCK_${symbol} unset`)
+  // Where the stock lands: BELL_USER_STOCK_<SYMBOL> if set, else the wallet's
+  // associated Token-2022 account, created in the same transaction if it does
+  // not exist yet — a first buy is the normal case, not an error.
+  const stockOverride = process.env[`BELL_USER_STOCK_${symbol}`]
 
   const amountIn = BigInt(Math.round(Number(usdArg) * 10 ** QUOTE_DECIMALS))
   const nonce = BigInt(Date.now())
   const mint = new PublicKey(listing.mint)
+  const payeeOut = stockOverride ? new PublicKey(stockOverride) : ataFor(user.publicKey, mint, TOKEN_2022)
   const { owed, board } = await owedElsewhere()
   const mark = board.symbols.get(symbol)?.mark ?? null
   const floorRateQ64 = lossFloor(mark && mark.observedAt > 0n ? mark.rateQ64 : null)
@@ -93,6 +94,9 @@ if (cmd === 'place') {
       // Re-read the mint first, so the order snapshots the multiplier in force
       // now rather than whatever the last refresh recorded.
       ixRefreshTokenRisk(mint),
+      ...(stockOverride
+        ? []
+        : [ixCreateAtaIdempotent({ payer: user.publicKey, owner: user.publicKey, mint, tokenProgram: TOKEN_2022 })]),
       approve(payerIn, quoteMint(), owed + amountIn),
       ixPlaceOrder({
         owner: user.publicKey,
@@ -108,7 +112,7 @@ if (cmd === 'place') {
         // Shared with the page: survives a weekend, capped inside the program's limit.
         expiresAt: BigInt(orderExpiry(Math.floor(Date.now() / 1000), null)),
         payerIn,
-        payeeOut: new PublicKey(stockAccount),
+        payeeOut,
       }),
     ],
     [user],

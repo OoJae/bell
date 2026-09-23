@@ -18,7 +18,7 @@ export { MAINNET_LISTINGS, SYMBOL_LEN, symbolSeed, type Issuer, type Listing } f
  * meets on mainnet.
  *
  * It is a mirror, not the thing, and that is said here rather than hidden
- * behind an environment variable. The 27 program tests parse real mainnet mint
+ * behind an environment variable. The program tests parse real mainnet mint
  * bytes and `scripts/localnet.sh` clones the real accounts; only a devnet
  * deployment uses these.
  *
