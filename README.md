@@ -2,7 +2,7 @@
 
 **The venue for real US securities on Solana that knows what time it is.**
 
-**The safe way to buy US stocks from your own wallet, at any hour.** Wall Street
+**The safe way to trade US stocks from your own wallet, at any hour.** Wall Street
 closes; Solana doesn't — and while New York is shut, a Solana pool has nothing
 to check its price against. US exchanges trade about 32.5 of the week's 168
 hours ([RedStone's COO](https://crypto.news/tokenized-stocks-face-24-7-pricing-gap-redstone-coo/)).
@@ -13,7 +13,8 @@ on Robinhood Chain, not Solana — the mechanism is the same).
 In the regular session, BELL trades. When the stock is halted, or a dividend is
 about to change the token under you, it refuses — on-chain, in the transaction,
 not as a warning. And while New York is shut, it holds your order for a real
-price and fills it after the bell, with your money in your wallet until then.
+price and fills it after the bell, with your money, or your shares, in your
+wallet until then.
 
 A dashboard can say a trade is risky; BELL is a program that makes it fail —
 and turns the refusal into an order.

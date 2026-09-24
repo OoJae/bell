@@ -35,7 +35,7 @@ the AMC chart. Lower-third: "tokenized AMC, Robinhood Chain, Labor Day weekend
 
 *On screen: the page — the line under the title, the clock, the board.*
 
-> BELL is the safe way to buy US stocks from your own wallet, at any hour.
+> BELL is the safe way to trade US stocks from your own wallet, at any hour.
 >
 > In the regular session, it trades. When the stock is halted, or a dividend
 > is about to change the token under you, it refuses — on-chain. And while New

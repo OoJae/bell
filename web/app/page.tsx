@@ -1048,7 +1048,7 @@ export default function Page() {
             </div>
             {/* Not `.sub`: the demo script reads the second `.sub` as the board line. */}
             <p className="what">
-              The safe way to buy US stocks from your own wallet, at any hour. In the regular session
+              The safe way to trade US stocks from your own wallet, at any hour. In the regular session
               BELL trades; when a stock is halted or a dividend is about to change the token, it refuses
               on-chain; while New York is shut, it holds your order for a real price.
             </p>
