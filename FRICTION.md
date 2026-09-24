@@ -413,3 +413,37 @@ same line would have run against localnet instead.
 
 **Fix:** spell the assignments out on the command line, or split on purpose with
 zsh's `${=E}`.
+
+## 2026-09-24 — the textbook ceiling, and which way a sale rounds
+
+A sale's minimums are quote the seller is owed, so each one rounds up. The
+textbook ceiling is `(num + rate − 1) / rate`. It is safe for every amount only
+while the rate is at most 2^64. Here `num` is `a << 64`; for an amount near
+the top of a `u64` that already fills a `u128` to within 2^64, and adding
+`rate − 1` then carries past the top. Rates above 2^64 are ordinary: the mark's
+rate is stock raw per quote raw, so any 8-decimal stock under $100 has one (at
+$25 it is four raw per raw). The release profile sets `overflow-checks = true`,
+so the overflow would be a refused fill, not a wrong number.
+
+**Fix:** `stock_to_quote_ceil` in `sell.rs` computes
+`num / rate + (num % rate != 0)`, which cannot overflow for any `u64` amount and
+any non-zero rate, so it does not lean on the $1,000 cap to keep amounts small.
+`a_stock_under_a_hundred_dollars_prices_through_a_rate_above_one` fills a sale
+at a rate of 4 × 2^64. The TypeScript mirror, `stockToQuoteCeil` in
+`codec.ts`, is written the same way although BigInt cannot overflow: a mirror
+written differently is one that can quietly start to disagree.
+
+The direction is deliberate too. `fill_order` rounds each figure down: the
+stock a buyer is owed at the mark, the band edge below it, and the floor, so
+less than a raw unit of stock at each step stays with the filler; at eight decimals a raw
+unit is a hundred-millionth of a share. That is the deployed buy path, and the
+sell change leaves `fill_order` as it was. The sell side is new, so every
+minimum in it rounds up — the value at the mark, the band edge below it, and
+the floor — and a filler can never meet one by a unit the arithmetic dropped.
+`a_six_decimal_stock_sells_at_the_same_rounding` pins a case where rounding
+down would have let a payment one unit short through. It binds the clients as
+well: a filler that priced a sale with the buy side's rounding could pay a
+unit short and be refused with `PriceOutOfBand`, which is why `crank.ts`
+prices sales with `codec.ts`'s mirrors, step for step. The one figure in
+`sell.rs` that rounds down is the $1,000 value cap, so a sale worth exactly
+$1,000 at the mark is never refused over a fraction of a unit.

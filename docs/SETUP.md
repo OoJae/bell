@@ -77,6 +77,14 @@ permanently. `localnet.sh` starts from an empty ledger (`-r`), so after a
 restart the mint in `.demo.env` is gone: run
 `BELL_FORCE=1 ./scripts/demo-setup.sh`, then `register.ts` again.
 
+A filler needs stock to fill buys and quote to fill sales. `seed-accounts.ts`
+gives it the stock. `demo-setup.sh` creates its quote account
+(`BELL_FILLER_QUOTE`) empty: buys pay into it and sales are paid for from it, so
+until a buy has filled, or you send it some, the crank reports the filler short
+of quote and leaves every sale waiting.
+`node --env-file=.demo.env scripts/queue.ts sell SPYx 0.1` sells from the
+wallet's stock account once a buy has filled into it.
+
 ### Devnet
 
 ```sh
@@ -91,8 +99,10 @@ simulation's payer. The crank line needs the operator's `.filler.json` and
 during the deploy.
 
 `scripts/deploy-devnet.sh` is the one-pass deploy: program, demo USDC, mirror
-mints, registration and filler inventory, derived from a running, registered
-localnet. It is not idempotent — the program has no close instruction for the
+mints, registration and the filler's stock inventory, derived from a running,
+registered localnet. It gives the filler stock only; the filler pays for sales
+from its demo-USDC account, which starts empty and is filled by the buys it
+settles. It is not idempotent — the program has no close instruction for the
 accounts `register.ts` creates — so read its header first. The hosted keeper
 (`Dockerfile.keeper`) and the crank, a Railway cron every five minutes, run
 these same scripts armed.
@@ -108,9 +118,10 @@ program's upgrade authority; the attestor is `.attestor.json`, which
 attestor can open or close a symbol (`push_session`), set its price
 (`push_mark`) and classify a pending corporate action (`classify_rebase`). It
 cannot touch the program, transfer anyone's tokens, or place or cancel an order
-in anyone's name. But `fill_order` is permissionless, so a leaked attestor key
-can open a symbol, push a bad price and fill parked orders itself, bounded by
-each order's loss floor and the $1,000 per-order cap. Fail-closed covers a silent attestor, not a leaked one:
+in anyone's name. But `fill_order` and `fill_sell_order` are permissionless, so
+a leaked attestor key can open a symbol, push a bad price and fill parked
+orders itself, bounded by each order's loss floor and the $1,000 per-order
+cap. Fail-closed covers a silent attestor, not a leaked one:
 attestations that stop arriving go stale, and every symbol refuses within 120
 seconds.
 

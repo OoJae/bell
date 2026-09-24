@@ -10,9 +10,11 @@ person, not to a room.
 
 The limit price, the recurring buy and the receipt ship in the push after
 10:00 ET on Thursday 24 Sep, so the page shows them only from then: film those
-shots after the push, not in the bell recording. Notifications are not in this
-script; they need a bot token that does not exist yet. Lines marked **[fill]**
-get their number from Thursday's bell (09:57 ET check-in).
+shots after the push, not in the bell recording. Selling needs a program
+upgrade as well as the push, so the sell shot in section 7 is filmed after
+both, once a sale has filled. Notifications are not in this script; they need a
+bot token that does not exist yet. Lines marked **[fill]** get their number
+from Thursday's bell (09:57 ET check-in).
 
 ---
 
@@ -100,15 +102,19 @@ real Apple dividend".*
 
 ### 7 · What you still trust (2:35–3:00)
 
-*On screen: the permanent-delegate row; the README's trust section; the repo.*
+*On screen: the permanent-delegate row; the README's trust section; the repo.
+Under the sell line (to be filmed after the sell upgrade): the order box
+switched to Sell, a sale queued with a minimum price a share, the shares still
+in the wallet, then its line under "Your fills" — "sold … for …" — and the fill
+in the explorer ([sell-fill]).*
 
 > What BELL can't fix: two issuer keys can take these stocks out of any
 > wallet. On our devnet mirrors, that key is ours. And the key that tells BELL
 > the market is open also sets its price, so a price floor on every order and
 > a thousand-dollar cap bound what it can do.
 >
-> Buying is live today. Selling at the bell, and the twenty-three-hour sessions
-> starting in December, are next.
+> You can sell the same way. The twenty-three-hour sessions from December are
+> next.
 >
 > BELL. The venue that knows what time it is.
 
@@ -151,6 +157,19 @@ real Apple dividend".*
   night, the five run into the next week, so not "every open this week".
 - Cancel — an SPL `revoke` sent alone from the user's wallet, before BELL's
   close (`cancelOrderTxs` in `web/lib/queue.ts`).
+- "You can sell the same way" — the page's Sell side (`placeSell` in
+  `web/app/page.tsx`). The approval is on the wallet's stock account, under
+  Token-2022, never the demo-USDC account that funds buys
+  (`placeSellInstructions` in `web/lib/queue.ts`). The sale waits for the bell
+  behind the same Strict gate (`fill_sell_order` calls `check_tradeable`, in
+  `programs/bell-session/src/instructions/sell.rs`), and at the fill the filler
+  pays first: the program measures the quote that landed, then takes the stock.
+  The least it accepts is the price at the fill less 30 bps, and never under
+  the floor, the "min $/share" or three quarters of the placement price,
+  whichever is higher (`sellOrderFloor` in `src/policy/order.ts`); each
+  minimum rounds up (`stock_to_quote_ceil`, `mul_shr64_ceil`). Its cancel
+  revokes the stock account alone, first (`cancelSellOrderTxs`). The first
+  devnet sale: [sell-fill].
 - Fifteen minutes either side — `REBASE_GUARD_SECONDS = 15 * 60`, matching
   Backed's own advice to pause "~15 minutes before and after each activation"
   (docs.xstocks.fi/developers/multipliers). Nasdaq's corporate-action halt
@@ -160,7 +179,8 @@ real Apple dividend".*
 - The keys — Backed `5aMN…FvEq` and Backpack `2cVY…af4a` on mainnet; BELL's
   deploy key `Dqp6…Ziqs` on every devnet mirror. The attestor sets both the
   session and the mark; each order's floor and the $1,000 cap bound a wrong
-  price (README, "What you must trust").
+  price, a sale's cap being its value at the mark when placed (README, "What
+  you must trust").
 
 **Still to confirm before recording:**
 
@@ -171,5 +191,7 @@ real Apple dividend".*
   a new night queue with a limit after 16:00 ET on Thursday, or cut "Set your
   limit," from section 4 and "with a limit price" from its shot list.
 - The receipt and the five-opens shots, on the live page after the push.
+- The sell shot in section 7: after the upgrade that adds sells to the devnet
+  program, once a sale has filled ([sell-fill], at [sell-fill-time]).
 - That the footage shows each on-screen item, including the Apple-mirror rebase
   (still to be filmed) and the keeper-stop sequence.

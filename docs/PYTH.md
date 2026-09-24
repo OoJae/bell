@@ -73,11 +73,13 @@ overnight, at weekends and on holidays as before, and its verdict is logged as
 degraded. The calendar's table covers 2026 and 2027; outside those years it has
 no opinion, and a listing with no feed is closed. Nothing waits on a Pyth key.
 
-On the trade path, the program checks a price only when a parked order fills.
-`fill_order` runs the same gate in strict mode, then requires the mark to be at most 60 seconds old
-(`MarkStale`) and its `conf_bps` within the order's cap (`MarkTooWide`), and
-refuses a delivery below the greater of the order's band and its loss floor
-(`PriceOutOfBand`). The mark is the keeper's Jupiter quote. Backpack's free
-tickers, the fallback this page once proposed, are not used: most are
-perpetuals trading 38–275bps below spot, and a low mark is the unsafe direction
-(`src/chain/keeper.ts`).
+On the trade path, the program checks a price when a parked order fills.
+`fill_order` and `fill_sell_order` run the same gate in strict mode, then
+require the mark to be at most 60 seconds old (`MarkStale`) and its `conf_bps`
+within the order's cap (`MarkTooWide`), and refuse a delivery, or on a sale a
+payment, below the greater of the order's band and its loss floor
+(`PriceOutOfBand`). `place_sell_order` also reads the mark, to size a sale's
+$1,000 cap in value; it needs a price there, not a fresh one. The mark is the
+keeper's Jupiter quote. Backpack's free tickers, the fallback this page once
+proposed, are not used: most are perpetuals trading 38–275bps below spot, and a
+low mark is the unsafe direction (`src/chain/keeper.ts`).

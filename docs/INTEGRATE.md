@@ -381,9 +381,14 @@ What to do with a refusal:
   the intent and fills after the open, funded by an SPL delegation, so the
   user's money stays in their wallet until the fill and `revoke` cancels it.
   The instruction is `place_order`, and the reference clients are
-  `scripts/queue.ts` and `web/lib/queue.ts`. The README's "A refusal is not a
-  dead end" explains the design. On devnet only BELL can mint the mirror stock,
-  so in practice the filler there is BELL's own.
+  `scripts/queue.ts` and `web/lib/queue.ts`. A sale is the same lifecycle with
+  the legs swapped: `place_sell_order` checks a delegation on the user's
+  **stock** account, `fill_sell_order` moves the filler's quote first and
+  measures what landed before it takes the stock, and `cancel_sell_order`
+  closes the order for its rent after a `revoke` on the stock account. The
+  README's "A refusal is not a dead end" explains the design. On devnet only
+  BELL can mint the mirror stock, so in practice the filler of buys there is
+  BELL's own.
 - **Anything else** (a halt, a withdrawal, stale state, a pause, a rebase, a
   hook): waiting for the open would not clear it. Show the reason. The
   program's sentence is in `message`.
@@ -442,9 +447,10 @@ All codes come from `src/chain/idl.json` (`errors`). `BellError` codes are
 append-only, and the client decodes by offset from 6000. The hex form is what
 the runtime logs, for example `custom program error: 0x1770`.
 
-**What the gate raises** (`assert_tradeable`, and `fill_order`, which runs the
-same `check_tradeable`; `place_order` also raises 6002 for a frozen quote
-token account, and 6008 for accounts that name the wrong mint):
+**What the gate raises** (`assert_tradeable`, and `fill_order` and
+`fill_sell_order`, which run the same `check_tradeable`; `place_order` also
+raises 6002 for a frozen quote token account, `place_sell_order` for a frozen
+stock account, and both raise 6008 for accounts that name the wrong mint):
 
 | code | hex | name | program's message | meaning for you |
 |---|---|---|---|---|
@@ -475,13 +481,24 @@ token account, and 6008 for accounts that name the wrong mint):
 | 6016 | 0x1780 | `OverFill` | Fill exceeds the amount remaining on this order | `fill_order` |
 | 6017 | 0x1781 | `FillTooSmall` | Fill is smaller than the order's minimum | `fill_order` |
 | 6018 | 0x1782 | `DelegationMissing` | The quote account is not delegated to this order's authority | `place_order` |
-| 6019 | 0x1783 | `QuoteMintMismatch` | Token account mint does not match | `place_order`, `fill_order`; also any token account that does not unpack (`place_order`, `cancel_order`, `fill_order`) |
+| 6019 | 0x1783 | `QuoteMintMismatch` | Token account mint does not match | `place_order`, `fill_order`; also any token account that does not unpack (`place_order`, `fill_order`) |
 | 6020 | 0x1784 | `NotOrderOwner` | Only the order owner may do this while the order is live | `cancel_order` |
 | 6021 | 0x1785 | `AmountTooLarge` | Order amount is outside the permitted range | `place_order` |
 | 6022 | 0x1786 | `MathOverflow` | Arithmetic overflow | `fill_order` |
 | 6023 | 0x1787 | `BadParameters` | Parameter outside the permitted range | `place_order`, `push_mark` |
 | 6024 | 0x1788 | `TokenOwnerMismatch` | Token account owner does not match | `place_order` |
-| 6025 | 0x1789 | `TokenProgramMismatch` | Account is not owned by the token program it is claimed to belong to | the queue's token-account reads (`place_order`, `cancel_order`, `fill_order`) |
+| 6025 | 0x1789 | `TokenProgramMismatch` | Account is not owned by the token program it is claimed to belong to | the queue's token-account reads (`place_order`, `fill_order`) |
+
+`cancel_order` and `cancel_sell_order` raise neither 6019 nor 6025: a funding
+account that no longer reads as a token account counts as defunded, so a
+stranger may close its order. The sell instructions raise what their buy
+counterparts raise, `place_sell_order` as `place_order`, `fill_sell_order` as
+`fill_order` and `cancel_sell_order` as `cancel_order`, with the accounts
+swapped: `DelegationMissing` then means the stock account is not delegated,
+and `MintMismatch` still names the stock leg and `QuoteMintMismatch` the quote
+leg. `place_sell_order` adds `MarkStale` for a mark that has never carried a
+price, `AmountTooLarge` for a sale worth more than $1,000 at the mark, and
+`BadParameters` for a floor that would overflow at the full amount.
 
 `errorName(code)` in `src/chain/codec.ts` maps codes to names from the IDL.
 `readVerdict` in `src/chain/guard.ts` adds the program's message and the two

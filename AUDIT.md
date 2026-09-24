@@ -245,23 +245,102 @@ noted, the fix is in
     quarters of the placement-time mark; the program accepts any floor, and an
     order placed before a symbol's first mark has none.
 
-Found since, while reviewing the new program tests on Wed 23 Sep, and not fixed:
+Found since, while reviewing the new program tests on Wed 23 Sep, and fixed
+with sell orders in `64549f0`:
 
-15. **A stranger cannot close an expired order whose quote account is gone.** On
-    the stranger path `handle_cancel_order` reads `payer_in` before checking
-    expiry, so once an owner closes their quote account, nobody but the owner can
-    close their expired order and reclaim its rent. It is unfixed because no
-    funds are at risk — the owner can still close it — and the fix, checking
-    expiry first, needs a program upgrade.
+15. **A stranger could not close an order whose quote account was gone.** On
+    the stranger path `handle_cancel_order` read `payer_in` with `?` before
+    checking expiry, so once an owner closed their quote account, the unreadable
+    account was an error rather than proof of defunding. Nobody but the owner
+    could close that order, live or expired, and reclaim its rent. First
+    disclosed here for expired orders only; the live case was the same. No
+    funds were at risk. The fix: an expired order is closed without reading the
+    account at all, and a live one whose funding account no longer reads as a
+    token account counts as defunded, as a revoked one does. `cancel_sell_order`
+    applies the same rule to a sale's stock account. Regression tests:
+    `a_stranger_may_close_a_live_order_whose_quote_account_was_closed` and
+    `a_stranger_may_close_an_expired_order_whose_quote_account_was_closed` in
+    `test_queue.rs`, and `a_stranger_may_close_an_expired_or_defunded_sell` in
+    `test_sell.rs`. On devnet it ships in the same program upgrade as sell
+    orders.
+
+---
+
+## Sell orders
+
+Added in `64549f0`, after both reviews above; neither covered them. The program
+gains `place_sell_order`, `fill_sell_order` and `cancel_sell_order`, and a
+`SellOrder` account under its own seed (`"sell"`). No existing account, event
+or error changed; the one change to an existing instruction is #15. The 19
+tests in `test_sell.rs` run against the real mainnet AAPLx mint's bytes, and
+the six-decimal case against Backpack's PFE.
+
+**What holds, and where it is tested.**
+
+- **Funding.** A sale's delegation is on the seller's stock account, under
+  Token-2022, to the same per-owner authority a buy uses, for what that
+  account's live sales still need. The demo-USDC approval that funds buys is
+  never touched by a sale (`test/web-sell.test.ts`). `place_sell_order`
+  refuses a sale the stock delegation does not already cover
+  (`a_sell_cannot_be_placed_without_a_stock_delegation`). A buy and a sale are
+  different account types, and each fill and each cancel refuses the other's
+  on its discriminator (`a_buy_and_a_sell_with_the_same_nonce_are_different_orders`,
+  `neither_cancel_closes_the_other_kind_of_order`).
+- **Settlement.** The filler's quote is delivered first and measured in the
+  seller's account; only then is the stock taken, under the authority's
+  signature (`a_due_sell_fills_while_the_market_is_open` checks the order of
+  the two transfers). A short payment is refused with `PriceOutOfBand` and
+  nothing moves (`a_sell_below_the_band_is_refused_and_moves_nothing`). Both
+  token programs are checked before either is called
+  (`fill_sell_order_refuses_a_leg_program_that_is_not_a_token_program`). The
+  fill runs the same Strict gate and the same 60-second mark limit as a buy
+  (`the_sell_fill_runs_the_same_gate_and_freshness_checks`).
+- **Rounding.** Every minimum on a sale rounds up, in the seller's favour: the
+  stock's value at the mark, the band edge below it, and the floor
+  (`stock_to_quote_ceil`, `mul_shr64_ceil` in `sell.rs`). The $1,000 value cap
+  rounds down, so a sale worth exactly $1,000 at the mark passes and one raw
+  unit of stock more does not
+  (`the_value_cap_is_a_quote_amount_and_binds_at_exactly_1000_dollars`). A
+  buy's band still truncates; `FRICTION.md` says why the two differ.
+
+**Documented, not prevented.**
+
+- **A filler can aim the stock at the seller's own account.** `filler_in` is
+  the filler's own business, so nothing stops a filler naming the seller's
+  stock account there. The take is then a transfer from that account to
+  itself: the seller is paid in full, keeps every share, and the order is
+  recorded as filled and closes. Only the filler loses. A self-transfer does
+  not draw the delegation down, so the seller's approval on that account stays
+  standing. Nothing can use the excess: the only instructions that sign as
+  the authority take from an account a live order pins, and never more than
+  that order has left. It stays until the seller revokes it, or places or
+  cancels another sale from that account, which resets it to what their live
+  sales need. The page lists
+  it under "BELL may … sell up to", and **Revoke all funding** revokes it
+  (`a_filler_aiming_the_stock_at_the_users_own_account_pays_for_nothing`).
+- **The value cap is sized against the mark at placement, which need only
+  carry a price.** `place_sell_order` refuses a mark with a zero rate
+  (`a_mark_that_was_never_pushed_refuses_the_sell`) and does not check its
+  age, so a sale placed while the mark is old is capped at the old price. The
+  fill still refuses a mark more than 60 seconds old.
+- **Partial fills each round up.** A sale filled in pieces can be paid a few
+  raw quote units (millionths of a demo-USDC) more in total than one fill of
+  the whole would pay, and never less: one unit more in
+  `a_partial_sell_leaves_the_delegation_equal_to_the_remainder`. The page and
+  `scripts/queue.ts` place every sale all-or-none, so only an order placed by
+  another client can fill in pieces.
 
 ---
 
 ## Not fixed, by decision
 
 - **The mark fails open.** The gate can only refuse; a mark lets the attestor
-  set a price. `fill_order` is permissionless, so a leaked attestor key can open
-  a symbol, push a bad price and fill parked orders itself. Each order's loss
-  floor (#14), where it has one, and the $1,000 per-order cap bound it.
+  set a price. `fill_order` and `fill_sell_order` are permissionless, so a
+  leaked attestor key can open a symbol, push a bad price and fill parked
+  orders itself. Each order's loss floor (#14), where it has one, and the
+  $1,000 per-order cap bound it. A sale the page or `scripts/queue.ts` places
+  always has a floor (the program, as for a buy, accepts a zero one), and a
+  sale's cap is its value at the mark when placed.
   `Mode::Strict` is not an independent bound, since the same key attests the
   session, and the 60-second freshness limit stops a silent attestor, not a
   leaked one. Disclosed in the README.
@@ -273,7 +352,7 @@ Found since, while reviewing the new program tests on Wed 23 Sep, and not fixed:
 - **The upgrade authority is live** (`Dqp6…`) until it is burned. A malicious
   upgrade could take whatever a user currently has approved — their open orders
   plus any approval not revoked — with each order capped at $1,000 by
-  `MAX_ORDER_IN`.
+  `MAX_ORDER_IN`, a sale at its value when placed.
 - **`register_symbol` stays permissionless, and first-come.** The listed tickers
   are registered at deploy. Squatting an unused ticker confers no authority over
   anything shared, and the allowlist is pinned by mint address rather than by
@@ -287,9 +366,11 @@ Found since, while reviewing the new program tests on Wed 23 Sep, and not fixed:
 ## Reproducing
 
 The review's own workflow is not in this repo. The program fixes are covered by
-the 43 program tests in `programs/bell-session/tests/` (`test_gates.rs` 23,
-`test_queue.rs` 20), which run under litesvm against the deployed binary; #5 and
-the enum check in #8 by `test/portability.test.ts`; #10, #11, #13 and #14 by
-`test/halts.test.ts`, `test/reconcile.test.ts`, `test/client.test.ts` and
-`test/order.test.ts`, with the calendar that now stands in for #11 in
-`test/calendar.test.ts`.
+the 64 program tests in `programs/bell-session/tests/` (`test_gates.rs` 23,
+`test_queue.rs` 22, `test_sell.rs` 19), which run under litesvm against the
+deployed binary; #5 and the enum check in #8 by `test/portability.test.ts`;
+#10, #11, #13 and #14 by `test/halts.test.ts`, `test/reconcile.test.ts`,
+`test/client.test.ts` and `test/order.test.ts`, with the calendar that now
+stands in for #11 in `test/calendar.test.ts`. The clients' sell arithmetic, which must match
+`sell.rs` to the unit, is checked in `test/sell.test.ts`, and the page's sell
+and cancel transactions in `test/web-sell.test.ts`.

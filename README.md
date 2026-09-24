@@ -43,12 +43,19 @@ and turns the refusal into an order.
    recurring buy is one approval and an order per open; when they do not fit
    in one transaction the page sends several, which most wallets sign in one
    prompt.)
-5. Cancel any time: the first thing a cancel sends is an SPL `revoke` from your
-   own wallet, on its own.
-6. After a fill, **Your fills** shows the receipt: when it filled (and how long
-   after the bell), what you paid a share, and how far over the price it was
-   checked against. The site's tape route reads it back from the chain, and
-   each line links to its transaction, so you can check it without us.
+5. To sell shares you hold, switch the order box to **Sell**: a number of
+   shares, and optionally a minimum price a share. The approval is on your
+   stock account, not your demo-USDC, and the shares stay in your wallet until
+   a filler has paid for them. The first sale on devnet: [sell-fill], at
+   [sell-fill-time].
+6. Cancel any time: the first thing a cancel sends is an SPL `revoke` from your
+   own wallet, on its own — on the demo-USDC account for a buy, on the stock
+   account for a sale.
+7. After a fill, **Your fills** shows the receipt: when it filled (and how long
+   after the bell), what you paid or were paid a share, and how far over or
+   under the price it was checked against. The site's tape route reads it back
+   from the chain, and each line links to its transaction, so you can check it
+   without us.
 
 For builders: [`docs/INTEGRATE.md`](docs/INTEGRATE.md) shows how a wallet,
 router, lending market or vault puts the same gate in front of its own trades.
@@ -64,11 +71,12 @@ demo-USDC and a little SOL, and it cannot mint or touch the program; the last
 US price of each underlying (`/api/reference`, from Nasdaq, shown beside the
 pool's price and read by nothing else); and the public tape (`/api/tape`,
 every fill read back from the chain). The keeper writes attestations and marks
-and re-reads the mints; a filler we run every five minutes (`scripts/crank.ts`, which anyone holding the stock
-can run too) settles due orders. **Stop the keeper and everything reads closed
-once its last attestation is two minutes old; stop the filler and orders simply
-wait** — and `revoke` still cancels them from your wallet. That is fail-closed
-as something you can watch rather than something we claim.
+and re-reads the mints; a filler we run every five minutes
+(`scripts/crank.ts`, which anyone holding the stock, or the quote to pay for a
+sale, can run too) settles due orders. **Stop the keeper and everything reads
+closed once its last attestation is two minutes old; stop the filler and orders
+simply wait** — and `revoke` still cancels them from your wallet. That is
+fail-closed as something you can watch rather than something we claim.
 
 Devnet rather than mainnet, deliberately. The rent is the same on both: the
 program data account, sized for a 420,000-byte program, holds 2.1345 SOL, and
@@ -88,7 +96,7 @@ not the issuer's: on the mirrors it is BELL's own deploy key, `Dqp6…Ziqs`, and
 the page says so. SPYx's mirror carries multiplier `1.005714560286254` because
 that was the real mint's multiplier in force when it was mirrored.
 
-So: **the 43 program tests parse real mainnet mint bytes, and
+So: **the 64 program tests parse real mainnet mint bytes, and
 `scripts/localnet.sh` clones the real mainnet accounts. The devnet deployment
 does not.** Those are different claims and this README keeps them apart.
 
@@ -180,9 +188,10 @@ registration-day snapshot. The keeper now re-reads every mint every tick, and
 the program refuses to trust a read that has gone stale. See `AUDIT.md`,
 "Reopened after deploy".
 
-`check_tradeable` is one function. `assert_tradeable` and `fill_order` both call
-*it*, not a reimplementation of it — two copies of a safety check are two things
-to keep in sync, and the second one is where the bug lives.
+`check_tradeable` is one function. `assert_tradeable`, `fill_order` and
+`fill_sell_order` all call *it*, not a reimplementation of it — two copies of a
+safety check are two things to keep in sync, and the second one is where the
+bug lives.
 
 ### It composes without a wrapper
 
@@ -207,25 +216,41 @@ market waiting until the price comes down to it. A recurring buy is one bell ord
 open, from the exchange calendar, each held back by the program until its own
 open and lapsing six hours after it, all under one approval.
 
+A **sale** is the same queue with its legs swapped (`place_sell_order`,
+`fill_sell_order`, `cancel_sell_order`). The user approves their **stock**
+account (Token-2022) to the same per-owner authority, for what that account's
+live sales still need; the demo-USDC approval that funds their buys is never
+touched by a sale. It waits for the bell like a buy, behind the same gate. At
+the fill the filler pays first: the program measures the quote that landed in
+the seller's account, and only then takes the stock. It must be at least the
+stock's value at the mark in force, less the order's band (30 bps from the
+page), and never less than the order's floor: the seller's own minimum a share,
+or three quarters of the price at placement, whichever is higher. Each of those
+minimums rounds up, in the seller's favour. So if the stock opens more than 25%
+down, or under the seller's minimum, our filler will not pay the floor, the
+program refuses anything less, and no stock is taken.
+
 That choice has consequences worth stating:
 
 - **Cancel is `spl_token::revoke`** — one standard instruction from the user's
-  own wallet, sent as its own transaction before anything of BELL's. It works if
-  this program is frozen and our keeper is dead. BELL is not in the cancel path
-  at all; closing the order for its rent comes second, and a failure there
-  cannot undo the revoke.
+  own wallet, on the account the order draws on (the demo-USDC account for a
+  buy, the stock account for a sale), sent as its own transaction before
+  anything of BELL's. It works if this program is frozen and our keeper is
+  dead. BELL is not in the cancel path at all; closing the order for its rent
+  comes second, and a failure there cannot undo the revoke.
 - **If no filler ever comes, nothing happened.** The funds were never
   immobilised.
-- **Spending the money elsewhere silently invalidates the order.** That is the
-  design, not a failure.
+- **Spending the money, or moving the shares a sale offers, elsewhere silently
+  invalidates the order.** That is the design, not a failure.
 - Escrow would strand funds in exactly the cases the gate exists to catch — a
   halt, a rebase, an expiry.
 
 Fills are permissionless. Any filler re-runs the identical on-chain gate and is
 paid by the spread, so where anyone can hold the stock the venue does not depend
-on our server. On devnet only we can mint the mirror stock, so in practice the
-filler there is ours. That openness has a cost, stated under "What you must
-trust".
+on our server. A filler needs stock to fill buys and quote to fill sales. On
+devnet only we can mint the mirror stock, so in practice the filler of buys
+there is ours; the quote a sale is paid in is demo-USDC, which the faucet gives
+any new wallet. That openness has a cost, stated under "What you must trust".
 
 ---
 
@@ -272,6 +297,8 @@ needs nothing from this program.
   demo-USDC for 25,661,713 raw SPYx
   ([transaction](https://explorer.solana.com/tx/5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt?cluster=devnet)).
   It was not filmed; the transaction is the record.
+- **A sale at the bell.** [sell-fill], in a block timestamped
+  [sell-fill-time]: the first sale on devnet.
 - **A refusal that landed.** Every client simulates before sending, so a
   refusal normally never reaches the chain. `BELL_ARM=1 node
   scripts/guarded-swap.ts --land SPYx` sends a refused leg past preflight: at
@@ -316,15 +343,15 @@ agree at all.
 `EVIDENCE.md` is generated from the tick log by `scripts/evidence.ts`. Every
 number in it is counted, not written by hand.
 
-**Tests.** 43 program tests (litesvm; `test_gates.rs` 23, `test_queue.rs` 20)
-against the deployed binary — the bytes on devnet hash to the tested build —
-parsing real mainnet mint bytes, including a dividend walked end to end on the
-real AAPLx mint's own scheduled step. No fixture is paused or hooked, so those
-two gates are tested on a real mint with one field changed. Every refusal is
-asserted by its exact error code, never a bare `is_err()`. 164 TypeScript tests
+**Tests.** 64 program tests (litesvm; `test_gates.rs` 23, `test_queue.rs` 22,
+`test_sell.rs` 19) against the deployed binary — the bytes on devnet hash to the
+tested build — parsing real mainnet mint bytes, including a dividend walked end
+to end on the real AAPLx mint's own scheduled step. No fixture is paused or
+hooked, so those two gates are tested on a real mint with one field changed. Every refusal is
+asserted by its exact error code, never a bare `is_err()`. 204 TypeScript tests
 (`node --test test/*.test.ts`), including one file that removes Node's BigInt
 `Buffer` methods so browser-only failures surface under Node, and checks every
-enum the client mirrors against the program's IDL; 18 of the 164 cover
+enum the client mirrors against the program's IDL; 18 of the 204 cover
 `reference/session.ts`, a reference model of the gates that nothing runs. The
 judge path is scripted too: `scripts/demo/judge-path.ts` drives a real browser
 against the live site with a scripted Wallet Standard wallet.
@@ -347,6 +374,7 @@ died — and two more found afterwards by checking the live deployment against
 its own claims, one of them a finding the refuters had killed. A post-deploy
 adversarial study (196 AI agents; 62 findings raised, 53 surviving refutation,
 merged into 22 items) followed; its fixes are commits `c91ae43` and `29ce852`.
+Sell orders came after both, and neither covered them.
 
 ---
 
@@ -360,16 +388,23 @@ or close a symbol (`push_session`), set its price, the *mark* (`push_mark`), and
 classify a pending corporate action (`classify_rebase`). It cannot touch the
 program, transfer anyone's tokens, or place or cancel an order in anyone's name.
 
-But `fill_order` is permissionless, so a leaked attestor key can open a symbol,
-push a bad price and fill parked orders against it itself. What bounds that:
+But `fill_order` and `fill_sell_order` are permissionless, so a leaked attestor
+key can open a symbol, push a bad price and fill parked orders against it
+itself. What bounds that:
 
 - **A loss floor on the order**, three quarters of what the mark said the order
-  was worth at placement, or the buyer's own limit where that asks for more.
-  The page and `scripts/queue.ts` set it; the program accepts any floor, and an
-  order placed when a symbol had no mark yet has none.
-  Where there is one, a leaked key pushing an inflated price cannot fill the
-  order for dust.
-- **$1,000 per order** (`MAX_ORDER_IN`), enforced by the program.
+  was worth at placement, or the buyer's own limit where that asks for more. On
+  a sale the floor is a minimum price: three quarters of the price at
+  placement, or the seller's own minimum where that is higher.
+  The page and `scripts/queue.ts` set it; the program accepts any floor, and a
+  buy placed when a symbol had no mark yet has none (a sale cannot be placed
+  without a mark). Where there is one, a leaked key pushing a false price cannot
+  fill the order for dust.
+- **$1,000 per order** (`MAX_ORDER_IN`), enforced by the program. A sale is
+  sized in shares, so its cap is its value at the mark in force when it is
+  placed, rounded down. That mark needs a price, not a fresh one, so a sale
+  placed while the mark is old is sized at the old price; the fill still
+  refuses a stale mark.
 - `Mode::Strict` is **not** an independent bound: the same key attests the
   session. It limits fills to when the attested market is live, which makes an
   honest mark arbitrageable — it does not stop a dishonest one.
@@ -383,16 +418,30 @@ own slippage.
 **The upgrade authority is live.** Until
 `Dqp6DbUh6j5Jddff9VHPAK1UpByo85NhLVw83S58Ziqs` is burned, a malicious upgrade
 could take whatever you currently have approved — your open orders plus any
-approval not revoked — each order capped at $1,000. Burning it is the
-production step and is named as such rather than quietly skipped.
+approval not revoked — each order capped at $1,000 (a sale at its value when
+placed). Burning it is the production step and is named as such rather than
+quietly skipped.
 
 **One delegate slot per token account.** SPL delegation is per-owner, not
 per-order, so a `revoke` unfunds every one of your orders at once, and placing
 one re-approves the whole book, less any order that can no longer fill.
 Cancelling one order therefore revokes, closes it, and only then re-approves the
 others — never the other way round, which would leave the cancelled order
-fillable until its close landed. A **Revoke all funding** button is always on
-screen while BELL holds any approval.
+fillable until its close landed. Buys and sales never share a slot: a buy's
+approval is on the demo-USDC account and a sale's on the stock account, so
+cancelling a sale leaves every buy funded, and the reverse. A **Revoke all
+funding** button is always on screen while BELL holds any approval, on either.
+
+**What a sale trusts.** The same as a buy, with the legs swapped: the filler
+pays first, and the program measures the quote that landed in the seller's
+account before it moves any stock, so a short payment takes nothing. One
+behaviour is documented rather than prevented. A filler may name the seller's
+own stock account as where the stock goes; the take is then a transfer from
+that account to itself, so the seller is paid, keeps the shares, and the order
+closes, and only the filler loses. The seller's approval on that account then
+stays standing until they revoke it, or place or cancel another sale from it,
+which resets it to what their live sales need; the page shows it, and **Revoke
+all funding** clears it (`AUDIT.md`, "Sell orders").
 
 **Every one of these mints has a `permanentDelegate`, and two keys cover all
 nine.** Not some of them — all nine, verified against the real mainnet accounts:
@@ -437,10 +486,6 @@ disagreement between sources. See `docs/PYTH.md`.
 
 **Known, not yet fixed.**
 
-- A stranger closing an expired order reads its quote account before checking
-  the expiry, so if the owner has closed that account, only the owner can close
-  the order and reclaim its rent. No funds are at risk; the fix is to check
-  expiry first.
 - Registration is first-come, and the page and the filler do not verify a
   symbol's attestor (`guardInstructions` checks one when an integrator pins
   it). All nine live records name the right one.
@@ -511,11 +556,17 @@ time, because a second quote asset would orphan the marks bound to the first.
 
 The filler's stock is not committed either. `seed-accounts.ts` writes it to
 `localnet/` for your `.filler.json`, along with the `--account` flags that
-`localnet.sh` reads from `localnet/accounts.flags`.
+`localnet.sh` reads from `localnet/accounts.flags`. To fill a sale the filler
+pays instead, from its quote account (`BELL_FILLER_QUOTE`), which
+`demo-setup.sh` creates empty: until buys have paid into it, or you send it
+some, the crank reports the filler short, not the seller.
 
 `queue.ts place` uses your wallet's own token accounts and creates the stock
 one in the same transaction if it does not exist yet; `BELL_USER_QUOTE` and
-`BELL_USER_STOCK_<SYMBOL>` override them.
+`BELL_USER_STOCK_<SYMBOL>` override them. `queue.ts sell SPYx 0.1 [MIN_USD]`
+sells stock the wallet already holds, from that same stock account, which it
+does not create; `queue.ts cancel-sell NONCE` revokes the stock approval, then
+closes the order.
 
 Order matters: a mark binds its quote mint permanently, so the quote asset has
 to exist before the symbols are registered. `register.ts` refuses rather than
@@ -549,9 +600,12 @@ sensors → policy/reconcile → keeper → [ bell-session program ] ← browser
   the verdict is logged as degraded. **When the session is open and the issuer
   will not trade a name, that disagreement is the stop.**
 - **`scripts/crank.ts`** — the filler, run by us as a five-minute cron job and
-  by anyone else holding the stock (on devnet, only we can mint it). It re-runs
-  the identical on-chain gate and re-reads the mint in the same transaction as
-  each fill, and delivers the band edge or the buyer's floor, whichever is more.
+  by anyone else holding the stock, or the quote for sales (on devnet, only we
+  can mint the stock). It re-runs the identical on-chain gate and re-reads the
+  mint in the same transaction as each fill, and delivers the band edge or the
+  buyer's floor, whichever is more. On a sale it pays the band edge or the
+  seller's floor, whichever is more, rounded up exactly as the program rounds
+  it, and waits while the seller's minimum is above the market.
 - **`web/`** — Next.js. Orders go browser → wallet → chain with no server of
   ours in between; the server routes are the devnet faucet and two read-only
   views (the US reference price and the tape). The site keeps

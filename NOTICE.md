@@ -45,10 +45,11 @@ against the file it names in this repository.
 Two parts of the definition itself fit BELL least of all. A TSV is by definition
 **permissioned**: it sets standards for who may trade (§I.A). BELL is
 permissionless: anyone with a Solana wallet can place an order, and anyone
-holding the stock can fill one. And BELL provides **no AMM liquidity pool**. A
+holding the stock, or for a sale the paired asset, can fill one. And BELL provides **no AMM liquidity pool**. A
 filler delivers the stock from its own inventory and is paid from the buyer's
-delegation. Several items below ask about a pool, and BELL answers that it has
-none.
+delegation. On a sale it is the other way round: the filler pays the paired
+asset from its own account and takes the stock by the seller's delegation.
+Several items below ask about a pool, and BELL answers that it has none.
 
 ---
 
@@ -89,7 +90,7 @@ the copyright holder named in `LICENSE`. It has four parts:
 - **The program**, `bell-session`, at
   [`56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx`](https://explorer.solana.com/address/56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx?cluster=devnet)
   on Solana devnet. It is the gate, a reader of Token-2022 mints, and a book of
-  parked buy orders ("bell orders"), in one program.
+  parked buy and sell orders ("bell orders"), in one program.
 - **The keeper** (`scripts/keeper.ts`, `src/chain/keeper.ts`). Every 45 seconds
   it reads the market-data sources in item s, reconciles them, and writes each
   symbol's session state and price on chain. It also re-reads every mint.
@@ -120,7 +121,9 @@ broker-dealer.*
 Anyone with a Solana wallet, of any type and from anywhere, can place an order.
 Anyone holding the stock can fill one, because `fill_order` is permissionless.
 On devnet only BELL can mint the mirror stock, so in practice the filler there
-is BELL's. There is no route in by way of a broker-dealer.
+is BELL's. A sale is filled by anyone holding the paired asset, because
+`fill_sell_order` is permissionless too; on devnet that is demo-USDC, which the
+faucet hands to any new wallet. There is no route in by way of a broker-dealer.
 
 ### f. Permission Trading Access Eligibility
 
@@ -231,11 +234,12 @@ securities. The gates treat them exactly as they treat the real mints.
 what capacity.*
 
 **Yes.** BELL runs the hosted filler, which fills orders from its own inventory
-as a liquidity provider. It earns the band between the price mark and what it
-delivers (item u). BELL also runs the keeper that attests those price marks.
+as a liquidity provider: stock for buys, demo-USDC for sales. It earns the band
+between the price mark and what it delivers or pays (item u). BELL also runs
+the keeper that attests those price marks.
 **The same operator sets the price a fill is measured against and fills at
-it.** Each order's own bounds limit what that conflict can cost the buyer
-(items cc and z), but they do not remove it.
+it.** Each order's own bounds limit what that conflict can cost the buyer or
+seller (items cc and z), but they do not remove it.
 
 ### m. Differences in Treatment of TSV Participants
 
@@ -243,10 +247,10 @@ it.** Each order's own bounds limit what that conflict can cost the buyer
 access, entry or display of trading interest, onchain or offchain procedures,
 market data and fees.*
 
-The program treats every buyer alike and every filler alike. It prefers no
-filler. The hosted filler still has two advantages over any other. It runs on a
-schedule next to a keeper run by the same operator. And on devnet it is the only
-party that can mint the stock at all. There are no fees to differ (item u).
+The program treats every buyer and seller alike and every filler alike. It
+prefers no filler. The hosted filler still has two advantages over any other.
+It runs on a schedule next to a keeper run by the same operator. And on devnet
+it is the only party that can mint the stock at all. There are no fees to differ (item u).
 
 ### n. Distributed Ledger Technology
 
@@ -287,7 +291,8 @@ acts alone. None is a multisig, and none is timelocked.
   through the upgradeable loader, and it can close the program. Until it is
   burned, a malicious upgrade could take whatever a user currently has
   approved: their open orders plus any approval not revoked, each order capped
-  at $1,000. Burning it is the production step, and it has not been taken. On
+  at $1,000 (a sale at its value when placed). Burning it is the production
+  step, and it has not been taken. On
   devnet the same key also holds every issuer power over the mirror mints (item
   k), including moving any holder's mirror tokens as the permanent delegate.
 - **The attestor, `EsZp7XusAj9fJ1ntQYCTMEw7h6L9mfZUtAvaXDxi4TcG`**, a hot key
@@ -297,16 +302,18 @@ acts alone. None is a multisig, and none is timelocked.
   action (`classify_rebase`). It cannot touch the program, transfer anyone's
   tokens, or place or cancel an order in anyone's name. If it goes silent,
   every symbol reads closed once its last attestation is 120 seconds old.
-  That is how BELL suspends, and it needs no one's action. But `fill_order` is
-  permissionless, so a *leaked* attestor key can open a symbol, push a bad price
-  and fill parked orders against it itself. Two things bound that. One is each
-  order's **loss floor**: three quarters of what the mark said the order was
-  worth when it was placed. The page and `scripts/queue.ts` set it. The program
-  accepts any floor, and an order placed while its symbol had no mark has none.
-  The other is the **$1,000 cap** per order (`MAX_ORDER_IN`), which the program
-  enforces. `Mode::Strict` is not an independent bound, because the same key
-  attests the session. So "fails closed" is true of a silent attestor and not
-  of a leaked one. A swap guarded by `assert_tradeable` elsewhere gets neither
+  That is how BELL suspends, and it needs no one's action. But `fill_order` and
+  `fill_sell_order` are permissionless, so a *leaked* attestor key can open a
+  symbol, push a bad price and fill parked orders against it itself. Two things
+  bound that. One is each order's **loss floor**: three quarters of what the
+  mark said the order was worth when it was placed, which on a sale is the
+  least it may be paid. The page and `scripts/queue.ts` set it. The program
+  accepts any floor, and a buy placed while its symbol had no mark has none; a
+  sale cannot be placed without a mark. The other is the **$1,000 cap** per
+  order (`MAX_ORDER_IN`), which the program enforces, on a sale against its
+  value at the mark when it is placed. `Mode::Strict` is not an independent
+  bound, because the same key attests the session. So "fails closed" is true
+  of a silent attestor and not of a leaked one. A swap guarded by `assert_tradeable` elsewhere gets neither
   the floor nor the cap.
 - **Anyone** can re-read a mint into its risk record (`refresh_token_risk`),
   which can only make the record fresher. Anyone can fill a due order, which
@@ -317,7 +324,9 @@ acts alone. None is a multisig, and none is timelocked.
 - **Each user** can cancel their own orders with the token program's `revoke`,
   from their own wallet, with nothing from BELL. It works if the program is
   frozen and every server BELL runs is down. One token account has one delegate
-  slot, so a revoke unfunds all of that user's orders at once.
+  slot, so a revoke unfunds all of that user's orders on that account at once:
+  their buys on the demo-USDC account, or their sales of one stock on its
+  account.
 
 ### o. Entry of Trading Interest
 
@@ -356,11 +365,36 @@ unfunded order cannot exist. The page sets every other parameter
   not fit in one transaction, the page sends them as several, in order, and
   most wallets sign them in one prompt.
 
+A user may also sell stock they hold, in the same way, in shares rather than
+dollars (`placeSellInstructions` in `web/lib/queue.ts`, `sell` in
+`scripts/queue.ts`). The one transaction approves the user's **stock** account,
+under Token-2022, for what that account's live sales still need, and places the
+order (`place_sell_order`). It never touches the demo-USDC approval that funds
+the user's buys. The shares stay in the user's wallet, and the program refuses
+the sale unless the stock delegation already covers it. The band, the price
+uncertainty and the expiry are a buy's. The rest differs:
+
+- **Size:** a number of shares, converted to raw units through the multiplier
+  in force and rounded down (`sharesToRaw` in `src/policy/order.ts`). The
+  program caps the sale's value at 1,000 demo-USDC, measured at the mark when
+  it is placed and rounded down, and refuses a sale while that mark carries no
+  price. The page's "max" offers at most about $990, so that a tick up before
+  the wallet signs does not push it over. Each sale fills all at once or not at
+  all.
+- **Loss floor:** the least the sale may be paid a share, where a buy's limit
+  is the most it may pay: three quarters of the placement-time price, or the
+  user's own minimum price per share where that is higher (`sellOrderFloor` in
+  `src/policy/order.ts`). While the minimum is
+  above the market, the hosted filler leaves the sale waiting. Every minimum on
+  a sale, the band's and the floor's, rounds up, in the seller's favour.
+- **Repeat:** none. A sale is of shares already held.
+
 When the gate refuses, the page names the refusal by the program's own error
 (`MarketClosed`, `StateStale`, `RebasePending` and so on) and says what it
 means. Solana's validators confirm transactions. The program settles a fill
-atomically: the stock is delivered and measured first, then the demo-USDC is
-taken (item y).
+atomically. On a buy the stock is delivered and measured first, then the
+demo-USDC is taken; on a sale the demo-USDC is paid and measured first, then
+the stock is taken (item y).
 
 ### p. AMM Liquidity Pool Trading Procedures
 
@@ -369,13 +403,16 @@ and selling through a pool, including pricing models, priority, order types,
 trading rules, allocation and execution; and pool customization.*
 
 **BELL provides no AMM liquidity pool,** so there is no pool to create, fund or
-customize, and no pricing curve. There is one order type, a buy. The program
-fills it by measuring what landed in the buyer's account after the transfer.
-It must be at least the band below the fair size at the mark in force when the
-fill lands, and at least the order's floor
-(`programs/bell-session/src/instructions/fill.rs`). Fillers have no priority
-among themselves: the first valid fill to land settles the order. Selling is
-not offered.
+customize, and no pricing curve. There are two order types, a buy and a sale.
+The program fills a buy by measuring what landed in the buyer's account after
+the transfer. It must be at least the band below the fair size at the mark in
+force when the fill lands, and at least the order's floor
+(`programs/bell-session/src/instructions/fill.rs`). It fills a sale by
+measuring the demo-USDC that landed in the seller's account before any stock
+moves. That must be at least the band below the stock's value at the mark in
+force, and at least the order's floor, each rounded up
+(`programs/bell-session/src/instructions/sell.rs`). Fillers have no priority
+among themselves: the first valid fill to land settles the order.
 
 ### q. Offchain Trading Procedures
 
@@ -386,9 +423,10 @@ Three offchain processes, all BELL's:
 
 - **The keeper** senses and attests market state before any trade (items r and
   s). A user never calls it.
-- **The hosted filler** chooses when to fill and sources the stock. On devnet it
-  fills from inventory BELL minted. Filling on mainnet, by buying the stock
-  first, is not built.
+- **The hosted filler** chooses when to fill, sources the stock for a buy and
+  pays the demo-USDC for a sale. On devnet it fills buys from inventory BELL
+  minted, and pays for sales from its own demo-USDC account. Filling on
+  mainnet, by buying the stock first, is not built.
 - **The page's server.** It has three routes: a devnet faucet (`/api/faucet`)
   that hands a new wallet test funds, the tape (`/api/tape`, item t), and the
   last US price of each underlying (`/api/reference`, item s), which the page
@@ -417,6 +455,8 @@ hosted filler runs every five minutes. On 23 September 2026 it filled an
 overnight $200 SPYx order in a block timestamped 09:35:24 ET, five minutes
 after the bell
 ([transaction](https://explorer.solana.com/tx/5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt?cluster=devnet)).
+A sale waits and fills the same way. The first sale on devnet: [sell-fill], in
+a block timestamped [sell-fill-time].
 
 This is stricter than §II.H requires. §II.H requires a TSV to stop when trading
 in the underlying stops on its primary listing exchange, "which includes a halt
@@ -476,26 +516,28 @@ oracle. The chain proves those facts, which no attestor can misreport.
 accessed; and what information a transaction disseminates, by whom, to whom,
 when and how.*
 
-Every order is an account on chain, and anyone can read it (`readOrders` in
-`src/chain/client.ts`). Its owner, symbol, size, floor and expiry are all
-public from the moment it is placed. The page shows a user only their own
+Every order is an account on chain, and anyone can read it (`readOrders` and,
+for sales, `readSellOrders` in `src/chain/client.ts`). Its owner, symbol, size,
+floor and expiry are all public from the moment it is placed. The page shows a user only their own
 orders. For each symbol it shows the attested state, the mark, and the gate's
 verdict, which it gets by simulating `assert_tradeable` against the chain.
 
-Every fill emits an `OrderFilled` event on chain. It carries the symbol, the
-amounts, and the mark that priced the fill. The page's server has a route,
+Every fill emits an event on chain: `OrderFilled` for a buy, `SellOrderFilled`
+for a sale. It carries the symbol, the amounts, and the mark that priced the
+fill. The page's server has a route,
 `/api/tape` (`web/app/api/tape/route.ts`), that turns those events into §II.G's
 fields. It serves every fill of a listed symbol from the last 30 days, as JSON
 or, with `?format=csv`, as CSV. Each row has the symbol and paired asset, the
-price per share, the size, the block time in UTC, the direction (always a buy:
-the buyer contributes demo-USDC and withdraws the stock), and the order,
-program, filler and transaction addresses. The route also gives each pair's
-volume over the last 24 hours. It serves everyone the same data at the same
-time, reads only finalized transactions, and refreshes from the chain at most
-once a minute. The public rows leave off the buyer's wallet. A request for one
-wallet's fills (`?buyer=`) returns those rows with it, which is how the page
-shows a user their receipts; anyone could find the same rows by following the
-transactions. Its limits are stated in the response itself. On devnet the paired
+price per share, the size, the block time in UTC, the direction (`buy`: the
+buyer contributes demo-USDC and withdraws the stock; `sell`: the seller
+contributes the stock and withdraws demo-USDC), and the order, program, filler
+and transaction addresses. The route also gives each pair's volume over the
+last 24 hours, buys and sales together. It serves everyone the same data at
+the same time, reads only finalized transactions, and refreshes from the chain
+at most once a minute. The public rows leave off the buyer's and the seller's
+wallet. A request for one wallet's purchases (`?buyer=`), sales (`?seller=`) or
+both returns those rows with it, which is how the page shows a user their
+receipts; anyone could find the same rows by following the transactions. Its limits are stated in the response itself. On devnet the paired
 asset has no dollar value. There is no pool whose end-of-day size could be
 reported. And after a restart, or a burst of transactions, it catches up in
 bounded steps and says it is incomplete until it has.
@@ -505,18 +547,25 @@ bounded steps and says it is incomplete until it has.
 *The fee structure: charges, fees, rebates, discounts and other compensation,
 their source, any sharing with participants, and the formulas used.*
 
-**BELL charges no fee.** A filler is paid by the band. The program requires it
-to deliver at least `fair × (1 − max_slip_bps / 10,000)` of the stock, where
-`fair` is the order's size at the mark, and at least the order's floor. The
-hosted filler delivers exactly the larger of the two (`scripts/crank.ts`), and
-waits rather than fill when the floor asks for more stock than the mark
-gives, which is a limit below the market. So an
-order's band, 30 bps by default, is the most the buyer pays the filler against
-the mark at the fill. The 23 September fill recorded a realized cost of 31 bps against its
-mark, rounding included. The signer pays Solana's network fee, 5,000 lamports
-per signature. An order account holds about 0.002 SOL of rent, which returns to
-its owner when the order fills or closes. Nothing is shared with anyone. On
-devnet, all of it is test money.
+**BELL charges no fee.** A filler is paid by the band. On a buy the program
+requires it to deliver at least `fair × (1 − max_slip_bps / 10,000)` of the
+stock, where `fair` is the order's size at the mark, and at least the order's
+floor. The hosted filler delivers exactly the larger of the two
+(`scripts/crank.ts`), and waits rather than fill when the floor asks for more
+stock than the mark gives, which is a limit below the market. A sale runs the
+other way: the filler must pay at least `fair × (1 − max_slip_bps / 10,000)` of
+demo-USDC, where `fair` is the stock's value at the mark, and at least the
+order's floor, each figure rounded up (`sell.rs`). The hosted filler pays
+exactly the larger, and waits while the floor asks for more than the mark says
+the stock is worth, which is a minimum above the market. So an order's band,
+30 bps by default, is the most the buyer or seller pays the filler against the
+mark at the fill. The 23 September fill recorded a realized cost of 31 bps
+against its mark, rounding included. The signer pays Solana's network fee,
+5,000 lamports per signature. An order account holds about 0.002 SOL of rent,
+which returns to its owner when the order fills or closes. A first sale from a
+wallet with no demo-USDC account also creates that account, the user's own,
+for the proceeds; it holds 2,039,280 lamports of rent. Nothing is shared with
+anyone. On devnet, all of it is test money.
 
 ### v. Complaints and Disputes
 
@@ -546,10 +595,11 @@ participant information.
 its design does, and does not do, is mechanical:
 
 - **The price is fixed by the mark, not the order of transactions.** A fill
-  never trades against a pool. The program measures what reached the buyer, and
-  it must be at least the band below the fair size at the mark, and at least the
-  floor. A transaction placed in front of or behind a fill cannot change what
-  the buyer is owed. So a sandwich of the buyer's own fill does not exist here.
+  never trades against a pool. The program measures what reached the buyer, or
+  on a sale the seller, and it must be at least the band below the fair value
+  at the mark, and at least the floor. A transaction placed in front of or
+  behind a fill cannot change what the user is owed. So a sandwich of the
+  user's own fill does not exist here.
 - **The filler holds a timing option.** Any filler may choose when to fill a
   due order. The mark changes with every keeper tick, so a filler can wait for
   the mark that suits it best. The band and the floor bound that choice. They
@@ -580,11 +630,13 @@ not. It has no incident response procedure.
   devnet deploy. It raised 26 findings; 5 were confirmed and 1 more was
   hardened, and all were fixed. A post-deploy adversarial study by 196 AI
   agents followed. It raised 62 findings, 53 survived refutation, and they were
-  merged into 22 items (`AUDIT.md`). One item found since is not fixed.
-- **Tests:** 43 program tests against the deployed binary, parsing real mainnet
-  mint bytes (`programs/bell-session/tests/`). They assert every refusal by its
-  exact error code. There is also a TypeScript suite of 164 tests (`node
-  --test test/*.test.ts`). CI runs the TypeScript tests, both typechecks and the web
+  merged into 22 items (`AUDIT.md`). One item found since is fixed, in the
+  commit that added sell orders (`64549f0`). Sell orders came after both
+  reviews, and neither covered them.
+- **Tests:** 64 program tests against the deployed binary, parsing real mainnet
+  mint bytes (`programs/bell-session/tests/`), 19 of them on sell orders. They
+  assert every refusal by its exact error code. There is also a TypeScript
+  suite of 204 tests (`node --test test/*.test.ts`). CI runs the TypeScript tests, both typechecks and the web
   build on every push. It does not run the program tests.
 - **Pre-trade risk checks:** the gates, on every fill (item cc).
 - **Post-deployment monitoring:** `.github/workflows/health.yml` reads the live
@@ -605,11 +657,15 @@ not. It has no incident response procedure.
 and any requirements on participants.*
 
 There is no clearing agency and no central counterparty. A fill settles
-atomically in one Solana transaction. The filler's stock is delivered and
-measured first, then the buyer's demo-USDC is taken under the delegation. If
-the delivery falls short, the whole transaction fails and nothing moves. A
-buyer needs a token account for the stock, which placing the order creates,
-and an approval that still covers their orders.
+atomically in one Solana transaction. On a buy, the filler's stock is delivered
+and measured first, then the buyer's demo-USDC is taken under the delegation.
+On a sale, the filler's demo-USDC is paid and measured first, then the seller's
+stock is taken under the delegation. If the delivery or the payment falls
+short, the whole transaction fails and nothing moves. A buyer needs a token
+account for the stock, which placing the order creates, and an approval that
+still covers their orders. A seller needs the shares, a demo-USDC account for
+the proceeds, which placing the sale creates, and an approval on the stock
+account that still covers their sales.
 
 ### z. Risks
 
@@ -621,7 +677,9 @@ what bounds each (README, "What you must trust"; `AUDIT.md`):
 
 - **A leaked attestor key** can open a symbol, push a bad price and fill parked
   orders itself. Each order's loss floor bounds it, where the order has one, as
-  does the $1,000 cap.
+  does the $1,000 cap. A sale placed by the page or `scripts/queue.ts` always
+  has a floor; a sale's cap is its value at the mark when placed, and that mark
+  need not be fresh.
 - **The live upgrade authority** can replace the program and take whatever a
   user has approved (item n).
 - **Permanent delegates.** The issuer's key can move any holder's tokens on all
@@ -632,13 +690,17 @@ what bounds each (README, "What you must trust"; `AUDIT.md`):
   order built on the old multiplier, but a new trade is not protected.
 - **Oracle manipulation.** The mark comes from one source (item w). Only the
   floor bounds a moved mark: a fill can deliver as little as three quarters of
-  what the order was worth at the mark when it was placed.
+  what the order was worth at the mark when it was placed, and a sale can be
+  paid as little as three quarters of the price when it was placed.
 - **Liveness.** A silent keeper closes everything. An absent filler leaves
   orders to wait and expire. Neither loses funds.
-- **Smart contract bugs.** There has been no third-party audit (item x). The
-  known unfixed issues are listed in the README. A stranger cannot close an
-  expired order whose quote account its owner has closed. Clients do not verify
-  a symbol's attestor. Pushes do not require a newer timestamp.
+- **Smart contract bugs.** There has been no third-party audit (item x), and
+  neither review in item x covered sell orders. The known unfixed issues
+  are listed in the README. Clients do not verify a symbol's attestor. Pushes
+  do not require a newer timestamp. One sale behaviour is documented rather
+  than prevented: a filler that sends the stock back to the seller's own
+  account pays for nothing, and the seller's approval on that account stays
+  standing until they revoke it (`AUDIT.md`, "Sell orders").
 - **Information leakage.** The book is public before the open (item t).
 - **A test network.** On devnet the tokens are mirrors and the money is not
   money. Nothing on devnet has value.
@@ -673,9 +735,10 @@ interest; risk controls, including circuit breakers and reference price bands;
 procedures for volatility and for corporate actions when the underlying market
 is closed; and the circumstances and procedures for resuming.*
 
-**When BELL stops.** Every fill runs the same gate as `assert_tradeable`, one
-function called from both places (`assert_tradeable.rs`). It refuses, in this
-order, numbered as the README numbers the gates:
+**When BELL stops.** Every fill, a buy's or a sale's, runs the same gate as
+`assert_tradeable`: one function, in `assert_tradeable.rs`, that
+`assert_tradeable`, `fill_order` and `fill_sell_order` all call. It refuses, in
+this order, numbered as the README numbers the gates:
 
 - **1. The state is stale.** An attestation more than 120 seconds old reads as
   closed. So a dead keeper, or a source outage that fails the tick, closes the
@@ -711,8 +774,9 @@ because it does not measure them.
 **Risk controls.** BELL has no circuit breaker of its own. It has one reference
 price band: every fill must land within the order's band of the attested mark
 (30 bps by default, at most 500). Each order carries a loss floor at three
-quarters of its value at the placement-time mark, and a $1,000 cap. All of
-these are the program's checks, in `fill.rs` and `queue.rs`.
+quarters of its value at the placement-time mark, and a $1,000 cap; on a sale
+the floor is the least it may be paid, and the cap is its value at that mark.
+All of these are the program's checks, in `fill.rs`, `queue.rs` and `sell.rs`.
 
 **Corporate actions while the market is closed.** The rebase gate measures its
 window from the activation time written on the mint, so it holds at any hour.
