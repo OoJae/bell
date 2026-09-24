@@ -1,10 +1,11 @@
 /**
  * Place or cancel a bell order.
  *
- *   node scripts/queue.ts place SPYx 200
+ *   node scripts/queue.ts place SPYx 200 [--partial]
  *   node scripts/queue.ts cancel 1          # spl_token revoke, then reclaim rent
- *   node scripts/queue.ts sell AAPLx 0.5 [MIN_USD]
+ *   node scripts/queue.ts sell AAPLx 0.5 [MIN_USD] [--partial]
  *   node scripts/queue.ts cancel-sell 1     # revoke the stock approval, then reclaim rent
+ *   node scripts/queue.ts night on|off      # let this wallet's orders fill while the market is shut, or stop
  *   node scripts/queue.ts list
  *
  * Builds the same order the page does: the mint re-read first, the approval in
@@ -17,17 +18,31 @@
  * until a filler has paid for them; the quote approval that funds buys is
  * never touched by a sell. `MIN_USD` is an optional minimum price per share,
  * which can only tighten the loss floor, never loosen it.
+ *
+ * An order fills whole or not at all unless it is placed with `--partial`,
+ * which lets it fill in parts of about a dollar or more. That is what lets a
+ * buy and a sell from two wallets cross at the open when they are not the
+ * same size: the cross takes what the smaller side has, and a filler the rest.
+ *
+ * `night on` is one account per wallet, and it applies to every order the
+ * wallet has, including those already placed: they may then fill while the
+ * primary market is shut, inside the program's night bounds. `night off`
+ * closes it and returns its rent.
  */
 import { PublicKey } from '@solana/web3.js'
 import {
   authPda,
   connect,
+  errorName,
   ixCancelOrder,
   ixCancelSellOrder,
+  ixOptInNight,
+  ixOptOutNight,
   ixPlaceOrder,
   ixPlaceSellOrder,
   ixRefreshTokenRisk,
   readBoard,
+  readNightOptIn,
   readOrder,
   readOrders,
   readSellOrder,
@@ -45,6 +60,8 @@ import {
 import { loadKeypair } from '../src/chain/keys.ts'
 import {
   fairOut,
+  MAX_NIGHT_GAP_BPS,
+  MAX_NIGHT_REF_AGE_SECONDS,
   mulShr64Ceil,
   multiplierOf,
   sellOrderValue,
@@ -60,7 +77,33 @@ const QUOTE_DECIMALS = 6
 
 const conn = connect()
 const user = loadKeypair(PAYER_PATH)
-const [cmd, ...rest] = process.argv.slice(2)
+// Flags anywhere on the line; everything else is positional, as before.
+const argv = process.argv.slice(2)
+const partial = argv.includes('--partial')
+const [cmd, ...rest] = argv.filter((a) => !a.startsWith('--'))
+
+/**
+ * The least a `--partial` order may fill in one go: a dollar of quote. Small
+ * enough that any counterpart can take part of it, large enough that nobody
+ * can fill it a raw unit at a time. Never more than the order itself.
+ */
+const PARTIAL_QUOTE = 1_000_000n
+const minFillFor = (amountIn: bigint, smallest: bigint): bigint =>
+  !partial ? amountIn : smallest < 1n ? 1n : smallest > amountIn ? amountIn : smallest
+
+/**
+ * A program refusal inside a send's error, named. A program without night
+ * fills has no such instruction (101, InstructionFallbackNotFound), and
+ * "custom program error: 0x65" would say nothing to whoever ran this.
+ */
+function named(e: unknown): Error {
+  const msg = (e as Error).message ?? String(e)
+  const hex = /custom program error: 0x([0-9a-f]+)/i.exec(msg)?.[1]
+  if (!hex) return e as Error
+  const name = errorName(parseInt(hex, 16))
+  const hint = name === 'InstructionFallbackNotFound' ? ': the program on this cluster does not have night fills yet' : ''
+  return new Error(`${name}${hint}`)
+}
 
 const quoteMint = () => {
   const v = process.env.BELL_QUOTE_MINT
@@ -158,6 +201,7 @@ if (cmd === 'place') {
   const floorRateQ64 = lossFloor(mark && mark.observedAt > 0n ? mark.rateQ64 : null)
 
   const payerIn = quoteAccount()
+  const minFillIn = minFillFor(amountIn, PARTIAL_QUOTE)
   // A fixed nonce makes `send()`'s re-signing retry safe: a second landing
   // would re-create an order account that already exists, and is refused.
   const sig = await send(
@@ -176,7 +220,7 @@ if (cmd === 'place') {
         mint,
         nonce,
         amountIn,
-        minFillIn: amountIn,
+        minFillIn,
         maxSlipBps: 30,
         maxConfBps: confCap(listing),
         floorRateQ64,
@@ -197,6 +241,11 @@ if (cmd === 'place') {
     console.log(`  at mark   $${(Number(mark.pxNum) / 1e6).toFixed(2)} you would receive about ${fairOut(amountIn, mark.rateQ64)} raw`)
     console.log(`  floor     never less than ${fairOut(amountIn, floorRateQ64)} raw (3/4 of that)`)
   }
+  console.log(
+    partial
+      ? `  partial   fills in parts of at least $${(Number(minFillIn) / 1e6).toFixed(2)}: another wallet's sale can cross part of it at the open and a filler the rest`
+      : '  whole     fills all at once or not at all (--partial lets it fill in parts)',
+  )
   console.log(`  sig       ${sig}`)
 } else if (cmd === 'cancel') {
   const nonce = BigInt(rest[0])
@@ -277,6 +326,10 @@ if (cmd === 'place') {
     )
   }
 
+  // `--partial`: the stock a dollar buys at the mark, rounded down, so each
+  // part is worth about a dollar. All-or-nothing otherwise, as before.
+  const minFillIn = minFillFor(amountIn, fairOut(PARTIAL_QUOTE, mark.rateQ64))
+
   const minLimitUsd = minArg === undefined ? null : Number(minArg)
   if (minLimitUsd !== null && !(minLimitUsd > 0)) throw new Error(`not a price: ${minArg}`)
   const floorRateQ64 = sellOrderFloor(mark.rateQ64, { num: mark.pxNum, expo: mark.pxExpo }, minLimitUsd)
@@ -298,7 +351,7 @@ if (cmd === 'place') {
         mint,
         nonce,
         amountIn,
-        minFillIn: amountIn,
+        minFillIn,
         maxSlipBps: 30,
         maxConfBps: confCap(listing),
         floorRateQ64,
@@ -318,6 +371,11 @@ if (cmd === 'place') {
   const quoteUsd = (raw: bigint) => (Number(raw) / 10 ** QUOTE_DECIMALS).toFixed(2)
   console.log(`  at mark   $${(Number(mark.pxNum) * 10 ** mark.pxExpo).toFixed(2)} a share you would receive about $${quoteUsd(stockToQuoteCeil(amountIn, mark.rateQ64))}`)
   console.log(`  floor     never less than $${quoteUsd(mulShr64Ceil(amountIn, floorRateQ64))}${minLimitUsd ? ` (the higher of your $${minLimitUsd} a share and 3/4 of the mark)` : ' (3/4 of that)'}`)
+  console.log(
+    partial
+      ? `  partial   fills in parts of at least ${minFillIn} raw (about $1 at the mark): another wallet's buy can cross part of it at the open and a filler the rest`
+      : '  whole     fills all at once or not at all (--partial lets it fill in parts)',
+  )
   console.log(`  sig       ${sig}`)
 } else if (cmd === 'cancel-sell') {
   const nonce = BigInt(rest[0])
@@ -345,13 +403,52 @@ if (cmd === 'place') {
     const sig = await send(conn, [approveStock(order.payerIn, order.mint, owed, decimals)], [user])
     console.log(`  re-funded ${sig}  — ${owed} raw for your other sells of ${order.symbol}`)
   }
+} else if (cmd === 'night') {
+  const [what] = rest
+  if (what !== 'on' && what !== 'off') throw new Error('usage: night on | night off')
+  const existing = await readNightOptIn(conn, user.publicKey)
+  const hours = MAX_NIGHT_REF_AGE_SECONDS / 3600
+  const band = `${MAX_NIGHT_GAP_BPS / 100}%`
+  const terms = [
+    `  applies   to every order this wallet has, including those already placed`,
+    `  only when the checker (a second signer with its own prices) agrees the US market is closed,`,
+    `            the last sale behind its reference price is under ${hours} hours old,`,
+    `            and BELL's price is within ${band} of that reference`,
+    `  and       each night fill also gives you at least the reference price less ${band}, besides your own band and limit:`,
+    `            no market is open to pull a wrong price back at night, so the bounds are tighter than in session`,
+  ]
+  if (what === 'on') {
+    if (existing) {
+      console.log(`night fills are already on for ${user.publicKey.toBase58()}, since ${new Date(Number(existing.createdAt) * 1000).toISOString()}`)
+      for (const t of terms) console.log(t)
+    } else {
+      const sig = await send(conn, [ixOptInNight(user.publicKey)], [user]).catch((e) => {
+        throw named(e)
+      })
+      const rent = await conn.getMinimumBalanceForRentExemption(65)
+      console.log(`night fills on for ${user.publicKey.toBase58()}`)
+      for (const t of terms) console.log(t)
+      console.log(`  rent      ${rent / 1e9} SOL, returned by \`night off\``)
+      console.log(`  sig       ${sig}`)
+    }
+  } else if (!existing) {
+    console.log(`night fills are already off for ${user.publicKey.toBase58()}: its orders wait for the bell`)
+  } else {
+    const sig = await send(conn, [ixOptOutNight(user.publicKey)], [user]).catch((e) => {
+      throw named(e)
+    })
+    console.log(`night fills off for ${user.publicKey.toBase58()}`)
+    console.log('  every order of this wallet, including those already placed, waits for the bell again; the rent came back')
+    console.log(`  sig       ${sig}`)
+  }
 } else {
   const orders = await readOrders(conn)
   console.log(`${orders.length} order(s) on chain\n`)
   for (const o of orders) {
     console.log(
       `  ${o.symbol.padEnd(7)} ${(Number(o.amountIn) / 1e6).toFixed(2)} quote  ` +
-        `filled=${Number(o.filledIn) / 1e6}  slip<=${o.maxSlipBps}bps  nonce=${o.nonce}`,
+        `filled=${Number(o.filledIn) / 1e6}  slip<=${o.maxSlipBps}bps  nonce=${o.nonce}` +
+        (o.minFillIn < o.amountIn ? `  parts>=${Number(o.minFillIn) / 1e6}` : ''),
     )
   }
   const sells = await readSellOrders(conn)
@@ -359,7 +456,8 @@ if (cmd === 'place') {
     console.log(`${orders.length > 0 ? '\n' : ''}${sells.length} sell order(s) on chain\n`)
     for (const o of sells) {
       console.log(
-        `  ${o.symbol.padEnd(7)} ${o.amountIn} raw  filled=${o.filledIn}  slip<=${o.maxSlipBps}bps  nonce=${o.nonce}`,
+        `  ${o.symbol.padEnd(7)} ${o.amountIn} raw  filled=${o.filledIn}  slip<=${o.maxSlipBps}bps  nonce=${o.nonce}` +
+          (o.minFillIn < o.amountIn ? `  parts>=${o.minFillIn} raw` : ''),
       )
     }
   }

@@ -57,6 +57,30 @@ const SPL_TOKEN_ERRORS: ReadonlyMap<number, string> = new Map([
 ])
 
 /**
+ * The Anchor framework errors a client that is out of step with the program
+ * meets, named. Anchor numbers these from 100 to 5000, clear of both the token
+ * program's and the program's own, so the one lookup still serves all three.
+ *
+ * Each is what a stale client looks like rather than a refusal. A filler
+ * built for the old fifteen-account fill is refused with 3005 before any
+ * handler code runs; a fill before its symbol's check is opened with 3012, or
+ * with 3007 when someone has sent lamports to that check's address first; a
+ * check account for another symbol with 2006; a cross naming an account its
+ * orders do not pin with 2012; and an instruction the deployed program does not
+ * have yet (a cross, a check, a night opt-in, sent before the upgrade lands)
+ * with 101. Printed as `custom 3005`, any of them would read as a mystery
+ * instead of "update the client".
+ */
+const ANCHOR_ERRORS: ReadonlyMap<number, string> = new Map([
+  [101, 'InstructionFallbackNotFound'],
+  [2006, 'ConstraintSeeds'],
+  [2012, 'ConstraintAddress'],
+  [3005, 'AccountNotEnoughKeys'],
+  [3007, 'AccountOwnedByWrongProgram'],
+  [3012, 'AccountNotInitialized'],
+])
+
+/**
  * Program constants, read from the IDL rather than restated here.
  *
  * The front end explains *why* a gate refused, which means it has to know the
@@ -82,8 +106,25 @@ export const REBASE_GUARD_SECONDS = LIMITS.REBASE_GUARD_SECONDS
  */
 export const MAX_RISK_AGE_SECONDS = LIMITS.MAX_RISK_AGE_SECONDS ?? Number.POSITIVE_INFINITY
 
+// The circuit breaker, the checker and night fills. Named here, as the bounds
+// above are, so the page and the crank explain a refusal with the program's
+// own numbers rather than copies of them.
+
+/** How far a mark may move per `MAX_MARK_AGE_SECONDS` of observed time before a push is held instead of written. */
+export const MAX_MARK_STEP_BPS = LIMITS.MAX_MARK_STEP_BPS
+/** A mark older than this no longer anchors the next push, which is then written at any rate. */
+export const MAX_MARK_STEP_AGE_SECONDS = LIMITS.MAX_MARK_STEP_AGE_SECONDS
+/** A check older than this is not a second opinion about now (CheckStale). */
+export const MAX_CHECK_AGE_SECONDS = LIMITS.MAX_CHECK_AGE_SECONDS
+/** How old the sale behind the reference may be in session, and at night. */
+export const MAX_SESSION_REF_AGE_SECONDS = LIMITS.MAX_SESSION_REF_AGE_SECONDS
+export const MAX_NIGHT_REF_AGE_SECONDS = LIMITS.MAX_NIGHT_REF_AGE_SECONDS
+/** How far the mark may sit from the reference, in bps of the reference: in session, and at night. */
+export const MAX_SESSION_GAP_BPS = LIMITS.MAX_SESSION_GAP_BPS
+export const MAX_NIGHT_GAP_BPS = LIMITS.MAX_NIGHT_GAP_BPS
+
 export function errorName(code: number): string {
-  return ERROR_NAMES.get(code) ?? SPL_TOKEN_ERRORS.get(code) ?? `custom ${code}`
+  return ERROR_NAMES.get(code) ?? SPL_TOKEN_ERRORS.get(code) ?? ANCHOR_ERRORS.get(code) ?? `custom ${code}`
 }
 
 /** Anchor account discriminator, for `getProgramAccounts` filters. */
@@ -91,7 +132,7 @@ export function accountDiscriminator(name: string): Buffer {
   return discriminator('accounts', name)
 }
 
-function discriminator(kind: 'instructions' | 'accounts', name: string): Buffer {
+function discriminator(kind: 'instructions' | 'accounts' | 'events', name: string): Buffer {
   const found = idl[kind].find((x) => x.name === name)
   if (!found) throw new Error(`${name} missing from IDL ${kind}`)
   return Buffer.from(found.discriminator)
@@ -351,6 +392,63 @@ export const encodeFillSellOrder = (args: { amountInLeg: bigint; amountOut: bigi
 
 export const encodeCancelSellOrder = () => discriminator('instructions', 'cancel_sell_order')
 
+// ------------------------------------------------- checker, night and cross
+//
+// The second signer's check, an owner's consent to night fills, and the
+// opening cross. Each writer below follows its instruction's arguments in the
+// IDL's order and width; `test/chain-v2.test.ts` rebuilds every one from the
+// IDL's own argument list and compares the bytes.
+
+/**
+ * `open_check`: name the one key that may push `symbol`'s check. Signed by the
+ * program's upgrade authority, once per symbol; there is no rotation.
+ */
+export function encodeOpenCheck(args: { symbol: Uint8Array; checker: PublicKey }): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'open_check'),
+    new Writer().bytes(args.symbol).key(args.checker).done(),
+  ])
+}
+
+/**
+ * `push_check`: the checker's own view of the session and of the last sale.
+ *
+ * `refRateQ64` is stock raw per quote raw with the scaled-UI multiplier folded
+ * in, the mark's convention, so the program compares the two directly.
+ * `refPxNum × 10^refPxExpo` is the price it stands for, descriptive only.
+ * `refAt` is when that sale happened and `observedAt` when the checker looked;
+ * the program refuses a reference later than its observation.
+ */
+export function encodePushCheck(args: {
+  symbol: Uint8Array
+  openNow: boolean
+  refRateQ64: bigint
+  refPxNum: bigint
+  refPxExpo: number
+  refAt: bigint
+  observedAt: bigint
+}): Buffer {
+  return Buffer.concat([
+    discriminator('instructions', 'push_check'),
+    new Writer()
+      .bytes(args.symbol)
+      .bool(args.openNow)
+      .u128(args.refRateQ64)
+      .u64(args.refPxNum)
+      .i32(args.refPxExpo)
+      .i64(args.refAt)
+      .i64(args.observedAt)
+      .done(),
+  ])
+}
+
+/** `opt_in_night` and `opt_out_night` take no arguments: the signer is the owner. */
+export const encodeOptInNight = () => discriminator('instructions', 'opt_in_night')
+export const encodeOptOutNight = () => discriminator('instructions', 'opt_out_night')
+
+/** `cross_orders` takes no arguments: the amounts follow from the two orders and the mark. */
+export const encodeCrossOrders = () => discriminator('instructions', 'cross_orders')
+
 export interface SymbolMark {
   symbol: string
   mint: PublicKey
@@ -599,6 +697,167 @@ export function sellLimitFloor(limitUsd: number, markPx: { num: bigint; expo: nu
   return floor
 }
 
+// ------------------------------------------------------------ cross pricing
+//
+// Mirrors of fill.rs's `buy_min_out` and of cross.rs's amounts, step for step,
+// for the same reason as the sell mirrors above: a crank that picked a pair the
+// program then refuses has spent a simulation, and one that believed a pair
+// could not cross has left two owners waiting for fillers they did not need.
+
+/** The program's `mul_shr64`: `a * q >> 64`, rounded down, refusing a product wider than a u128. */
+function mulShr64(a: bigint, q: bigint): bigint {
+  return checkedU128(a * q) >> 64n
+}
+
+/**
+ * `fill_order`'s `min_out`: the least stock a buy leg of `leg` quote raw may
+ * receive, the band below fair or the owner's floor, whichever is higher, each
+ * rounded down as a buy always has been.
+ *
+ * At night the program takes the higher of this and
+ * `buyMinOut(leg, check.refRateQ64, MAX_NIGHT_GAP_BPS, 0n)`, the same formula
+ * over the checker's reference; a sell's night minimum is `sellMinOut` in the
+ * same way.
+ */
+export function buyMinOut(leg: bigint, rate: bigint, slipBps: number, floorRateQ64: bigint): bigint {
+  const band = checkedU128(mulShr64(leg, rate) * BigInt(10_000 - slipBps)) / 10_000n
+  const floor = mulShr64(leg, floorRateQ64)
+  return floor > band ? floor : band
+}
+
+/** The fields of an order that decide how much of it can cross. A `BellOrder` or a `SellOrder` has them all. */
+export type CrossTerms = Pick<BellOrder, 'amountIn' | 'filledIn' | 'minFillIn' | 'maxSlipBps' | 'floorRateQ64'>
+
+/**
+ * What `cross_orders` would move between `buy` and `sell` at `rate`, or the
+ * refusal it would give for the amounts. `quote` is what the buyer pays and the
+ * seller receives, `stock` what the seller delivers and the buyer receives.
+ *
+ * The quote leads, as in cross.rs: the buyer's whole remainder, unless that
+ * buys more stock than the seller has left, and then the most quote whose stock
+ * stays within it. The buyer then receives exactly `floor(quote·rate)`, a buy
+ * fill's fair value with no spread taken, and the seller at least the rounded-up
+ * value a sell fill owes.
+ *
+ * Only the amounts are judged here, in the program's order: `FillTooSmall` for
+ * nothing to move or less than either order's minimum fill (capped at its
+ * remainder), then `PriceOutOfBand` against either owner's floor. Everything
+ * `admit` asks first (due, the gate, the mark, the check, and SelfCross before
+ * all of it) is the caller's to know. An all-or-nothing order has a minimum
+ * fill equal to its whole remainder, so it crosses only against a counterpart
+ * big enough to take all of it.
+ */
+export function crossAmounts(
+  buy: CrossTerms,
+  sell: CrossTerms,
+  rate: bigint,
+): { quote: bigint; stock: bigint; refused: 'MarkStale' | 'FillTooSmall' | 'PriceOutOfBand' | null } {
+  if (rate <= 0n) return { quote: 0n, stock: 0n, refused: 'MarkStale' }
+  const bRem = buy.amountIn > buy.filledIn ? buy.amountIn - buy.filledIn : 0n
+  const sRem = sell.amountIn > sell.filledIn ? sell.amountIn - sell.filledIn : 0n
+  const c = stockToQuoteCeil(sRem, rate)
+  const qs = mulShr64(c, rate) > sRem ? c - 1n : c
+  const quote = bRem < qs ? bRem : qs
+  const stock = mulShr64(quote, rate)
+  if (quote <= 0n || stock <= 0n) return { quote, stock, refused: 'FillTooSmall' }
+  const least = (min: bigint, rem: bigint) => (min < rem ? min : rem)
+  if (quote < least(buy.minFillIn, bRem) || stock < least(sell.minFillIn, sRem)) {
+    return { quote, stock, refused: 'FillTooSmall' }
+  }
+  const minStock = buyMinOut(quote, rate, buy.maxSlipBps, buy.floorRateQ64)
+  const minQuote = sellMinOut(stock, rate, sell.maxSlipBps, sell.floorRateQ64)
+  if (stock < minStock || quote < minQuote) return { quote, stock, refused: 'PriceOutOfBand' }
+  return { quote, stock, refused: null }
+}
+
+// ------------------------------------------------------------ the breaker
+//
+// `push_mark` holds a push that moves the mark further than the time since the
+// observation on record allows. It does not refuse it: the mark keeps its rate,
+// price and time, and only `conf_bps` is set to its maximum, which every fill
+// refuses as MarkPaused. The hold clears only by a later push, one that lands
+// within the step of the held rate or comes after the held mark has stopped
+// anchoring anything, so a keeper that stops pushing a held symbol keeps it
+// held for good.
+
+/** The `conf_bps` of a held mark: u16::MAX, which no push can write, since the ceiling is `MAX_CONF_BPS`. */
+export const MARK_HELD_CONF_BPS = 0xffff
+
+/**
+ * Whether the breaker holds this mark.
+ *
+ * `open_mark` writes the same maximum into a mark nobody has priced yet, with
+ * `observed_at` 0. That mark is unpriced rather than held (a fill meets
+ * MarkStale first), and it still needs its first price, so it reads as not held.
+ */
+export const markHeld = (m: Pick<SymbolMark, 'confBps' | 'observedAt'>): boolean =>
+  m.confBps === MARK_HELD_CONF_BPS && m.observedAt > 0n
+
+/**
+ * How far, in raw rate, a push observed at `observedAt` may move the mark on
+ * record: a whole step once `MAX_MARK_AGE_SECONDS` of observed time has passed,
+ * that share of one before, and nothing at the same instant. The product
+ * saturates at u128 as the program's does.
+ */
+export function markStepAllowance(held: Pick<SymbolMark, 'rateQ64' | 'observedAt'>, observedAt: bigint): bigint {
+  const span = BigInt(MAX_MARK_AGE_SECONDS)
+  let elapsed = observedAt - held.observedAt
+  if (elapsed < 0n) elapsed = 0n
+  if (elapsed > span) elapsed = span
+  const product = (held.rateQ64 / 10_000n) * (BigInt(MAX_MARK_STEP_BPS) * elapsed)
+  return (product > U128_MAX ? U128_MAX : product) / span
+}
+
+/**
+ * What `push_mark` does with a push it accepts, by mark.rs's rules in its
+ * order: `ignored` when it is older than the observation on record, `held`
+ * when it moves an anchoring mark further than `markStepAllowance`, otherwise
+ * `written`, which also clears a hold. The refusals come before any of these
+ * (a time after `now`, a zero rate, `conf_bps` over the ceiling) and are not
+ * judged here.
+ */
+export function markPushOutcome(
+  held: Pick<SymbolMark, 'rateQ64' | 'observedAt'>,
+  push: { rateQ64: bigint; observedAt: bigint },
+  now: bigint,
+): 'written' | 'held' | 'ignored' {
+  if (push.observedAt < held.observedAt) return 'ignored'
+  const anchored =
+    held.rateQ64 !== 0n && held.observedAt !== 0n && now - held.observedAt <= BigInt(MAX_MARK_STEP_AGE_SECONDS)
+  if (!anchored) return 'written'
+  const moved = held.rateQ64 > push.rateQ64 ? held.rateQ64 - push.rateQ64 : push.rateQ64 - held.rateQ64
+  return moved > markStepAllowance(held, push.observedAt) ? 'held' : 'written'
+}
+
+// -------------------------------------------------------------- the check
+
+/**
+ * Why the second signer's check would refuse a fill now, or null when it
+ * would not: step 4 of the program's `admit`, in its order. The earlier steps
+ * (due, the gate, the mark) come first on chain and are not judged here.
+ *
+ * `night` is whether this is a night fill: the market shut and the owner opted
+ * in. A cross is never one. A check that was never opened is refused by Anchor
+ * before `admit` runs, as AccountNotInitialized.
+ */
+export function checkRefusal(args: {
+  check: Pick<SymbolCheck, 'observedAt' | 'openNow' | 'refAt' | 'refRateQ64'> | null
+  markRateQ64: bigint
+  night: boolean
+  now: bigint
+}): 'AccountNotInitialized' | 'CheckStale' | 'CheckerDisagrees' | 'MarkOffReference' | null {
+  const { check, markRateQ64, night, now } = args
+  if (!check) return 'AccountNotInitialized'
+  if (now - check.observedAt > BigInt(MAX_CHECK_AGE_SECONDS)) return 'CheckStale'
+  if (check.openNow === night) return 'CheckerDisagrees'
+  const refAge = night ? MAX_NIGHT_REF_AGE_SECONDS : MAX_SESSION_REF_AGE_SECONDS
+  if (now - check.refAt > BigInt(refAge)) return 'CheckStale'
+  if (check.refRateQ64 <= 0n) return 'CheckStale'
+  const gap = BigInt(night ? MAX_NIGHT_GAP_BPS : MAX_SESSION_GAP_BPS)
+  const off = markRateQ64 > check.refRateQ64 ? markRateQ64 - check.refRateQ64 : check.refRateQ64 - markRateQ64
+  return off > (check.refRateQ64 / 10_000n) * gap ? 'MarkOffReference' : null
+}
+
 // ------------------------------------------------------------------- accounts
 
 export interface SymbolState {
@@ -659,6 +918,164 @@ export function decodeTokenRisk(data: Uint8Array): TokenRisk {
     verifiedAt: r.i64(),
     attestor: r.key(),
     bump: r.u8(),
+  }
+}
+
+/** Throws unless `data` starts with the named account's discriminator. */
+function expectAccount(data: Uint8Array, name: string): void {
+  const want = accountDiscriminator(name)
+  if (data.length < 8 || want.some((b, i) => data[i] !== b)) throw new Error(`not a ${name} account`)
+}
+
+/**
+ * The second signer's view of one symbol, as `push_check` last left it.
+ *
+ * `refRateQ64` has the mark's convention, stock raw per quote raw with the
+ * multiplier folded in, so the two compare directly; `refPxNum × 10^refPxExpo`
+ * is the price it stands for. Freshly opened, `observedAt` and the reference
+ * are zero, which every fill reads as CheckStale.
+ */
+export interface SymbolCheck {
+  symbol: string
+  mint: PublicKey
+  /** The only key that may push this check, named by the upgrade authority at `open_check`. */
+  checker: PublicKey
+  /** The checker's own view of whether the primary market is open. */
+  openNow: boolean
+  refRateQ64: bigint
+  refPxNum: bigint
+  refPxExpo: number
+  /** When the sale behind the reference happened. */
+  refAt: bigint
+  /** When the checker pushed this. */
+  observedAt: bigint
+  bump: number
+}
+
+/**
+ * Decode a `SymbolCheck`, refusing any other account. Checked by discriminator
+ * because the check is what a fill is refused over, and a mark or a state
+ * decoded as a check would explain a refusal with numbers that are not there.
+ */
+export function decodeSymbolCheck(data: Uint8Array): SymbolCheck {
+  expectAccount(data, 'SymbolCheck')
+  const r = new Reader(data).skip(8)
+  return {
+    symbol: r.text(12),
+    mint: r.key(),
+    checker: r.key(),
+    openNow: r.bool(),
+    refRateQ64: r.u128(),
+    refPxNum: r.u64(),
+    refPxExpo: r.i32(),
+    refAt: r.i64(),
+    observedAt: r.i64(),
+    bump: r.u8(),
+  }
+}
+
+/** An owner's standing consent to fills while the primary market is shut. Its existence is its meaning. */
+export interface NightOptIn {
+  owner: PublicKey
+  createdAt: bigint
+  bump: number
+}
+
+export function decodeNightOptIn(data: Uint8Array): NightOptIn {
+  expectAccount(data, 'NightOptIn')
+  const r = new Reader(data).skip(8)
+  return { owner: r.key(), createdAt: r.i64(), bump: r.u8() }
+}
+
+/**
+ * Whether an account is `owner`'s night consent, by the program's own three
+ * questions (night.rs `opted_in`): does this program own it, does it start with
+ * the `NightOptIn` discriminator, and do bytes 8..40 name this owner. A closed
+ * opt-in belongs to the system program and reads as no, as does anyone else's.
+ */
+export function nightConsent(
+  account: { owner: PublicKey; data: Uint8Array } | null | undefined,
+  owner: PublicKey,
+): boolean {
+  if (!account || !account.owner.equals(PROGRAM_ID)) return false
+  const d = account.data
+  const want = accountDiscriminator('NightOptIn')
+  if (d.length < 40 || want.some((b, i) => d[i] !== b)) return false
+  const key = owner.toBytes()
+  return key.every((b, i) => d[8 + i] === b)
+}
+
+// --------------------------------------------------------------------- events
+//
+// Anchor's `emit!` logs an event as `Program data: <base64>`, the event's
+// discriminator and then its fields in Borsh. Each decoder returns null for a
+// payload that is not its event, so a caller can offer it every payload in a
+// transaction; which program logged the line is the caller's to check (see
+// `eventsOf` in fills.ts).
+
+/** Decode `name`'s payload, or null when the discriminator is another's or the bytes are too short. */
+function eventReader(data: Uint8Array, name: string, size: number): Reader | null {
+  const want = discriminator('events', name)
+  if (data.length < size || want.some((b, i) => data[i] !== b)) return null
+  return new Reader(data).skip(8)
+}
+
+/**
+ * The breaker holding a mark: the rate and time on record, which stay, and the
+ * push that moved further than the time between them allows.
+ */
+export interface MarkTrippedEvent {
+  symbol: string
+  heldRateQ64: bigint
+  pushedRateQ64: bigint
+  heldObservedAt: bigint
+  pushedObservedAt: bigint
+}
+
+export function decodeMarkTrippedEvent(data: Uint8Array): MarkTrippedEvent | null {
+  // discriminator 8, symbol 12, two u128, two i64
+  const r = eventReader(data, 'MarkTripped', 8 + 12 + 16 * 2 + 8 * 2)
+  if (!r) return null
+  return {
+    symbol: r.text(12),
+    heldRateQ64: r.u128(),
+    pushedRateQ64: r.u128(),
+    heldObservedAt: r.i64(),
+    pushedObservedAt: r.i64(),
+  }
+}
+
+/**
+ * One cross: `quote` raw went from the buyer to the seller and `stock` raw from
+ * the seller to the buyer, at the mark named by the rest, with no filler
+ * between them. Both amounts are the ones the program measured.
+ */
+export interface OrdersCrossedEvent {
+  symbol: string
+  buyer: PublicKey
+  seller: PublicKey
+  quote: bigint
+  stock: bigint
+  pxNum: bigint
+  pxExpo: number
+  source: MarkSource
+  markObservedAt: bigint
+}
+
+export function decodeOrdersCrossedEvent(data: Uint8Array): OrdersCrossedEvent | null {
+  // discriminator 8, symbol 12, two keys, three u64, i32, u8, i64
+  const r = eventReader(data, 'OrdersCrossed', 8 + 12 + 32 * 2 + 8 * 3 + 4 + 1 + 8)
+  if (!r) return null
+  return {
+    symbol: r.text(12),
+    buyer: r.key(),
+    seller: r.key(),
+    quote: r.u64(),
+    stock: r.u64(),
+    pxNum: r.u64(),
+    pxExpo: r.i32(),
+    source: r.u8() as MarkSource,
+    markObservedAt: r.i64(),
   }
 }
 

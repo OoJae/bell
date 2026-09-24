@@ -399,6 +399,55 @@ export function judge(args: {
   return { underlying, quote, calendarOpen, session, sessionFrom, openNow, why, errors: args.errors ?? [] }
 }
 
+/**
+ * Whether a reading can be pushed as the checker's word on chain, and if not,
+ * why. Pure.
+ *
+ * The on-chain check is what every fill has to agree with, so the checker
+ * says nothing rather than something it cannot stand behind:
+ *
+ * - No opinion is not "closed". A night fill needs the checker to say the
+ *   market is shut, so a checker that cannot tell (the calendar has no
+ *   opinion, or no source said which session it is) must not say it, and
+ *   neither may one whose own sources contradict each other: the calendar
+ *   closed while the market says regular session.
+ * - No last sale is no reference. A source that failed to parse gives none,
+ *   and Yahoo stands in only as a reading that did parse, labelled as Yahoo's.
+ * - In session the sale has to be recent, `maxSessionAgeS` at most (the
+ *   program's MAX_SESSION_REF_AGE_SECONDS). A stock that trades every few
+ *   seconds with an old last sale means the feed has stopped. Out of session
+ *   the last sale is the close or an extended-hours print, and the program
+ *   judges its age itself, against twelve hours.
+ *
+ * Calendar open while the market says pre-market or after-hours is closed, as
+ * `judge` says: the conservative answer for a session fill, and the market's
+ * own word for a night one.
+ */
+export type Usable =
+  | { ok: true; openNow: boolean; quote: Quote; ageS: number }
+  | { ok: false; why: string }
+
+export function usableReading(reading: Reading | undefined, now: Date, maxSessionAgeS: number): Usable {
+  if (!reading) return { ok: false, why: 'no reading' }
+  if (reading.calendarOpen === null) return { ok: false, why: 'the calendar has no opinion, so the checker has none' }
+  if (reading.session === null) {
+    const errors = reading.errors.length ? ` (${reading.errors.join('; ')})` : ''
+    return { ok: false, why: `no source said which session it is${errors}` }
+  }
+  if (!reading.calendarOpen && reading.session === 'regular') {
+    return { ok: false, why: `the calendar says closed but ${reading.sessionFrom} says regular session: its own sources disagree` }
+  }
+  const quote = reading.quote
+  if (!quote) {
+    return { ok: false, why: `no last sale (${reading.errors.join('; ') || 'no source gave one'})` }
+  }
+  const ageS = (now.getTime() - quote.lastAt) / 1000
+  if (reading.openNow && ageS > maxSessionAgeS) {
+    return { ok: false, why: `the last sale is ${Math.round(ageS)}s old in session, over ${maxSessionAgeS}s` }
+  }
+  return { ok: true, openNow: reading.openNow, quote, ageS }
+}
+
 type Settled<T> = { ok: true; value: T } | { ok: false; error: string }
 const settle = <T>(p: Promise<T>): Promise<Settled<T>> =>
   p.then(

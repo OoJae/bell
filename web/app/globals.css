@@ -195,3 +195,25 @@ th { color: var(--dim); font-weight: 500; }
 .amt.shares input { width: 88px; }
 .amt.shares .max { padding: 2px 8px; margin-left: 4px; }
 .amt.shares .max:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+
+/* night fills: a switch and the sentence that says what it consents to. The
+   sentence is long on purpose and sits beside the switch, never under a fold */
+.night { display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; font-size: 13px; color: var(--dim); max-width: 760px; }
+.night strong { color: var(--fg); font-weight: 600; }
+.switch {
+  flex: 0 0 auto; position: relative; width: 34px; height: 18px; margin-top: 1px; padding: 0;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--bg); cursor: pointer;
+}
+.switch .knob {
+  position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--dim); transition: left .15s ease;
+}
+.switch[aria-checked="true"] { background: rgba(88, 166, 255, .18); border-color: var(--accent); }
+.switch[aria-checked="true"] .knob { left: 18px; background: var(--accent); }
+.switch:disabled { opacity: .4; cursor: not-allowed; }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* the night band, where the board and clock mention it: small, never a verdict */
+.nightband { color: var(--accent); }
+.tile .nb { color: var(--accent); font-weight: 400; }
+.nightnote { color: var(--text); }

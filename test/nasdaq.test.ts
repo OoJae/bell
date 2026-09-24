@@ -11,6 +11,7 @@ import {
   parseYahooChart,
   readReferences,
   sessionOf,
+  usableReading,
   type MarketInfo,
   type Quote,
 } from '../src/sensor/nasdaq.ts'
@@ -254,6 +255,39 @@ test('the session falls back from market-info to the quote to Yahoo, and says wh
   assert.equal(mixed.quote?.source, 'nasdaq')
   assert.equal(mixed.sessionFrom, 'yahoo')
   assert.equal(mixed.openNow, false)
+})
+
+test('the checker pushes a reading only when it can stand behind it', () => {
+  const now = new Date(ny(12, 40))
+  const at = (min: number) => ({ ...q('nasdaq', 'regular'), lastAt: now.getTime() - min * 60_000 })
+  const base = { underlying: 'SPY', market: mkt('regular'), nasdaq: at(1), yahoo: null }
+  const open = usableReading(judge({ ...base, calendarOpen: true }), now, 300)
+  assert.ok(open.ok && open.openNow && open.quote.source === 'nasdaq' && open.ageS === 60)
+  // Yahoo standing in for Nasdaq is a reading that parsed, and says it is Yahoo's.
+  const yahoo = usableReading(judge({ ...base, nasdaq: null, yahoo: { ...at(1), source: 'yahoo' }, calendarOpen: true }), now, 300)
+  assert.ok(yahoo.ok && yahoo.quote.source === 'yahoo')
+
+  const refused = (r: Parameters<typeof judge>[0] | undefined) => {
+    const u = usableReading(r && judge(r), now, 300)
+    assert.equal(u.ok, false)
+    return (u as { why: string }).why
+  }
+  assert.equal(refused(undefined), 'no reading')
+  // No opinion is not "closed": a night fill needs the checker to say closed.
+  assert.match(refused({ ...base, calendarOpen: null }), /calendar has no opinion/)
+  assert.match(refused({ ...base, calendarOpen: true, market: mkt(null), nasdaq: { ...at(1), session: null } }), /no source said which session/)
+  // Nor is a contradiction between its own sources.
+  assert.match(refused({ ...base, calendarOpen: false }), /calendar says closed but nasdaq market-info says regular session/)
+  // A source that failed to parse gave no quote, and no quote is no reference.
+  assert.match(
+    refused({ ...base, calendarOpen: true, nasdaq: null, errors: ['nasdaq SPY: no reading (unknown shape, price or timestamp)'] }),
+    /^no last sale \(nasdaq SPY: no reading \(unknown shape/,
+  )
+  // Five minutes in session, the program's bound; none outside it, where the
+  // program judges the close's age itself.
+  assert.match(refused({ ...base, calendarOpen: true, nasdaq: at(5.5) }), /last sale is 330s old in session, over 300s/)
+  const evening = usableReading(judge({ ...base, calendarOpen: false, market: mkt('after'), nasdaq: at(600) }), now, 300)
+  assert.ok(evening.ok && !evening.openNow)
 })
 
 /** Answer Nasdaq and Yahoo from the fixtures, and record every URL asked for. */

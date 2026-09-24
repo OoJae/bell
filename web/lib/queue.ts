@@ -20,6 +20,8 @@ import {
   authPda,
   ixCancelOrder,
   ixCancelSellOrder,
+  ixOptInNight,
+  ixOptOutNight,
   ixPlaceOrder,
   ixPlaceSellOrder,
   ixRefreshTokenRisk,
@@ -507,6 +509,34 @@ export function cancelSellOrderTxs(
   return txs
 }
 
+/**
+ * The rent a night opt-in holds while it exists, in SOL: 65 bytes of account,
+ * 1,343,280 lamports, returned in full when it is closed. The page checks the
+ * wallet can cover it, and a fee, before the wallet opens.
+ */
+export const NIGHT_OPT_IN_RENT_SOL = 0.00134328
+
+/**
+ * Consent to night fills, for every order this wallet has, live ones
+ * included: an order placed from this page carries `not_before` 0, so it is
+ * due whenever the gate allows, and at night with this in place the gate
+ * allows a fill inside the band. The page says so before the wallet opens.
+ * One instruction, one signature; the program creates the account, and the
+ * wallet pays its rent.
+ */
+export function optInNightTx(owner: PublicKey): Transaction {
+  return new Transaction().add(ixOptInNight(owner))
+}
+
+/**
+ * Withdraw that consent, for every order at once, and take the rent back.
+ * A fill reads only whether the account exists, so from the moment this lands
+ * every order of the wallet fills in session or not at all.
+ */
+export function optOutNightTx(owner: PublicKey): Transaction {
+  return new Transaction().add(ixOptOutNight(owner))
+}
+
 /** Orders closed per transaction by "revoke all": four accounts each, well inside the size limit. */
 const CLOSES_PER_TX = 6
 
@@ -561,8 +591,8 @@ const ANCHOR_ACCOUNT_NOT_INITIALIZED = 3012
 /**
  * Anchor's InstructionFallbackNotFound: the deployed program has no handler
  * for the instruction. The page can meet it only when it is newer than the
- * program it talks to, as a page with sell orders is before the upgrade that
- * adds them lands.
+ * program it talks to: a page with sell orders before the upgrade that added
+ * them, or one with the night toggle before the upgrade that adds night fills.
  */
 const ANCHOR_INSTRUCTION_NOT_FOUND = 101
 

@@ -14,8 +14,9 @@ import {
   txBytes,
   type Observation,
 } from '../src/chain/keeper.ts'
-import { ixPushMark, ixPushSession, ixRefreshTokenRisk } from '../src/chain/client.ts'
-import { MarkSource } from '../src/chain/codec.ts'
+import { ixPushMark, ixPushSession, ixRefreshTokenRisk, markPda, riskPda, symbolPda } from '../src/chain/client.ts'
+import { MARK_HELD_CONF_BPS, MarkSource, PROGRAM_ID, markHeld, rateQ64 } from '../src/chain/codec.ts'
+import { accountBytes, multiplierBits, symbolBytes } from './idl-bytes.ts'
 import { ALLOWLIST } from '../src/config.ts'
 import mirrors from '../src/mirrors.json' with { type: 'json' }
 import { LISTINGS, listingsFor, type Listing } from '../src/listings.ts'
@@ -362,6 +363,11 @@ test('a quote beyond the program ceiling is no mark; inside it, the mark is as b
 
 test('the breaker marker is the maximum with a real timestamp, never a mark nobody has priced', () => {
   assert.equal(BREAKER_CONF_BPS, 65_535)
+  // The keeper's names for the codec's, which the program's push_mark writes.
+  assert.equal(BREAKER_CONF_BPS, MARK_HELD_CONF_BPS)
+  for (const m of [{ confBps: 65_535, observedAt: 1n }, { confBps: 65_535, observedAt: 0n }, { confBps: 5, observedAt: 1n }]) {
+    assert.equal(breakerTripped(m), markHeld(m))
+  }
   assert.equal(breakerTripped({ confBps: 65_535, observedAt: 1_790_000_000n }), true)
   // What open_mark writes: the same width, observed_at 0. Its first price must go through.
   assert.equal(breakerTripped({ confBps: 65_535, observedAt: 0n }), false)
@@ -438,4 +444,100 @@ test('a name with no accounts on this cluster is left out of every push, not sen
     assert.equal(d.verdict.openNow, false)
     assert.match(d.verdict.detail, /\(Ondo status unread: /)
   }
+})
+
+/**
+ * One registered name, SPYx, with its mark held by the breaker, priced by a
+ * $200 quote. Only a push can release a held mark, so the keeper must price
+ * and push it like any other; this keeper once left held names out, which
+ * would have held them for good.
+ */
+async function heldTick(t: test.TestContext, heldPrice: number, confBps = MARK_HELD_CONF_BPS) {
+  const logs: string[] = []
+  t.mock.method(console, 'log', (...a: unknown[]) => void logs.push(a.join(' ')))
+  t.mock.method(console, 'warn', () => {})
+  const spy = ALLOWLIST.find((l) => l.symbol === 'SPYx')!
+  const mint = new PublicKey(spy.mint)
+  // 0.261 share of an 8-decimal stock for $200: $766.28 a share.
+  t.mock.method(globalThis, 'fetch', async (url: string | URL) => {
+    const u = String(url)
+    if (u.includes('nasdaqtrader.com')) return new Response('<rss><channel></channel></rss>', { status: 200 })
+    if (u.includes('/tokens/v2/search')) return new Response(JSON.stringify(ALLOWLIST.map((l) => ({ id: l.mainnetMint, decimals: 8 }))))
+    if (u.includes('/swap/v1/quote') && u.includes(spy.mainnetMint)) {
+      return new Response(JSON.stringify({ outAmount: '26100000', priceImpactPct: '0.001', routePlan: [{}] }))
+    }
+    return new Response('not in this test', { status: 503 })
+  })
+  t.after(() => ondoFeed.stop())
+  const now = Math.floor(Date.now() / 1000)
+  const attestor = Keypair.generate()
+  const accounts = new Map<string, Uint8Array>([
+    [
+      symbolPda('SPYx').toBase58(),
+      accountBytes('SymbolState', {
+        symbol: symbolBytes('SPYx'), mint, exchange_mic: Uint8Array.from([65, 82, 67, 88]), hours_mode: 0, halt: 0,
+        open_now: true, next_change_at: 0n, observed_at: BigInt(now - 20), attestor: attestor.publicKey, bump: 255,
+      }),
+    ],
+    [
+      riskPda(mint).toBase58(),
+      accountBytes('TokenRisk', {
+        mint, paused: false, multiplier_bits: multiplierBits(1), pending_multiplier_bits: 0n, activates_at: 0n,
+        rebase_kind: 0, hook: null, permanent_delegate: null, verified_at: BigInt(now - 20), attestor: attestor.publicKey, bump: 254,
+      }),
+    ],
+    [
+      markPda('SPYx').toBase58(),
+      accountBytes('SymbolMark', {
+        symbol: symbolBytes('SPYx'), mint, quote_mint: Keypair.generate().publicKey,
+        rate_q64: rateQ64({ pricePerShare: heldPrice, multiplier: 1, quoteDecimals: 6, stockDecimals: 8 }),
+        px_num: BigInt(Math.round(heldPrice * 1e6)), px_expo: -6, conf_bps: confBps, source: MarkSource.Jupiter,
+        observed_at: BigInt(now - 30), bump: 253,
+      }),
+    ],
+  ])
+  const info = (k: PublicKey) => {
+    const data = accounts.get(k.toBase58())
+    return data ? { data: Buffer.from(data), owner: PROGRAM_ID, lamports: 1, executable: false } : null
+  }
+  const conn = {
+    getMultipleAccountsInfo: async (keys: PublicKey[]) => keys.map(info),
+    getAccountInfo: async (k: PublicKey) => info(k),
+    getSlot: async () => 1,
+    getBlockTime: async () => now,
+  } as unknown as Connection
+  const r = await tick({ conn, attestor, dryRun: true })
+  return { r, logs }
+}
+
+test('a held mark is still priced and pushed, since only a push releases it; one near the held price should', async (t) => {
+  const { r, logs } = await heldTick(t, 766)
+  assert.equal(r.markError, null)
+  assert.deepEqual(r.breaker, ['SPYx'])
+  assert.deepEqual(r.marked, ['SPYx'], 'before, a held name was never priced, so it stayed held')
+  // Thirty seconds after the held observation the step allows 2.5%; $766.28
+  // against $766 is well inside it, so the program writes it and the hold clears.
+  assert.equal(r.marks[0].outcome, 'written')
+  const paused = logs.find((l) => l.includes('SPYx PAUSED (circuit breaker)'))
+  assert.ok(paused, logs.join('\n'))
+  assert.match(paused, /fills refuse as MarkPaused; the keeper keeps pushing/)
+  assert.match(paused, /\(this push \(\d+\.\d bps from the held rate\) should release it\)/)
+})
+
+test('a push the step does not allow is still sent, forecast as held, and a trip is said out loud', async (t) => {
+  // Held at twice the price: this push is far outside the step, so the program
+  // holds it again; sent anyway, since skipping it would not release anything.
+  const held = await heldTick(t, 1532)
+  assert.deepEqual(held.r.marked, ['SPYx'])
+  assert.equal(held.r.marks[0].outcome, 'held')
+  assert.match(held.logs.find((l) => l.includes('PAUSED'))!, /so the program holds it\)$/)
+})
+
+test('a live mark the push would move too far is forecast as a trip', async (t) => {
+  // Half the price is twice the rate, and the step is measured on the rate,
+  // as push_mark measures it: about 10,000 bps against 250.
+  const { r, logs } = await heldTick(t, 1532, 12)
+  assert.deepEqual(r.breaker, [])
+  assert.equal(r.marks[0].outcome, 'held')
+  assert.ok(logs.some((l) => /SPYx this push moves 99\d\d\.\d bps against the 250\.0 bps the time allows, so the program holds it \(circuit breaker trips\)/.test(l)), logs.join('\n'))
 })

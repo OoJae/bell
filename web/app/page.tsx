@@ -5,13 +5,17 @@ import { useWallet } from '@solana/wallet-adapter-react'
 import type { PublicKey } from '@solana/web3.js'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import {
+  bandText,
+  bound,
   clearsWhen,
   connection,
   explain,
   explainView,
   explorerAddress,
   explorerTx,
+  fillSide,
   loadBoard,
+  loadNightOptIn,
   loadOrders,
   loadSellOrders,
   marketLine,
@@ -35,6 +39,9 @@ import {
   MAX_ORDER_IN_RAW,
   MAX_ORDER_USD,
   maxSellRaw,
+  NIGHT_OPT_IN_RENT_SOL,
+  optInNightTx,
+  optOutNightTx,
   orderExpiry,
   packTransactions,
   placeInstructions,
@@ -65,7 +72,14 @@ import {
   upcomingOpens,
 } from '../../src/policy/order.ts'
 import { isRegularOpen, nextChange } from '../../src/policy/calendar.ts'
-import { LIMITS, multiplierOf as multiplierFromBits, sellOrderValue, stockToQuoteCeil } from '../../src/chain/codec.ts'
+import {
+  LIMITS,
+  MAX_NIGHT_GAP_BPS,
+  MAX_NIGHT_REF_AGE_SECONDS,
+  multiplierOf as multiplierFromBits,
+  sellOrderValue,
+  stockToQuoteCeil,
+} from '../../src/chain/codec.ts'
 import type { Reference } from '../lib/reference.ts'
 import type { TapeRow } from '../lib/tape.ts'
 
@@ -111,6 +125,12 @@ const BADGE: Record<Status, [text: string, tone: string]> = {
   hook: ['hook armed', 'stop'],
   offline: ['offline', 'dim'],
   unlisted: ['unlisted', 'dim'],
+  // A fill's own stops, after the gate. Each clears by itself, the breaker
+  // within five minutes, so they take the waiting tone rather than the halt's.
+  breaker: ['price paused', 'no'],
+  unchecked: ['unchecked', 'no'],
+  disputed: ['disputed', 'no'],
+  offband: ['off band', 'no'],
   refused: ['refused', 'no'],
 }
 
@@ -122,17 +142,26 @@ function Badge({ view }: { view: SymbolView }) {
 /**
  * A gate row's mark. A disclosure gets its own, because it is neither a pass
  * nor a failure, and a ✓ beside "can move this token out of your wallet" would
- * read as reassurance.
+ * read as reassurance. So does a check the program does not run yet: a ✓
+ * would claim a check nobody made, and a ✕ a refusal nobody meets.
  */
 const markOf = (ok: GateRow['ok']): [glyph: string, tone: string] =>
-  ok === 'disclosure' ? ['ⓘ', 'disclose'] : ok === null ? ['↻', 'wait'] : ok ? ['✓', 'pass'] : ['✕', 'fail']
+  ok === 'disclosure'
+    ? ['ⓘ', 'disclose']
+    : ok === 'unset'
+      ? ['–', 'wait']
+      : ok === null
+        ? ['↻', 'wait']
+        : ok
+          ? ['✓', 'pass']
+          : ['✕', 'fail']
 
 /**
  * New York time and the US session, ticking every second. Mounted only in the
  * browser: the server's second is never the browser's, so rendering it in
  * both places would mismatch on every hydration.
  */
-function Clock({ views }: { views: readonly SymbolView[] }) {
+function Clock({ views, nightOn }: { views: readonly SymbolView[]; nightOn: boolean }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
@@ -152,6 +181,14 @@ function Clock({ views }: { views: readonly SymbolView[] }) {
       )}
       {m.when && <> · {m.when}</>}
       {m.at && localWhenOf(m.at) && <> ({localWhenOf(m.at)})</>}
+      {/* Only with the session attested shut: at any other time a night fill
+          is not what this wallet's orders wait for. */}
+      {nightOn && m.state === 'closed' && (
+        <>
+          {' · '}
+          <span className="nightband">night band on: this wallet may fill within {MAX_NIGHT_GAP_BPS}bps</span>
+        </>
+      )}
     </>
   )
 }
@@ -408,6 +445,12 @@ export default function Page() {
   const tradeable = views.filter((v) => v.allowed).length
   const auth = useMemo(() => (publicKey ? authPda(publicKey) : null), [publicKey])
   const bellDelegated = !!(wallet && auth && wallet.delegate?.equals(auth))
+  // The wallet's consent to night fills, as the board last read it.
+  const nightOn = !!wallet?.night
+  // Whether the program here fills at night at all. Only the upgraded program
+  // has checks, and a night fill needs one, so before any exists the toggle
+  // says so instead of sending an instruction the program does not have.
+  const nightReady = views.some((v) => v.checked)
 
   /** The multiplier in force for a symbol, as the board last read it. */
   const multiplierOf = useCallback(
@@ -449,6 +492,12 @@ export default function Page() {
     },
     [auth, holdingAt, multiplierOf],
   )
+
+  /**
+   * What a queued order's notice adds for a wallet that fills at night: the
+   * bell is when it fills at the latest, not the only time it can.
+   */
+  const nightSooner = nightOn ? ' Night fills are on for this wallet, so it may fill sooner, inside the night band.' : ''
 
   const getFunds = useCallback(async () => {
     if (!publicKey) return
@@ -593,7 +642,7 @@ export default function Page() {
         : current.allowed
         ? `Placed $${usdAmount} of ${current.listing.symbol}. The filler settles it on its next pass, within about five minutes. Your funds stay in your wallet until then.`
         : current.status === 'closed'
-          ? `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet.`
+          ? `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet.${nightSooner}`
           : `Parked $${usdAmount} of ${current.listing.symbol}; it fills when ${clearsWhen(current)}. Your funds never left your wallet.`
       const limitNote =
         limitUsd === null
@@ -608,7 +657,7 @@ export default function Page() {
     } finally {
       setBusy(false)
     }
-  }, [amount, conn, current, known, limit, multiplierOf, publicKey, refresh, repeat, signAllTransactions, signTransaction, wallet])
+  }, [amount, conn, current, known, limit, multiplierOf, nightSooner, publicKey, refresh, repeat, signAllTransactions, signTransaction, wallet])
 
   /**
    * Place a sale. The mirror of `place()` on the other account: the approval is
@@ -712,7 +761,7 @@ export default function Page() {
       const placed = current.allowed
         ? `Placed a sale of ${sharesOf(shown, symbol)}. The filler settles it on its next pass, within about five minutes. Your shares stay in your wallet until then.`
         : current.status === 'closed'
-          ? `Queued a sale of ${sharesOf(shown, symbol)} for the opening bell. Your shares never left your wallet.`
+          ? `Queued a sale of ${sharesOf(shown, symbol)} for the opening bell. Your shares never left your wallet.${nightSooner}`
           : `Parked a sale of ${sharesOf(shown, symbol)}; it fills when ${clearsWhen(current)}. Your shares never left your wallet.`
       const limitNote =
         limitUsd === null
@@ -728,7 +777,7 @@ export default function Page() {
     } finally {
       setBusy(false)
     }
-  }, [conn, current, knownSells, multiplierOf, publicKey, refresh, sellLimit, sellShares, signTransaction, wallet])
+  }, [conn, current, knownSells, multiplierOf, nightSooner, publicKey, refresh, sellLimit, sellShares, signTransaction, wallet])
 
   const cancel = useCallback(
     async (order: BellOrder) => {
@@ -971,6 +1020,65 @@ export default function Page() {
     }
   }, [auth, conn, holdingAt, orders, publicKey, refresh, sells, signAllTransactions, signTransaction, wallet])
 
+  /**
+   * Night fills on or off, for every order this wallet has.
+   *
+   * What to send is decided from a fresh read, not the last poll's, and only
+   * in the direction the switch showed: opting in twice fails on the account
+   * that exists, opting out with none fails on the one that does not, and a
+   * press that meant "on" must never turn it off.
+   */
+  const toggleNight = useCallback(async () => {
+    if (!publicKey || !signTransaction) return
+    const want = !nightOn
+    setBusy(true)
+    setNotice(null)
+    try {
+      let on: boolean
+      try {
+        on = (await loadNightOptIn(conn, publicKey)) !== null
+      } catch {
+        throw new Error('Could not read whether night fills are on for this wallet just now, so nothing was sent. Try again in a moment.')
+      }
+      if (on === want) {
+        setNotice({ ok: true, text: `Night fills are already ${on ? 'on' : 'off'} for this wallet; nothing was sent.` })
+      } else if (want) {
+        // The opt-in is an account, and its rent comes from this wallet.
+        if (!wallet || wallet.sol < NIGHT_OPT_IN_RENT_SOL + 0.00001) {
+          throw new Error(
+            `Night fills hold about ${NIGHT_OPT_IN_RENT_SOL.toFixed(4)} devnet SOL of rent while they are on, returned when you turn them off — use "Get demo funds".`,
+          )
+        }
+        const sig = await submit(conn, optInNightTx(publicKey), publicKey, signTransaction)
+        setNotice({
+          ok: true,
+          sig,
+          text: `Night fills are on, for every live order of this wallet and every one after. While New York is shut, an order fills only when the pool's price is within ${bandText(MAX_NIGHT_GAP_BPS)} of the exchange's last price, and only within ${bound(MAX_NIGHT_REF_AGE_SECONDS)} of that sale; a halt, a paused mint or a dividend window still refuses it.`,
+        })
+      } else {
+        const sig = await submit(conn, optOutNightTx(publicKey), publicKey, signTransaction)
+        setNotice({
+          ok: true,
+          sig,
+          text: 'Night fills are off. Every order of this wallet fills only in the regular session again, and the rent is back.',
+        })
+      }
+      await refresh()
+    } catch (e) {
+      // A program without night fills refuses the instruction as unknown
+      // before it runs; that is said as what it means for this switch.
+      setNotice({
+        ok: false,
+        text:
+          refusalFrom(e) === 'InstructionFallbackNotFound'
+            ? 'The program on this cluster does not take night fills yet; they arrive with its next upgrade. Nothing landed.'
+            : describe(e),
+      })
+    } finally {
+      setBusy(false)
+    }
+  }, [conn, nightOn, publicKey, refresh, signTransaction, wallet])
+
   const bookFunded = orders ? funded(orders) : true
   const canPlace = !!current && !['withdrawn', 'offline', 'unlisted'].includes(current.status)
 
@@ -1055,7 +1163,7 @@ export default function Page() {
           </div>
           {mounted && <WalletMultiButton />}
         </div>
-        <div className="clock">{mounted && <Clock views={views} />}</div>
+        <div className="clock">{mounted && <Clock views={views} nightOn={!!publicKey && nightOn} />}</div>
         <div className="sub" style={{ marginTop: 8 }}>
           {views.length > 0 && (
             <>
@@ -1115,6 +1223,36 @@ export default function Page() {
             ))}
           </div>
         )}
+        {/* Night fills, off by default. Not `.bal`: the demo script reads the
+            first `.bal` as the balances row. The sentence beside the switch is
+            what the owner consents to, so it is always there, on or off. */}
+        {publicKey && wallet && (
+          <div className="night">
+            <button
+              type="button"
+              role="switch"
+              className="switch"
+              aria-checked={nightOn}
+              aria-labelledby="night-label"
+              disabled={busy || (!nightOn && !nightReady)}
+              onClick={() => void toggleNight()}
+            >
+              <span className="knob" />
+            </button>
+            <span>
+              <strong id="night-label">Fill my orders at night, inside the band</strong> · {nightOn ? 'on' : 'off'}.{' '}
+              {!nightOn && !nightReady && <>Not set up yet: night fills arrive with the program&apos;s next upgrade. </>}
+              For every live order of this wallet, including ones already placed (a recurring buy&apos;s later
+              days still keep to their own open): while New York is shut, an
+              order fills only when the pool&apos;s price is within {bandText(MAX_NIGHT_GAP_BPS)} of the
+              exchange&apos;s last price, and only within {bound(MAX_NIGHT_REF_AGE_SECONDS)} of that sale, so a
+              weekend mostly waits for the bell. A halt, a paused mint or a dividend window still refuses it.
+              {nightOn
+                ? ' Off stops night fills for every order at once and returns the rent.'
+                : ` On holds about ${NIGHT_OPT_IN_RENT_SOL.toFixed(4)} SOL of rent until you turn it off.`}
+            </span>
+          </div>
+        )}
       </header>
 
       {error && (
@@ -1137,9 +1275,23 @@ export default function Page() {
           >
             <div className="sym">
               {v.listing.symbol} <Badge view={v} />
+              {/* The night band, on the board: this wallet opted in, the session
+                  is shut, and nothing but "market open" stands in the way. */}
+              {publicKey && nightOn && v.registered && !v.openNow && v.nightReason === null && (
+                <span className="nb" title="Inside the night band: an order of yours here may fill before the bell">
+                  {' '}☾
+                </span>
+              )}
             </div>
             <div className="px">
-              {v.priceUsd ? `$${v.priceUsd.toFixed(2)}` : 'no price'} · {v.listing.issuer}
+              {/* A held price is the last one the breaker let through: shown as
+                  held, since the badge already says nothing fills on it. */}
+              {v.priceUsd
+                ? `$${v.priceUsd.toFixed(2)}`
+                : v.markHeld && v.markPx
+                  ? `$${(Number(v.markPx.num) * 10 ** v.markPx.expo).toFixed(2)} held`
+                  : 'no price'}{' '}
+              · {v.listing.issuer}
             </div>
           </button>
         ))}
@@ -1191,6 +1343,23 @@ export default function Page() {
               </div>
             )
           })()}
+
+          {/* What night fills mean for this symbol now, for a wallet that
+              opted in. The verdict above stays the session's: it is what an
+              order that has not opted in meets, and the bell is when an order
+              that has fills at the latest. */}
+          {publicKey && nightOn && current.registered && !current.openNow && (
+            <div className="note nightnote">
+              ☾ Night fills are on for this wallet.{' '}
+              {current.nightReason === null
+                ? `${current.listing.symbol} is inside the night band${
+                    current.refGap
+                      ? ` (${current.refGap.bps}bps from the checker's last sale, within ${current.refGap.bandBps}bps)`
+                      : ''
+                  }, so an order of yours here may fill before the bell.`
+                : `${current.listing.symbol} does not fill at night right now: ${explain(current.nightReason)}`}
+            </div>
+          )}
 
           {/* The note describes the real security. A devnet mirror is not it,
               and a note like "an entitlement to the real PFE share" would be
@@ -1422,12 +1591,15 @@ export default function Page() {
           {fills.map((f) => {
             const at = Math.floor(Date.parse(f.time) / 1000)
             const after = minutesAfterOpen(at)
+            // A cross is one row with both parties on it; this wallet's side
+            // is the one it is named on.
+            const sold = fillSide(f, publicKey.toBase58()) === 'sold'
+            const crossed = f.direction === 'cross'
             // Over the checked price, as a price: the program's `realizedBps`
             // is the stock short of fair, rounded down, so a fill at the edge
             // of a 30bps band reads 31 beside a box that promised at most 30.
             // On a sale it is the quote short of fair, which is a price under
             // the mark, so the fallback turns it the other way.
-            const sold = f.direction === 'sell'
             const over =
               f.priceUsd !== null && f.markPriceUsd > 0
                 ? Math.round((f.priceUsd / f.markPriceUsd - 1) * 10_000)
@@ -1437,12 +1609,24 @@ export default function Page() {
             const count =
               f.shares !== null ? f.shares.toLocaleString(undefined, { maximumFractionDigits: 6 }) : f.stockRaw + ' raw'
             return (
-              <div className="receipt" key={`${f.signature}:${f.order}`}>
+              // One transaction can carry several crosses of one buy against
+              // different sales, so the sale is part of what tells rows apart.
+              <div className="receipt" key={`${f.signature}:${f.direction}:${f.order}:${f.sellOrder ?? ''}`}>
                 <span className="label">{f.symbol}</span>
                 <span className="detail">
                   {nyWhenOf(at)}
                   {after !== null ? ` · ${after} min after the bell` : ''} ·{' '}
-                  {sold ? (
+                  {crossed ? (
+                    // No filler stood between the two sides, so there is no
+                    // spread to report: the price is the pool's, and that is
+                    // all the line claims. Not "fair": the pool's price is an
+                    // executable ask, spread and all.
+                    <>
+                      crossed with another user at the pool&apos;s price, no filler spread: {sold ? 'sold' : 'bought'}{' '}
+                      {count} {f.symbol}
+                      {f.priceUsd !== null ? ` at $${f.priceUsd.toFixed(2)} a share` : ''} for ${f.notionalUsd.toFixed(2)}
+                    </>
+                  ) : sold ? (
                     <>
                       sold {count} {f.symbol} for ${f.notionalUsd.toFixed(2)}
                       {f.priceUsd !== null ? ` ($${f.priceUsd.toFixed(2)} a share)` : ''}
@@ -1454,7 +1638,12 @@ export default function Page() {
                     </>
                   )}{' '}
                   ·{' '}
-                  {over < 0 ? `${-over}bps under` : `${over}bps over`} the price it was checked against (${f.markPriceUsd.toFixed(2)}, a {f.markSource} quote) ·{' '}
+                  {/* A cross settles at the price it is checked against, so it has no "over" to report. */}
+                  {!crossed && (
+                    <>
+                      {over < 0 ? `${-over}bps under` : `${over}bps over`} the price it was checked against (${f.markPriceUsd.toFixed(2)}, a {f.markSource} quote) ·{' '}
+                    </>
+                  )}
                   <a href={f.explorer} target="_blank" rel="noreferrer">
                     receipt on the explorer ↗
                   </a>
@@ -1463,7 +1652,7 @@ export default function Page() {
             )
           })}
           <div className="note">
-            Read back from the chain by this site&apos;s tape route: each line is a fill transaction and
+            Read back from the chain by this site&apos;s tape route: each line is a fill or a cross and
             the event the program emitted when it settled, and each links to that transaction, so none of
             it rests on our word. The same record, for every buyer and seller and without wallets, is the
             public tape at <a href="/api/tape">/api/tape</a>.
@@ -1497,7 +1686,9 @@ export default function Page() {
                           : view?.allowed
                           ? ' · the filler settles it on its next pass'
                           : !view || view.status === 'closed'
-                            ? ' · waiting for the bell'
+                            ? nightOn
+                              ? ' · waiting for the bell, or a night fill inside the band'
+                              : ' · waiting for the bell'
                             : ` · parked — fills when ${clearsWhen(view)}`}{' '}
                   {(() => {
                     // The floor as a price: rate and price are inverse, so the
@@ -1558,7 +1749,9 @@ export default function Page() {
                         : view?.allowed
                           ? ' · the filler settles it on its next pass'
                           : !view || view.status === 'closed'
-                            ? ' · waiting for the bell'
+                            ? nightOn
+                              ? ' · waiting for the bell, or a night fill inside the band'
+                              : ' · waiting for the bell'
                             : ` · parked — fills when ${clearsWhen(view)}`}{' '}
                   {(() => {
                     // The floor as a price. A sale's floor is quote per stock,

@@ -1,6 +1,6 @@
 /**
- * The public tape: every BELL fill in the last thirty days, in the shape §II.G
- * of SEC Order 34-106402 gives a transaction report.
+ * The public tape: every BELL fill and cross in the last thirty days, in the
+ * shape §II.G of SEC Order 34-106402 gives a transaction report.
  *
  * §II.G asks a Tokenized Securities Venue to publish, free and machine-readable,
  * for every transaction in the past thirty days and within ten minutes of it:
@@ -10,15 +10,15 @@
  * because every number here is already public on chain, and a venue that says
  * "the transaction is the record" should make the record easy to read.
  *
- * The fills themselves are read by `fillsOf`, in `src/chain/fills.ts` and
- * re-exported below. Everything from there to the loader is pure: a
- * transaction as the RPC returns it goes in, rows come out. The loader at the
- * bottom is the only part that talks to the network, and it takes its
- * transport as an argument so tests can stand in for the RPC.
+ * The fills and crosses themselves are read by `tradesOf`, in
+ * `src/chain/fills.ts` and re-exported below. Everything from there to the
+ * loader is pure: a transaction as the RPC returns it goes in, rows come out.
+ * The loader at the bottom is the only part that talks to the network, and it
+ * takes its transport as an argument so tests can stand in for the RPC.
  */
 import { decodeSymbolMark } from '../../src/chain/codec.ts'
 import { markPda } from '../../src/chain/client.ts'
-import { PROGRAM_ADDRESS, fillsOf, fromBase64, type RpcTransaction } from '../../src/chain/fills.ts'
+import { PROGRAM_ADDRESS, fromBase64, tradesOf, type RpcTransaction } from '../../src/chain/fills.ts'
 import type { Listing } from '../../src/listings.ts'
 
 // The fill reader moved to src/chain/fills.ts so the keeper, whose image holds
@@ -26,14 +26,20 @@ import type { Listing } from '../../src/listings.ts'
 // here under the names the tape always had, so every import of them still
 // works and the tape and the alerts cannot disagree about what a fill is.
 export {
+  crossesOf,
   decodeOrderFilled,
+  decodeOrdersCrossed,
   decodeSellOrderFilled,
   fillsOf,
   fromBase58,
+  tradesOf,
+  type Cross,
   type Fill,
   type OrderFilled,
+  type OrdersCrossed,
   type RpcInstruction,
   type RpcTransaction,
+  type Trade,
 } from '../../src/chain/fills.ts'
 
 export const PROGRAM_ID: string = PROGRAM_ADDRESS
@@ -127,9 +133,12 @@ export interface TapeRow {
   pairedMint: string
   /**
    * A buy contributes `paired` and withdraws `symbol`; a sell contributes
-   * `symbol` and withdraws `paired`.
+   * `symbol` and withdraws `paired`. A cross is a buy and a sell settled
+   * against each other with no filler: the buyer contributed `paired` and
+   * withdrew `symbol`, the seller the reverse, and `contributed` and
+   * `withdrawn` are given from the buyer's side, since the quote leads.
    */
-  direction: 'buy' | 'sell'
+  direction: 'buy' | 'sell' | 'cross'
   contributed: string
   withdrawn: string
   /** Dollars per share; null when the stock mint's multiplier could not be read. */
@@ -147,26 +156,38 @@ export interface TapeRow {
   markObservedAt: string
   /**
    * How far below the mark's fair value the user's side landed, in bps: the
-   * stock a buy received, or the quote a sell was paid.
+   * stock a buy received, or the quote a sell was paid. Zero on a cross, for
+   * both sides: the buyer receives exactly the stock the quote buys at the
+   * mark, and the seller at least the quote the stock is worth there.
    */
   realizedBps: number
+  /** The order filled; on a cross, the buy order (the sell order is `sellOrder`). */
   order: string
   program: string
+  /**
+   * Who settled it. On a cross, the account that sent the transaction: it
+   * supplied nothing and was paid nothing, since the two owners' own orders
+   * are each other's counterparty.
+   */
   filler: string
   signature: string
   explorer: string
+  /** On a cross only: the sell order it settled against `order`. */
+  sellOrder?: string
   /**
    * The buyer's wallet. Never in the public tape: the route strips it, and
    * returns it only to a request for one buyer's own fills (`?buyer=`), which is
    * how the page shows you your receipts. Anyone can follow `signature` to the
    * same address, so this reveals nothing — but the default view is not an index.
-   * Set on buys only.
+   * Set on buys and crosses.
    */
   buyer?: string
   /**
-   * The seller's wallet, on sells only, and kept off the public tape exactly as
-   * `buyer` is. A separate field rather than `buyer` reused, so a request for
-   * one wallet's purchases can never return its sales as though they were.
+   * The seller's wallet, on sells and crosses, and kept off the public tape
+   * exactly as `buyer` is. A separate field rather than `buyer` reused, so a
+   * request for one wallet's purchases can never return its sales as though
+   * they were. A cross carries both, so either party's request finds it; see
+   * `rowsFor` for how each is shown only its own side.
    */
   seller?: string
 }
@@ -194,22 +215,27 @@ export function explorerTx(signature: string, cluster: string): string {
 }
 
 /**
- * A transaction's fills as tape rows, and how many it left off because they
- * were not fills of a listed security.
+ * A transaction's fills and crosses as tape rows, and how many it left off
+ * because they were not trades of a listed security.
  *
  * `register_symbol` and `open_mark` are permissionless, so anyone can create a
  * ticker, attest its price as its own attestor and fill against it through this
  * same program. Those are not BELL's listings, and a tape that printed them
  * would let a stranger write whatever price they liked onto BELL's record. A
- * fill is kept only when its symbol is listed and its stock mint is the one
+ * trade is kept only when its symbol is listed and its stock mint is the one
  * that listing is pinned to.
+ *
+ * A cross is one row, not one per party. It is one transaction at one price,
+ * and §II.G reports transactions: two rows would count its shares twice in the
+ * day's volume and print the same trade twice on the public tape. Its row
+ * carries both wallets, so the per-wallet view finds it by either one.
  */
 export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]; excluded: number } {
   const signature = tx.transaction.signatures[0]
   const at = tx.blockTime
-  const fills = fillsOf(tx)
+  const trades = tradesOf(tx)
   if (at === null) {
-    if (fills.length) throw new Error('no block time')
+    if (trades.length) throw new Error('no block time')
     return { rows: [], excluded: 0 }
   }
   const balances = [...(tx.meta?.preTokenBalances ?? []), ...(tx.meta?.postTokenBalances ?? [])]
@@ -218,34 +244,34 @@ export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]
 
   const rows: TapeRow[] = []
   let excluded = 0
-  for (const f of fills) {
-    const listing = ctx.listing(f.event.symbol, f.stockMint)
+  for (const t of trades) {
+    const listing = ctx.listing(t.event.symbol, t.stockMint)
     if (!listing) {
       excluded++
       continue
     }
-    const qd = decimalsOf(f.quoteMint)
-    const sd = decimalsOf(f.stockMint)
-    if (qd === null || sd === null) throw new Error(`decimals unknown for ${f.event.symbol}`)
-    // Each event names its legs from the user's side (see `OrderFilled`), so
-    // which one is stock depends on the side.
-    const sell = f.side === 'sell'
-    const quoteRaw = sell ? f.event.amountOut : f.event.amountIn
-    const stockRaw = sell ? f.event.amountIn : f.event.amountOut
+    const qd = decimalsOf(t.quoteMint)
+    const sd = decimalsOf(t.stockMint)
+    if (qd === null || sd === null) throw new Error(`decimals unknown for ${t.event.symbol}`)
+    // A fill's event names its legs from the user's side (see `OrderFilled`),
+    // so which one is stock depends on the side. A cross names them outright.
+    const sell = t.side === 'sell'
+    const quoteRaw = t.side === 'cross' ? t.event.quote : sell ? t.event.amountOut : t.event.amountIn
+    const stockRaw = t.side === 'cross' ? t.event.stock : sell ? t.event.amountIn : t.event.amountOut
     const notional = Number(quoteRaw) / 10 ** qd
-    const cfg = ctx.scaled(f.stockMint)
+    const cfg = ctx.scaled(t.stockMint)
     const multiplier = cfg ? multiplierAt(cfg, at) : null
     const shares = multiplier === null ? null : (Number(stockRaw) / 10 ** sd) * multiplier
-    const paired = ctx.label(f.quoteMint)
+    const paired = ctx.label(t.quoteMint)
     rows.push({
       time: iso(at),
       slot: tx.slot,
       symbol: listing.symbol,
       underlying: listing.underlying,
-      stockMint: f.stockMint,
+      stockMint: t.stockMint,
       paired,
-      pairedMint: f.quoteMint,
-      direction: f.side,
+      pairedMint: t.quoteMint,
+      direction: t.side,
       contributed: sell ? listing.symbol : paired,
       withdrawn: sell ? paired : listing.symbol,
       priceUsd: shares ? round(notional / shares, 6) : null,
@@ -257,21 +283,53 @@ export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]
       // Divided rather than multiplied by a negative power: 10^-6 is not
       // exact in binary, and 772617876 × 1e-6 prints as 772.6178759999999.
       markPriceUsd:
-        f.event.pxExpo < 0
-          ? Number(f.event.pxNum) / 10 ** -f.event.pxExpo
-          : Number(f.event.pxNum) * 10 ** f.event.pxExpo,
-      markSource: f.event.source,
-      markObservedAt: iso(f.event.markObservedAt),
-      realizedBps: f.event.realizedBps,
-      order: f.order,
+        t.event.pxExpo < 0
+          ? Number(t.event.pxNum) / 10 ** -t.event.pxExpo
+          : Number(t.event.pxNum) * 10 ** t.event.pxExpo,
+      markSource: t.event.source,
+      markObservedAt: iso(t.event.markObservedAt),
+      realizedBps: t.side === 'cross' ? 0 : t.event.realizedBps,
+      order: t.side === 'cross' ? t.buyOrder : t.order,
       program: PROGRAM_ID,
-      filler: f.filler,
+      filler: t.side === 'cross' ? t.cranker : t.filler,
       signature,
       explorer: explorerTx(signature, ctx.cluster),
-      ...(sell ? { seller: f.owner } : { buyer: f.owner }),
+      ...(t.side === 'cross'
+        ? { sellOrder: t.sellOrder, buyer: t.buyer, seller: t.seller }
+        : sell
+          ? { seller: t.owner }
+          : { buyer: t.owner }),
     })
   }
   return { rows, excluded }
+}
+
+/**
+ * The rows a tape request may see.
+ *
+ * With no wallet asked for, every row with its wallets taken off: the public
+ * tape. With one, or a buyer and a seller, only the rows that wallet is a
+ * party to, each carrying the asked-for wallet and no other. A cross names
+ * both parties, so it is found by either one's request, and each is then
+ * shown only its own side: a wallet's receipts are not a list of whom it
+ * traded with. Buy and sell rows come back exactly as the tape holds them.
+ */
+export function rowsFor(rows: readonly TapeRow[], ask: { buyer?: string | null; seller?: string | null }): TapeRow[] {
+  const { buyer, seller } = ask
+  if (!buyer && !seller) return rows.map(({ buyer: _b, seller: _s, ...r }) => r)
+  const out: TapeRow[] = []
+  for (const r of rows) {
+    const asBuyer = Boolean(buyer) && r.buyer === buyer
+    const asSeller = Boolean(seller) && r.seller === seller
+    if (!asBuyer && !asSeller) continue
+    if (r.direction !== 'cross') {
+      out.push(r)
+      continue
+    }
+    const { buyer: b, seller: s, ...rest } = r
+    out.push({ ...rest, ...(asBuyer ? { buyer: b } : {}), ...(asSeller ? { seller: s } : {}) })
+  }
+  return out
 }
 
 /** §II.G's "daily asset pair share volume": the 24 hours before `now`, per pair. */
@@ -401,9 +459,10 @@ interface AccountInfo {
  * account, the program requires that to be the mark's, and each mark's quote
  * mint is fixed when it is opened, so every fill of a listed symbol appears in
  * its mark's quote mint's history. `fill_sell_order` names the quote mint the
- * same way under the same rule, so sells are found by the same search. Which
- * quote mints those are is read from the marks themselves on every refresh,
- * not configured.
+ * same way under the same rule, and `cross_orders` names the buy's, which the
+ * program requires to be the sell's and the mark's, so sells and crosses are
+ * found by the same search. Which quote mints those are is read from the marks
+ * themselves on every refresh, not configured.
  *
  * Transactions are immutable once finalized, so each is read once and kept for
  * as long as it is inside the window; a refresh walks back from the newest
@@ -605,10 +664,11 @@ export function createTape(opts: {
 function notes(cluster: string): Record<string, string> {
   return {
     scope:
-      'Every fill_order and fill_sell_order of a listed symbol that finalized in the window. BELL has ' +
-      'no liquidity pool: on a buy a filler delivers the stock from its own inventory and is paid by the ' +
-      'buyer’s delegation, and on a sell it pays the quote and takes the stock by the seller’s delegation, ' +
-      'so there is no pool size to report and the program address stands in for a pool contract.',
+      'Every fill_order, fill_sell_order and cross_orders of a listed symbol that finalized in the window. ' +
+      'BELL has no liquidity pool: on a buy a filler delivers the stock from its own inventory and is paid ' +
+      'by the buyer’s delegation, on a sell it pays the quote and takes the stock by the seller’s ' +
+      'delegation, and on a cross a buyer and a seller settle directly by their own delegations, with no ' +
+      'filler. So there is no pool size to report and the program address stands in for a pool contract.',
     price:
       'priceUsd is notionalUsd divided by the shares bought or sold, where shares are raw units times the ' +
       'stock mint’s scaled-UI multiplier in force at the block time. markPriceUsd is the attested ' +
@@ -620,7 +680,9 @@ function notes(cluster: string): Record<string, string> {
           'only so the arithmetic is the one mainnet USDC would use.',
     direction:
       'A buy contributes the paired asset and withdraws the stock; a sell contributes the stock and ' +
-      'withdraws the paired asset.',
+      'withdraws the paired asset. A cross is one row for both: the buyer contributed the paired asset ' +
+      'and withdrew the stock, the seller the reverse, at the attested mark with no filler spread; its ' +
+      'contributed and withdrawn are the buyer’s, and its order is the buy order.',
     time: 'The block time the cluster reports for the transaction, in UTC.',
     freshness:
       `Refreshed at most once a minute, at finalized commitment. A fill reaches the tape on the first ` +

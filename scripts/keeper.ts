@@ -9,7 +9,13 @@
  */
 import { ALERT_RPC_TIMEOUT_MS, createAlerts } from '../src/alerts.ts'
 import { connect, readAllSymbols, rpcUrl } from '../src/chain/client.ts'
-import { MarkSource, REBASE_GUARD_SECONDS } from '../src/chain/codec.ts'
+import {
+  MAX_MARK_STEP_AGE_SECONDS,
+  MAX_MARK_STEP_BPS,
+  MarkSource,
+  REBASE_GUARD_SECONDS,
+  markHeld,
+} from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
 import { ALLOWLIST, CLUSTER } from '../src/config.ts'
@@ -131,10 +137,26 @@ async function once(started = Date.now()) {
     } catch (e) {
       unrecorded.push(`ticks: ${(e as Error).message}`)
     }
-    if (!result.dryRun && result.markSignature && result.marks.length > 0) {
+    // Only the pushes the program wrote. One the circuit breaker held never
+    // became the price: the mark kept its old rate and fills refuse it as
+    // MarkPaused, so recording it would put a price nobody could pay into the
+    // table the report reads as what buyers paid. Confirmed from the mark as
+    // it reads now, the push's own time and no hold marker; with no read, the
+    // tick's forecast stands in.
+    const written = result.marks.filter((m) => {
+      const onChain = after?.get(m.symbol)?.mark
+      if (!after || !onChain) return (m.outcome ?? 'written') === 'written'
+      return !markHeld(onChain) && onChain.observedAt === BigInt(m.observedAt)
+    })
+    const notWritten = result.marks.length - written.length
+    if (!result.dryRun && notWritten > 0) {
+      const names = result.marks.filter((m) => !written.includes(m)).map((m) => m.symbol)
+      console.log(`  breaker: ${names.join(', ')} not written (held), so not recorded as marks`)
+    }
+    if (!result.dryRun && result.markSignature && written.length > 0) {
       try {
         recorder.recordMarks(
-          result.marks.map((m) => ({
+          written.map((m) => ({
             at,
             observedAt: m.observedAt,
             symbol: m.symbol,
@@ -203,6 +225,26 @@ async function once(started = Date.now()) {
             })
           : null,
         guardSeconds: REBASE_GUARD_SECONDS,
+        // Whether each mark is held, as read after this tick's pushes: a
+        // change either way is said once. The prices are the one on record
+        // and the one this tick pushed that was held.
+        breakers: after
+          ? result.decisions.flatMap((d) => {
+              const m = after.get(d.listing.symbol)?.mark
+              if (!m || m.observedAt === 0n) return []
+              const held = markHeld(m)
+              const pushed = result.marks.find((x) => x.symbol === d.listing.symbol)
+              return [
+                {
+                  symbol: d.listing.symbol,
+                  held,
+                  heldPrice: held ? Number(m.pxNum) * 10 ** m.pxExpo : null,
+                  pushedPrice: held && pushed ? Number(pushed.pxNum) * 10 ** pushed.pxExpo : null,
+                },
+              ]
+            })
+          : null,
+        markStep: { bps: MAX_MARK_STEP_BPS, resetSeconds: MAX_MARK_STEP_AGE_SECONDS },
       })
       if (events.length > 0) void notify(events, { cluster: CLUSTER })
     } catch (e) {

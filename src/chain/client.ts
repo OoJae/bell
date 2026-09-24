@@ -20,7 +20,9 @@ import {
   MarkSource,
   accountDiscriminator,
   decodeBellOrder,
+  decodeNightOptIn,
   decodeSellOrder,
+  decodeSymbolCheck,
   decodeSymbolMark,
   decodeSymbolState,
   decodeTokenRisk,
@@ -28,20 +30,28 @@ import {
   encodeCancelOrder,
   encodeCancelSellOrder,
   encodeClassifyRebase,
+  encodeCrossOrders,
   encodeFillOrder,
   encodeFillSellOrder,
   encodeInitTokenRisk,
+  encodeOpenCheck,
   encodeOpenMark,
+  encodeOptInNight,
+  encodeOptOutNight,
   encodePlaceOrder,
   encodePlaceSellOrder,
+  encodePushCheck,
   encodePushMark,
   encodePushSession,
   encodeRefreshTokenRisk,
   encodeRegisterSymbol,
+  nightConsent,
   type RebaseKind,
   errorName,
   type BellOrder,
+  type NightOptIn,
   type SellOrder,
+  type SymbolCheck,
   type SymbolMark,
   type SymbolState,
   type TokenRisk,
@@ -55,6 +65,8 @@ const MARK_SEED = Buffer.from('mark')
 const ORDER_SEED = Buffer.from('ord')
 const SELL_SEED = Buffer.from('sell')
 const AUTH_SEED = Buffer.from('auth')
+const CHECK_SEED = Buffer.from('check')
+const NIGHT_SEED = Buffer.from('night')
 
 /** Plain SPL Token, which is what the quote leg (USDC) lives under. */
 export const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
@@ -108,6 +120,25 @@ export const sellOrderPda = (owner: PublicKey, nonce: bigint) =>
  */
 export const authPda = (owner: PublicKey) =>
   PublicKey.findProgramAddressSync([AUTH_SEED, owner.toBytes()], PROGRAM_ID)[0]
+
+/** A symbol's check: the second signer's view of its session and last sale. One per symbol. */
+export const checkPda = (symbol: string) =>
+  PublicKey.findProgramAddressSync([CHECK_SEED, Buffer.from(symbolSeed(symbol))], PROGRAM_ID)[0]
+
+/**
+ * An owner's night opt-in. Per owner rather than per order, because consent
+ * to fills while the market is shut is a decision about the owner's orders,
+ * all of them, including those already placed.
+ */
+export const nightPda = (owner: PublicKey) =>
+  PublicKey.findProgramAddressSync([NIGHT_SEED, owner.toBytes()], PROGRAM_ID)[0]
+
+/** The upgradeable loader, which owns the account that names the program's upgrade authority. */
+export const BPF_LOADER_UPGRADEABLE = new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111')
+
+/** The program's ProgramData account, which `open_check` reads the upgrade authority from. */
+export const programDataPda = () =>
+  PublicKey.findProgramAddressSync([PROGRAM_ID.toBytes()], BPF_LOADER_UPGRADEABLE)[0]
 
 // ------------------------------------------------------------- instructions
 
@@ -332,10 +363,26 @@ export function ixFillOrder(args: {
       { pubkey: o.mint, isSigner: false, isWritable: false },
       { pubkey: args.quoteTokenProgram ?? TOKEN_PROGRAM, isSigner: false, isWritable: false },
       { pubkey: args.stockTokenProgram ?? TOKEN_2022, isSigner: false, isWritable: false },
+      ...checkedFillTail(o),
     ],
     data: encodeFillOrder({ amountInLeg: args.amountInLeg, amountOut: args.amountOut }),
   })
 }
+
+/**
+ * The two accounts every fill has carried since the checker: the symbol's
+ * check, and the owner's night opt-in.
+ *
+ * The opt-in's address is passed whether or not anything lives there. The
+ * program reads it as consent only when it is this program's `NightOptIn`
+ * naming the order's owner, so an empty address is simply "not opted in", and
+ * a filler cannot choose to leave it out: the program counts accounts, and a
+ * fill without these two fails with AccountNotEnoughKeys before it runs.
+ */
+const checkedFillTail = (o: Pick<BellOrder, 'symbol' | 'owner'>) => [
+  { pubkey: checkPda(o.symbol), isSigner: false, isWritable: false },
+  { pubkey: nightPda(o.owner), isSigner: false, isWritable: false },
+]
 
 // --------------------------------------------------------------- sell side
 //
@@ -407,7 +454,7 @@ export function ixCancelSellOrder(args: {
  * Settle a sell: the filler pays quote from `fillerOut` first, and the program
  * then takes the stock into `fillerIn`.
  *
- * The same fifteen accounts as `ixFillOrder` in the same order, so here
+ * The same seventeen accounts as `ixFillOrder` in the same order, so here
  * `fillerIn` is the filler's **stock** account and `fillerOut` its **quote**
  * account: the reverse of a buy. The token programs default the same way,
  * quote under SPL Token and stock under Token-2022.
@@ -443,8 +490,139 @@ export function ixFillSellOrder(args: {
       { pubkey: o.mint, isSigner: false, isWritable: false },
       { pubkey: args.quoteTokenProgram ?? TOKEN_PROGRAM, isSigner: false, isWritable: false },
       { pubkey: args.stockTokenProgram ?? TOKEN_2022, isSigner: false, isWritable: false },
+      ...checkedFillTail(o),
     ],
     data: encodeFillSellOrder({ amountInLeg: args.amountInLeg, amountOut: args.amountOut }),
+  })
+}
+
+// ------------------------------------------------------------ opening cross
+
+/**
+ * Settle a due buy directly against a due sell of the same symbol, at the mark,
+ * with no filler between them. Permissionless, session only.
+ *
+ * Every account is found from the two orders: the symbol's state, risk, mark
+ * and check from the buy (the program requires the sell to be for the same
+ * symbol, mint and quote asset), and each token account from the order that
+ * pins it, so a cranker chooses only which two orders meet, never where
+ * anything goes. What moves is decided on chain (see `crossAmounts` in
+ * codec.ts for the same arithmetic), which is why this takes no amounts.
+ * The token programs default as a fill's do, quote under SPL Token and stock
+ * under Token-2022.
+ */
+export function ixCrossOrders(args: {
+  cranker: PublicKey
+  buy: BellOrder
+  sell: SellOrder
+  quoteTokenProgram?: PublicKey
+  stockTokenProgram?: PublicKey
+}): TransactionInstruction {
+  const { buy: b, sell: s } = args
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.cranker, isSigner: true, isWritable: false },
+      { pubkey: orderPda(b.owner, b.nonce), isSigner: false, isWritable: true },
+      { pubkey: sellOrderPda(s.owner, s.nonce), isSigner: false, isWritable: true },
+      { pubkey: symbolPda(b.symbol), isSigner: false, isWritable: false },
+      { pubkey: riskPda(b.mint), isSigner: false, isWritable: false },
+      { pubkey: markPda(b.symbol), isSigner: false, isWritable: false },
+      { pubkey: checkPda(b.symbol), isSigner: false, isWritable: false },
+      { pubkey: authPda(b.owner), isSigner: false, isWritable: false },
+      { pubkey: authPda(s.owner), isSigner: false, isWritable: false },
+      // Rent destinations when an order completes: each order's own owner.
+      { pubkey: b.owner, isSigner: false, isWritable: true },
+      { pubkey: s.owner, isSigner: false, isWritable: true },
+      { pubkey: b.payerIn, isSigner: false, isWritable: true },
+      { pubkey: b.payeeOut, isSigner: false, isWritable: true },
+      { pubkey: s.payerIn, isSigner: false, isWritable: true },
+      { pubkey: s.payeeOut, isSigner: false, isWritable: true },
+      { pubkey: b.quoteMint, isSigner: false, isWritable: false },
+      { pubkey: b.mint, isSigner: false, isWritable: false },
+      { pubkey: args.quoteTokenProgram ?? TOKEN_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: args.stockTokenProgram ?? TOKEN_2022, isSigner: false, isWritable: false },
+    ],
+    data: encodeCrossOrders(),
+  })
+}
+
+// ------------------------------------------------------------------ checker
+
+/**
+ * Open `symbol`'s check and name its checker. Signed by the program's upgrade
+ * authority, which the program reads from its ProgramData account rather than
+ * trusting a key it is handed, and only once per symbol. The checker must not
+ * be the symbol's attestor: the point is two keys.
+ */
+export function ixOpenCheck(args: {
+  payer: PublicKey
+  authority: PublicKey
+  symbol: string
+  checker: PublicKey
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.payer, isSigner: true, isWritable: true },
+      { pubkey: args.authority, isSigner: true, isWritable: false },
+      { pubkey: programDataPda(), isSigner: false, isWritable: false },
+      { pubkey: symbolPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: checkPda(args.symbol), isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: encodeOpenCheck({ symbol: symbolSeed(args.symbol), checker: args.checker }),
+  })
+}
+
+/** The checker's push: its session verdict and its reference price for `symbol`. */
+export function ixPushCheck(args: {
+  checker: PublicKey
+  symbol: string
+  openNow: boolean
+  refRateQ64: bigint
+  refPxNum: bigint
+  refPxExpo: number
+  refAt: bigint
+  observedAt: bigint
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.checker, isSigner: true, isWritable: false },
+      { pubkey: checkPda(args.symbol), isSigner: false, isWritable: true },
+    ],
+    data: encodePushCheck({ ...args, symbol: symbolSeed(args.symbol) }),
+  })
+}
+
+// -------------------------------------------------------------------- night
+
+/**
+ * Consent to fills while the primary market is shut, for every order the owner
+ * has, including those already placed. The owner pays the opt-in's rent.
+ */
+export function ixOptInNight(owner: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: nightPda(owner), isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: encodeOptInNight(),
+  })
+}
+
+/** Withdraw that consent, for every order at once, and take the rent back. */
+export function ixOptOutNight(owner: PublicKey): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: owner, isSigner: true, isWritable: true },
+      { pubkey: nightPda(owner), isSigner: false, isWritable: true },
+    ],
+    data: encodeOptOutNight(),
   })
 }
 
@@ -507,15 +685,104 @@ export async function readMark(conn: Connection, symbol: string): Promise<Symbol
   return acc ? decodeSymbolMark(acc.data) : null
 }
 
-/** One symbol's three accounts, however they were fetched. */
+/**
+ * The check at a check address, or null when nothing there is one.
+ *
+ * Anyone can send lamports to an address, and a transfer to a check address
+ * before `open_check` has run leaves an empty account owned by the system
+ * program there. Decoding that would throw, and since the board reads every
+ * symbol's check in one request, one such transfer would stop the keeper, the
+ * crank, the checker and the page together. `open_check` still succeeds over
+ * it (Anchor's `init` takes a funded address), so until then it reads as what
+ * it is: no check.
+ */
+function checkAt(info: { owner: PublicKey; data: Uint8Array } | null | undefined): SymbolCheck | null {
+  if (!info || !info.owner.equals(PROGRAM_ID)) return null
+  const want = accountDiscriminator('SymbolCheck')
+  if (info.data.length < 8 || want.some((b, i) => info.data[i] !== b)) return null
+  return decodeSymbolCheck(info.data)
+}
+
+/** One symbol's check, or null before `open_check` (or on a program that has none). */
+export async function readCheck(conn: Pick<Connection, 'getAccountInfo'>, symbol: string): Promise<SymbolCheck | null> {
+  return checkAt(await conn.getAccountInfo(checkPda(symbol)))
+}
+
+/**
+ * Every symbol's check, found by its account discriminator, keyed by symbol.
+ * One `getProgramAccounts`, however many symbols have one.
+ */
+export async function readChecks(conn: Pick<Connection, 'getProgramAccounts'>): Promise<Map<string, SymbolCheck>> {
+  const filters = [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('SymbolCheck')) } }]
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, { filters })
+  const out = new Map<string, SymbolCheck>()
+  for (const a of accounts) {
+    const c = decodeSymbolCheck(a.account.data)
+    out.set(c.symbol, c)
+  }
+  return out
+}
+
+/**
+ * Whether `owner` has opted in to night fills, read as the program reads it:
+ * the account at their night address, judged by `nightConsent`. Null when it
+ * is not there, or is there but would not count.
+ */
+export async function readNightOptIn(
+  conn: Pick<Connection, 'getAccountInfo'>,
+  owner: PublicKey,
+): Promise<NightOptIn | null> {
+  const acc = await conn.getAccountInfo(nightPda(owner))
+  return acc && nightConsent(acc, owner) ? decodeNightOptIn(acc.data) : null
+}
+
+/**
+ * The night opt-ins of `owners`, keyed by owner (base58), with anyone who has
+ * not opted in left out; or, with no list, every opt-in there is.
+ *
+ * With a list it reads each owner's own night address, split under the node's
+ * key limit as every batched read here is, and keeps only what the program
+ * would count as consent. That is the crank's question: which of the book's
+ * owners may fill tonight. Without one it asks the node for every account
+ * with the `NightOptIn` discriminator, which only this program can have
+ * written, and keeps each one whose recorded owner is the one at its address.
+ */
+export async function readNightOptIns(
+  conn: Pick<Connection, 'getMultipleAccountsInfo' | 'getProgramAccounts'>,
+  owners?: readonly PublicKey[],
+): Promise<Map<string, NightOptIn>> {
+  const out = new Map<string, NightOptIn>()
+  if (owners) {
+    const infos = await readAccounts(conn, owners.map(nightPda))
+    owners.forEach((owner, i) => {
+      const info = infos[i]
+      if (info && nightConsent(info, owner)) out.set(owner.toBase58(), decodeNightOptIn(info.data))
+    })
+    return out
+  }
+  const filters = [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('NightOptIn')) } }]
+  for (const a of await conn.getProgramAccounts(PROGRAM_ID, { filters })) {
+    const n = decodeNightOptIn(a.account.data)
+    if (a.pubkey.equals(nightPda(n.owner))) out.set(n.owner.toBase58(), n)
+  }
+  return out
+}
+
+/** One symbol's four accounts, however they were fetched. */
 export interface SymbolAccounts {
   state: SymbolState | null
   risk: TokenRisk | null
   mark: SymbolMark | null
+  /**
+   * The second signer's check. Null before `open_check`, which on a program
+   * with checks means every fill of the symbol is refused (AccountNotInitialized),
+   * and on one without them is simply absent.
+   */
+  check: SymbolCheck | null
 }
 
 /**
- * Every symbol's state, risk and mark in a single RPC round trip.
+ * Every symbol's state, risk, mark and check in a single RPC round trip.
  *
  * Read one at a time this was 27 `getAccountInfo` calls per refresh, which
  * public devnet RPC answers with HTTP 429 — and because an unreachable chain
@@ -523,7 +790,8 @@ export interface SymbolAccounts {
  * reach the chain" across the whole board. Fail-closed is right, but a venue
  * that closes itself because it asked too many questions is not.
  *
- * `getMultipleAccounts` takes up to 100 keys, so 27 fits comfortably in one.
+ * `getMultipleAccounts` takes up to 100 keys, so four for each of fourteen
+ * listings fits in one.
  */
 export async function readAllSymbols(
   conn: Pick<Connection, 'getMultipleAccountsInfo'>,
@@ -563,8 +831,10 @@ export async function readAccounts(
  *
  * `extra` is how the page reads the connected wallet's SOL and demo-USDC
  * without a second request per poll — the 429 that once closed the whole board
- * came from exactly that kind of per-thing read. The page's 29 keys are one
- * call; the crank's list grows with the book and is split by `readAccounts`.
+ * came from exactly that kind of per-thing read. The page's keys, four per
+ * listing and its few extras, are one call; the crank's list grows with the
+ * book and is split by `readAccounts`. The extras come back in the order they
+ * were asked for, after the board, however many accounts each listing takes.
  */
 export async function readBoard(
   conn: Pick<Connection, 'getMultipleAccountsInfo'>,
@@ -574,18 +844,22 @@ export async function readBoard(
   symbols: Map<string, SymbolAccounts>
   extras: AccountInfos
 }> {
+  // Four per symbol: the check rides in the same request as the other three,
+  // so knowing whether the second signer agrees costs no extra round trip.
+  const PER = 4
   const keys: PublicKey[] = []
   for (const l of listings) {
-    keys.push(symbolPda(l.symbol), riskPda(new PublicKey(l.mint)), markPda(l.symbol))
+    keys.push(symbolPda(l.symbol), riskPda(new PublicKey(l.mint)), markPda(l.symbol), checkPda(l.symbol))
   }
   const infos = await readAccounts(conn, [...keys, ...extra])
   const out = new Map<string, SymbolAccounts>()
   listings.forEach((l, i) => {
-    const [s, r, m] = [infos[i * 3], infos[i * 3 + 1], infos[i * 3 + 2]]
+    const [s, r, m, c] = infos.slice(i * PER, i * PER + PER)
     out.set(l.symbol, {
       state: s ? decodeSymbolState(s.data) : null,
       risk: r ? decodeTokenRisk(r.data) : null,
       mark: m ? decodeSymbolMark(m.data) : null,
+      check: checkAt(c),
     })
   })
   return { symbols: out, extras: infos.slice(keys.length) }
@@ -721,4 +995,4 @@ export async function checkGate(
 }
 
 export { Mode, MarkSource, TOKEN_2022, errorName }
-export type { BellOrder, SellOrder, SymbolMark, SymbolState, TokenRisk }
+export type { BellOrder, NightOptIn, SellOrder, SymbolCheck, SymbolMark, SymbolState, TokenRisk }

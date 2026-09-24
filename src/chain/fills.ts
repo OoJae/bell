@@ -1,17 +1,18 @@
 /**
- * BELL's fills, read out of a transaction as the RPC returns it.
+ * BELL's fills and crosses, read out of a transaction as the RPC returns it.
  *
  * Two readers share this. The public tape (`web/lib/tape.ts`) prints every
- * fill, and the keeper's per-wallet alerts (`src/alerts.ts`) tell a wallet's
- * followers about its own. It lives under `src/` because the keeper's image
- * holds only `src/` and `scripts/`, and the tape re-exports it, so the two
- * read a transaction the same way: neither can believe a fill the other would
- * refuse.
+ * fill and cross, and the keeper's per-wallet alerts (`src/alerts.ts`) tell a
+ * wallet's followers about its own. It lives under `src/` because the
+ * keeper's image holds only `src/` and `scripts/`, and the tape re-exports it,
+ * so the two read a transaction the same way: neither can believe a fill the
+ * other would refuse.
  *
  * Pure: a transaction goes in, fills come out. Nothing here talks to the
  * network.
  */
 import idl from './idl.json' with { type: 'json' }
+import { decodeMarkTrippedEvent, decodeOrdersCrossedEvent, type MarkTrippedEvent } from './codec.ts'
 
 /** The program's address, as a string: what the RPC's account lists hold. */
 export const PROGRAM_ADDRESS: string = idl.address
@@ -171,12 +172,12 @@ export interface RpcTransaction {
  * How one BELL instruction's event is read, resolved against the IDL once, at
  * import.
  *
- * This is the extension point. An instruction that crosses a buy order with a
- * sell order directly, emitting something like `OrdersCrossed`, is one more
- * kind: its instruction's discriminator, and a `read` that checks the payload
- * is that event and returns a record for each order it settled, so that each
- * owner is told about their own side. The walk in `eventsOf`, which decides
- * which payloads are believed at all, does not change.
+ * This is the extension point. `cross_orders`, which settles a buy order
+ * directly against a sell order and emits `OrdersCrossed`, is one more kind
+ * (`CROSS_KIND` below): its instruction's discriminator, and a `read` that
+ * checks the payload is that event and returns one record naming both parties,
+ * so that each owner can be told about their own side. The walk in
+ * `eventsOf`, which decides which payloads are believed at all, did not change.
  */
 export interface EventKind<T> {
   /** The instruction's discriminator. A payload is only read inside this instruction. */
@@ -326,3 +327,140 @@ export const FILL_KINDS: readonly EventKind<Fill>[] = [
  * sale as a purchase.
  */
 export const fillsOf = (tx: RpcTransaction): Fill[] => eventsOf(tx, FILL_KINDS)
+
+// -------------------------------------------------------------------- crosses
+
+/**
+ * `OrdersCrossed`, as the program emits it (state.rs): one cross, both legs,
+ * with the wallets as base58 and the mark's source by name, the way
+ * `OrderFilled` is read here.
+ *
+ * There is no "in" and "out" here, because there is no one user's side: the
+ * buyer paid `quote` and received `stock`, the seller delivered `stock` and
+ * was paid `quote`, and nobody else took a spread. So there is no
+ * `realizedBps` either. The buyer received exactly `floor(quote·rate)`, a buy
+ * fill's fair value, and the seller at least the rounded-up value a sell fill
+ * owes, so each side's shortfall against the mark is zero.
+ */
+export interface OrdersCrossed {
+  symbol: string
+  buyer: string
+  seller: string
+  /** Quote raw, from the buyer to the seller. */
+  quote: bigint
+  /** Stock raw, from the seller to the buyer. */
+  stock: bigint
+  /** The mark that priced the cross: `pxNum × 10^pxExpo` quote units per share. */
+  pxNum: bigint
+  pxExpo: number
+  source: string
+  markObservedAt: number
+}
+
+/** Decode one `Program data:` payload, or return null when it is not an `OrdersCrossed`. */
+export function decodeOrdersCrossed(data: Uint8Array): OrdersCrossed | null {
+  const e = decodeOrdersCrossedEvent(data)
+  if (!e) return null
+  return {
+    symbol: e.symbol,
+    buyer: e.buyer.toBase58(),
+    seller: e.seller.toBase58(),
+    quote: e.quote,
+    stock: e.stock,
+    pxNum: e.pxNum,
+    pxExpo: e.pxExpo,
+    source: MARK_SOURCES[e.source] ?? `source ${e.source}`,
+    markObservedAt: Number(e.markObservedAt),
+  }
+}
+
+/**
+ * A cross, with the accounts its instruction named.
+ *
+ * The third kind of trade beside a buy fill and a sell fill, and one record
+ * rather than two: it is one transaction at one price, so the tape prints it
+ * once and counts it once in the day's volume. Each owner's side is read from
+ * it by `buyer` or `seller`.
+ */
+export interface Cross {
+  side: 'cross'
+  event: OrdersCrossed
+  /** The buy order and the sell order it settled. */
+  buyOrder: string
+  sellOrder: string
+  /** The two owners, read from the instruction, where the program pinned each to its order. */
+  buyer: string
+  seller: string
+  /** Who sent it. A cross is permissionless: the cranker supplies nothing and is paid nothing. */
+  cranker: string
+  quoteMint: string
+  stockMint: string
+}
+
+const CROSS_ACCOUNTS = ['cranker', 'buy', 'sell', 'buyer', 'seller', 'quote_mint', 'stock_mint'] as const
+
+/**
+ * `cross_orders` as a kind. The parties are read from the instruction, as a
+ * fill's owner is, and the event must name the same two: the program writes
+ * the event from the orders it checked those accounts against, so a
+ * disagreement means the payload is not what this instruction emitted, and it
+ * is refused rather than attributed to either.
+ */
+export const CROSS_KIND: EventKind<Cross> = eventKind<Cross>('cross_orders', CROSS_ACCOUNTS, (payload, account) => {
+  const event = decodeOrdersCrossed(payload)
+  if (!event) return []
+  const buyer = account('buyer')
+  const seller = account('seller')
+  if (event.buyer !== buyer || event.seller !== seller) {
+    throw new Error('OrdersCrossed names other parties than its instruction')
+  }
+  return [
+    {
+      side: 'cross',
+      event,
+      buyOrder: account('buy'),
+      sellOrder: account('sell'),
+      buyer,
+      seller,
+      cranker: account('cranker'),
+      quoteMint: account('quote_mint'),
+      stockMint: account('stock_mint'),
+    },
+  ]
+})
+
+/** Every `cross_orders` in a transaction, with the event each emitted, by the rules `eventsOf` gives. */
+export const crossesOf = (tx: RpcTransaction): Cross[] => eventsOf(tx, [CROSS_KIND])
+
+/** Any of the three ways BELL settles an order, told apart by `side`. */
+export type Trade = Fill | Cross
+
+/** Fills and crosses together, so one walk reads a transaction holding both. */
+export const TRADE_KINDS: readonly EventKind<Trade>[] = [...FILL_KINDS, CROSS_KIND]
+
+/**
+ * Every fill and cross in a transaction, in the order the program emitted
+ * them. The fills among them are exactly what `fillsOf` returns.
+ */
+export const tradesOf = (tx: RpcTransaction): Trade[] => eventsOf(tx, TRADE_KINDS)
+
+// --------------------------------------------------------------- the breaker
+
+/** A held push, with the mark account `push_mark` named. */
+export interface Tripped {
+  event: MarkTrippedEvent
+  mark: string
+  attestor: string
+}
+
+/**
+ * `push_mark` as a kind, for its one event: `MarkTripped`, the breaker holding
+ * a mark. A push that is written emits nothing.
+ */
+export const TRIPPED_KIND: EventKind<Tripped> = eventKind<Tripped>('push_mark', ['mark', 'attestor'], (payload, account) => {
+  const event = decodeMarkTrippedEvent(payload)
+  return event ? [{ event, mark: account('mark'), attestor: account('attestor') }] : []
+})
+
+/** Every push in a transaction that the breaker held. */
+export const trippedOf = (tx: RpcTransaction): Tripped[] => eventsOf(tx, [TRIPPED_KIND])

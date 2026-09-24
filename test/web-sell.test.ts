@@ -400,10 +400,12 @@ test('a typed share count is said back as typed, tidied, when the order carries 
 
 // --------------------------------------------------------------- refusals
 
-test('a program without sell orders is named, not shown as a bare code', () => {
+test('an instruction the program does not have yet is named, not shown as a bare code', () => {
+  // Met by a sale before the upgrade that added sales, and by the night
+  // switch before the one that adds night fills; the words fit either.
   const err = new Error('Simulation failed. Message: Transaction simulation failed: Error processing Instruction 3: custom program error: 0x65.')
   assert.equal(refusalFrom(err), 'InstructionFallbackNotFound')
-  assert.match(explain('InstructionFallbackNotFound'), /does not take sell orders yet/)
+  assert.match(explain('InstructionFallbackNotFound'), /does not have that instruction yet; it arrives with its next upgrade/)
   // The codes the buy side relies on are unchanged.
   assert.equal(refusalFrom(new Error('custom program error: 0xbc4')), 'AlreadyClosed')
   assert.equal(refusalFrom(new Error('custom program error: 0x4')), 'OwnerRevoked')

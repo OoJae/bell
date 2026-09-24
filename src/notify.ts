@@ -63,7 +63,38 @@ export type NotifyEvent =
       owner: string
       signature: string
     }
+  | {
+      kind: 'cross'
+      /**
+       * Whose side the message is told from: `buy` to the buyer's followers,
+       * `sell` to the seller's. Absent on the channel, which names both.
+       */
+      side?: 'buy' | 'sell'
+      symbol: string
+      /** The quote leg, in whole units: what the buyer paid and the seller was paid, one number. */
+      amount: number
+      quote: string
+      /** Shares that changed hands, multiplier applied; null if the mint could not be read. */
+      shares: number | null
+      /** Minutes since 09:30 ET; null outside the regular session. */
+      minutesAfterBell: number | null
+      buyer: string
+      seller: string
+      signature: string
+    }
   | { kind: 'closed'; side?: 'buy' | 'sell'; symbol: string; owner: string; why: string; signature: string }
+  | {
+      kind: 'breaker'
+      symbol: string
+      /** True when the breaker is found holding the symbol's mark, false when a push has released it. */
+      held: boolean
+      /** Dollars a share on record, and in the push that was held, when known. */
+      heldPrice?: number | null
+      pushedPrice?: number | null
+      /** The program's step, in bps a minute, and how old the held price may get before any push is accepted. */
+      stepBps?: number
+      resetSeconds?: number
+    }
   | {
       kind: 'halt'
       symbol: string
@@ -194,6 +225,38 @@ export function formatEvent(e: NotifyEvent, cluster: string): string {
         linkLine(e.signature, cluster),
       ].join('\n')
     }
+    case 'cross': {
+      const what = e.shares !== null ? `${e.shares.toFixed(6)} ${e.symbol}` : e.symbol
+      const price = e.shares ? `, ${money(e.amount / e.shares)} ${e.quote} a share` : ''
+      const when = e.minutesAfterBell !== null ? `, ${e.minutesAfterBell} min after the bell` : ''
+      // Told to one party, a cross says which way their stock went, as a fill
+      // does. On the channel it is one trade between two wallets, so it names
+      // both and neither direction. "No filler spread", never "fair": the mark
+      // is an executable ask, so a cross at it is the pool's price, not a mid.
+      const verb = e.side === 'buy' ? 'bought ' : e.side === 'sell' ? 'sold ' : ''
+      const who =
+        e.side === 'buy'
+          ? `Owner ${shortKey(e.buyer)}`
+          : e.side === 'sell'
+            ? `Owner ${shortKey(e.seller)}`
+            : `Buyer ${shortKey(e.buyer)}, seller ${shortKey(e.seller)}`
+      return [
+        `Crossed: ${verb}${what} for ${money(e.amount)} ${e.quote}${price}, at the pool's price, no filler spread${when}.`,
+        who,
+        linkLine(e.signature, cluster),
+      ].join('\n')
+    }
+    case 'breaker': {
+      if (!e.held) return `${e.symbol}: the price mark is no longer held, and fills can price against it again.`
+      const step = e.stepBps !== undefined ? `${e.stepBps / 100}% a minute` : 'one step'
+      const moved =
+        e.heldPrice && e.pushedPrice ? ` (${money(e.heldPrice)} on record, ${money(e.pushedPrice)} pushed)` : ''
+      const until =
+        e.resetSeconds !== undefined
+          ? `the held price is ${Math.round(e.resetSeconds / 60)} minutes old`
+          : 'the held price ages out'
+      return `${e.symbol}: price mark held. A push moved further than ${step} allows${moved}, so BELL refuses its fills (MarkPaused) until a push lands within the step or ${until}; queued orders wait.`
+    }
     case 'closed':
       return [
         `Closed a dead ${e.symbol} ${e.side === 'sell' ? 'sell ' : ''}order: ${e.why}. Its rent went back to the owner, ${shortKey(e.owner)}.`,
@@ -259,9 +322,11 @@ export interface Announced {
   close: string | null
   /** Per symbol, whether it was inside a corporate-action window when last read. */
   inWindow: Map<string, boolean>
+  /** Per symbol, whether the breaker held its mark when last read. */
+  held: Map<string, boolean>
 }
 
-export const announced = (): Announced => ({ open: null, close: null, inWindow: new Map() })
+export const announced = (): Announced => ({ open: null, close: null, inWindow: new Map(), held: new Map() })
 
 /** The fields of a recorded transition that notifications read. */
 export interface TransitionLike {
@@ -286,9 +351,13 @@ export interface TransitionLike {
  *   in which the program refuses (gate 4). The first reading of a symbol only
  *   records where it stands, since it is not a change.
  *
+ * - A symbol's mark being held by the circuit breaker, or released, read from
+ *   `breakers` the same way: the first reading only records.
+ *
  * `windows` is null when the risk records could not be read this tick, which
  * leaves the window memory as it was rather than treating every symbol as
- * having left its window.
+ * having left its window. `breakers` null or absent does the same for the
+ * marks.
  */
 export function keeperEvents(
   memo: Announced,
@@ -299,6 +368,9 @@ export function keeperEvents(
     transitions: readonly TransitionLike[]
     windows: readonly { symbol: string; activatesAt: number }[] | null
     guardSeconds: number
+    breakers?: readonly { symbol: string; held: boolean; heldPrice?: number | null; pushedPrice?: number | null }[] | null
+    /** The program's `MAX_MARK_STEP_BPS` and `MAX_MARK_STEP_AGE_SECONDS`, for the wording. */
+    markStep?: { bps: number; resetSeconds: number }
   },
 ): NotifyEvent[] {
   const events: NotifyEvent[] = []
@@ -343,6 +415,20 @@ export function keeperEvents(
       at: tick.at,
       activatesAt: w.activatesAt,
       guardSeconds: tick.guardSeconds,
+    })
+  }
+
+  for (const b of tick.breakers ?? []) {
+    const was = memo.held.get(b.symbol)
+    memo.held.set(b.symbol, b.held)
+    if (was === undefined || was === b.held) continue
+    events.push({
+      kind: 'breaker',
+      symbol: b.symbol,
+      held: b.held,
+      ...(b.held && b.heldPrice != null ? { heldPrice: b.heldPrice } : {}),
+      ...(b.held && b.pushedPrice != null ? { pushedPrice: b.pushedPrice } : {}),
+      ...(tick.markStep ? { stepBps: tick.markStep.bps, resetSeconds: tick.markStep.resetSeconds } : {}),
     })
   }
   return events

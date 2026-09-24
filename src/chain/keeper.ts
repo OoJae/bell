@@ -33,7 +33,19 @@ import {
   readAllSymbols,
   send,
 } from './client.ts'
-import { LIMITS, MarkSource, fairOut, rateQ64, type SymbolMark } from './codec.ts'
+import {
+  LIMITS,
+  MARK_HELD_CONF_BPS,
+  MAX_MARK_STEP_AGE_SECONDS,
+  MAX_MARK_STEP_BPS,
+  MarkSource,
+  fairOut,
+  markHeld,
+  markPushOutcome,
+  markStepAllowance,
+  rateQ64,
+  type SymbolMark,
+} from './codec.ts'
 import { quote, usdc, fetchTokens, USDC, type Quote } from '../sensor/jupiter.ts'
 import { multiplierOf } from './codec.ts'
 import { readTokenRisk } from './client.ts'
@@ -56,18 +68,31 @@ const MARK_NOTIONAL_USD = 200
 const MAX_CONF_BPS = LIMITS.MAX_CONF_BPS ?? 200
 
 /**
- * The value a circuit breaker leaves in a mark: `conf_bps` at its maximum.
+ * The value the circuit breaker leaves in a mark: `conf_bps` at its maximum.
  *
- * No instruction writes it today — `push_mark` refuses anything over 200. This
- * is the keeper's half of a breaker that does not exist yet, so that when one
- * trips, the next routine price does not quietly overwrite it. `open_mark`
- * writes the same value into a mark nobody has priced, with `observed_at` 0,
- * and the keeper must still give that one its first price; so the marker is
- * the maximum with a real timestamp beside it, and a breaker has to write one.
+ * `push_mark` writes it itself. A push that moves the mark further than the
+ * time since the last observation allows (`MAX_MARK_STEP_BPS` a minute) is
+ * held rather than written: the rate, price and time stay as they were and
+ * only this marker is set, so every fill refuses as MarkPaused. Nothing but a
+ * later push clears it, one that lands within the step of the held rate or
+ * after the held mark is `MAX_MARK_STEP_AGE_SECONDS` old. So the keeper keeps
+ * pricing a held name every tick, exactly as it prices any other: a keeper
+ * that stopped would hold the symbol shut for good. This version once did,
+ * written before the program had a breaker, on the idea that a new price
+ * would overwrite one; the program decides what a push does, and that idea
+ * would have made every trip permanent.
+ *
+ * `open_mark` writes the same value into a mark nobody has priced, with
+ * `observed_at` 0. That one is unpriced, not held, and the keeper gives it its
+ * first price like any other. Kept as the keeper's names for the codec's
+ * `MARK_HELD_CONF_BPS` and `markHeld`, which are the same test.
  */
-export const BREAKER_CONF_BPS = 65_535
-export const breakerTripped = (m: Pick<SymbolMark, 'confBps' | 'observedAt'>): boolean =>
-  m.confBps === BREAKER_CONF_BPS && m.observedAt > 0n
+export const BREAKER_CONF_BPS = MARK_HELD_CONF_BPS
+export const breakerTripped = (m: Pick<SymbolMark, 'confBps' | 'observedAt'>): boolean => markHeld(m)
+
+/** How far `to` is from `from`, in bps of `from`: the program's own measure of a step. For the log only. */
+const stepBps = (from: bigint, to: bigint): number =>
+  from > 0n ? Number(((from > to ? from - to : to - from) * 1_000_000n) / from) / 100 : 0
 
 /**
  * Ondo's status list, read in the background (`sensor/ondo.ts`): three
@@ -108,6 +133,16 @@ export interface MarkReading {
 export interface PushedMark extends MarkReading {
   /** The `observed_at` in the instruction, in unix seconds on the cluster's clock. */
   observedAt: number
+  /**
+   * What `push_mark` should do with this push, judged by `markPushOutcome`
+   * against the mark read just before it was built: `written`, `held` when it
+   * moves further than the step allows (the breaker trips, or stays tripped),
+   * or `ignored` when it is older than the observation on record. A forecast,
+   * not a receipt: a caller that records prices confirms it against the mark
+   * as it reads after the push. Optional so a mark built before the breaker
+   * still types; absent reads as `written`.
+   */
+  outcome?: 'written' | 'held' | 'ignored'
   /**
    * The transaction that carried this mark. Absent in a dry run. With more
    * marks than fit one transaction they land in several, so this, not the
@@ -578,8 +613,9 @@ export interface TickResult {
   unregistered: string[]
   /**
    * Names whose on-chain mark carries the circuit-breaker marker
-   * (`BREAKER_CONF_BPS`). The keeper does not price them: a new mark would
-   * overwrite the breaker. Logged as PAUSED (circuit breaker) every tick.
+   * (`BREAKER_CONF_BPS`) when the tick read it. They are priced and pushed
+   * like every other name, because only a push can release them; each is
+   * logged as PAUSED (circuit breaker) every tick it stays held.
    */
   breaker: string[]
 }
@@ -687,16 +723,19 @@ export async function tick(args: {
   let marks: PushedMark[] = []
   let markError: string | null = null
 
-  // A tripped breaker is read from the snapshot so the name costs no quote,
-  // and again just before its mark would be built, so one tripped mid-tick is
-  // not overwritten either. The program is what must finally refuse a price
-  // while it is tripped; this only keeps the keeper from being the one to undo it.
+  // A held mark is read from the snapshot, and again just before its push is
+  // built, so one tripped mid-tick is named too. Both are only for the log:
+  // a held name is priced and pushed like any other, because the program
+  // releases a hold only when a push lands within the step or after the reset
+  // window. Leaving it out, as this keeper once did, would hold it for good.
   const breaker = decisions
     .filter((d) => {
       const m = onChain.get(d.listing.symbol)?.mark
       return m ? breakerTripped(m) : false
     })
     .map((d) => d.listing.symbol)
+  /** Per held name, what this tick's push is expected to do about it, for the PAUSED line. */
+  const heldNotes = new Map<string, string>()
 
   if (args.withMarks !== false) {
     try {
@@ -705,13 +744,31 @@ export async function tick(args: {
       )
       const priced = decisions
         .map((d) => d.listing)
-        .filter((l) => !unregistered.includes(l.symbol) && !breaker.includes(l.symbol))
+        .filter((l) => !unregistered.includes(l.symbol))
       for (const m of await readMarks(conn, decimals, priced)) {
         const existing = await readMark(conn, m.symbol)
         if (!existing) continue // not opened yet
-        if (breakerTripped(existing)) {
-          breaker.push(m.symbol)
-          continue
+        const held = breakerTripped(existing)
+        if (held && !breaker.includes(m.symbol)) breaker.push(m.symbol)
+        // A forecast of what push_mark will do, by its own rules, against the
+        // mark as it stands. Judged at the observation's own time; the chain's
+        // clock at execution is a few seconds later, which matters only within
+        // seconds of the reset window.
+        const push = { rateQ64: m.rateQ64, observedAt: BigInt(nowSeconds) }
+        const outcome = markPushOutcome(existing, push, BigInt(nowSeconds))
+        if (held || outcome === 'held') {
+          const moved = stepBps(existing.rateQ64, m.rateQ64)
+          const allowed = existing.rateQ64 > 0n ? Number((markStepAllowance(existing, push.observedAt) * 1_000_000n) / existing.rateQ64) / 100 : 0
+          const why =
+            outcome === 'written'
+              ? held
+                ? `this push (${moved.toFixed(1)} bps from the held rate) should release it`
+                : ''
+              : outcome === 'held'
+                ? `this push moves ${moved.toFixed(1)} bps against the ${allowed.toFixed(1)} bps the time allows, so the program holds it`
+                : 'this push is older than the mark on record and is ignored'
+          if (held) heldNotes.set(m.symbol, why)
+          else console.log(`  ${m.symbol} ${why} (circuit breaker trips)`)
         }
         markIxs.push(
           ixPushMark({
@@ -725,7 +782,7 @@ export async function tick(args: {
             observedAt: BigInt(nowSeconds),
           }),
         )
-        marks.push({ ...m, observedAt: nowSeconds })
+        marks.push({ ...m, observedAt: nowSeconds, outcome })
       }
     } catch (e) {
       markError = (e as Error).message
@@ -733,7 +790,14 @@ export async function tick(args: {
       marks.length = 0
     }
   }
-  for (const symbol of breaker) console.log(`  ${symbol} PAUSED (circuit breaker): its mark reads conf_bps ${BREAKER_CONF_BPS}, so no new price is pushed`)
+  for (const symbol of breaker) {
+    const note = heldNotes.get(symbol) ?? 'no price this tick, so nothing can release it yet'
+    console.log(
+      `  ${symbol} PAUSED (circuit breaker): its mark reads conf_bps ${BREAKER_CONF_BPS} and fills refuse as MarkPaused; ` +
+        `the keeper keeps pushing, and a push within ${MAX_MARK_STEP_BPS / 100}% a minute of the held rate, ` +
+        `or any push once it is ${MAX_MARK_STEP_AGE_SECONDS}s old, releases it (${note})`,
+    )
+  }
 
   let signature: string | null = null
   let markSignature: string | null = null
