@@ -116,6 +116,36 @@ CREATE TABLE IF NOT EXISTS marks (
   signature TEXT
 );
 CREATE INDEX IF NOT EXISTS marks_symbol ON marks (symbol, observed_at);
+
+-- Per-wallet alerts (src/alerts.ts). Not evidence: who follows which wallet,
+-- and how far the keeper has read, kept here because this is the keeper's only
+-- storage. IF NOT EXISTS for the same reason as marks: opening a log that
+-- predates these adds them and touches nothing else. A chat id is TEXT because
+-- Telegram's reach 52 bits and a group's are negative; as text there is no
+-- width to get wrong.
+CREATE TABLE IF NOT EXISTS alert_follows (
+  chat_id TEXT NOT NULL,
+  wallet TEXT NOT NULL,
+  since INTEGER NOT NULL,
+  PRIMARY KEY (chat_id, wallet)
+);
+CREATE INDEX IF NOT EXISTS alert_follows_wallet ON alert_follows (wallet);
+
+-- Where each reader stopped: the Telegram update offset and the newest program
+-- signature read.
+CREATE TABLE IF NOT EXISTS alert_cursors (
+  name TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- Every program signature the alerts have dealt with, so a transaction met
+-- twice is messaged about once: after a restart that lost the cursor's last
+-- write, or when the cursor itself is gone from the cluster's history.
+CREATE TABLE IF NOT EXISTS alert_seen (
+  signature TEXT PRIMARY KEY,
+  at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS alert_seen_at ON alert_seen (at);
 `
 
 export class Recorder {
@@ -123,6 +153,19 @@ export class Recorder {
   private insertTick: Database.Statement
   private insertTransition: Database.Statement
   private insertMark: Database.Statement
+  private alert: {
+    follow: Database.Statement
+    unfollow: Database.Statement
+    unfollowAll: Database.Statement
+    following: Database.Statement
+    followers: Database.Statement
+    followed: Database.Statement
+    cursor: Database.Statement
+    setCursor: Database.Statement
+    seen: Database.Statement
+    claim: Database.Statement
+    forget: Database.Statement
+  }
   private lastState = new Map<string, { openNow: boolean; halt: number }>()
 
   constructor(path = process.env.BELL_DB ?? 'data/bell.db') {
@@ -154,6 +197,23 @@ export class Recorder {
       INSERT INTO marks (at, observed_at, symbol, price, px_num, px_expo, conf_bps, source, rate_q64, signature)
       VALUES (@at, @observedAt, @symbol, @price, @pxNum, @pxExpo, @confBps, @source, @rateQ64, @signature)
     `)
+    this.alert = {
+      follow: this.db.prepare(
+        'INSERT OR IGNORE INTO alert_follows (chat_id, wallet, since) VALUES (?, ?, ?)',
+      ),
+      unfollow: this.db.prepare('DELETE FROM alert_follows WHERE chat_id = ? AND wallet = ?'),
+      unfollowAll: this.db.prepare('DELETE FROM alert_follows WHERE chat_id = ?'),
+      following: this.db.prepare('SELECT wallet FROM alert_follows WHERE chat_id = ? ORDER BY since, wallet'),
+      followers: this.db.prepare('SELECT chat_id FROM alert_follows WHERE wallet = ? ORDER BY since, chat_id'),
+      followed: this.db.prepare('SELECT DISTINCT wallet FROM alert_follows'),
+      cursor: this.db.prepare('SELECT value FROM alert_cursors WHERE name = ?'),
+      setCursor: this.db.prepare(
+        'INSERT INTO alert_cursors (name, value) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET value = excluded.value',
+      ),
+      seen: this.db.prepare('SELECT 1 FROM alert_seen WHERE signature = ?'),
+      claim: this.db.prepare('INSERT OR IGNORE INTO alert_seen (signature, at) VALUES (?, ?)'),
+      forget: this.db.prepare('DELETE FROM alert_seen WHERE at < ?'),
+    }
     for (const row of this.db
       .prepare(
         `SELECT symbol, open_now, halt FROM ticks WHERE id IN
@@ -224,6 +284,60 @@ export class Recorder {
       }
     })
     write(rows)
+  }
+
+  // ---------------------------------------------------------------- alerts
+  //
+  // The store `alerts.ts` reads and writes. Each call is one statement, so
+  // there is nothing to leave half done; what alerts.ts does between them is
+  // written to be safe to repeat.
+
+  /** Start telling `chatId` about `wallet`'s fills. False if it already was. */
+  follow(chatId: string, wallet: string, since: number): boolean {
+    return this.alert.follow.run(chatId, wallet, since).changes === 1
+  }
+
+  /** Stop telling `chatId` about one wallet, or every wallet when none is named. How many it followed that it no longer does. */
+  unfollow(chatId: string, wallet?: string): number {
+    return (wallet === undefined ? this.alert.unfollowAll.run(chatId) : this.alert.unfollow.run(chatId, wallet)).changes
+  }
+
+  /** The wallets one chat follows, oldest first. */
+  following(chatId: string): string[] {
+    return (this.alert.following.all(chatId) as { wallet: string }[]).map((r) => r.wallet)
+  }
+
+  /** The chats following one wallet. */
+  followers(wallet: string): string[] {
+    return (this.alert.followers.all(wallet) as { chat_id: string }[]).map((r) => r.chat_id)
+  }
+
+  /** Every wallet at least one chat follows. */
+  followed(): Set<string> {
+    return new Set((this.alert.followed.all() as { wallet: string }[]).map((r) => r.wallet))
+  }
+
+  alertCursor(name: string): string | null {
+    return (this.alert.cursor.get(name) as { value: string } | undefined)?.value ?? null
+  }
+
+  setAlertCursor(name: string, value: string): void {
+    this.alert.setCursor.run(name, value)
+  }
+
+  /** Whether a program signature has already been dealt with. */
+  seen(signature: string): boolean {
+    return this.alert.seen.get(signature) !== undefined
+  }
+
+  /** Mark a signature dealt with. True the first time, false every time after. */
+  claim(signature: string, at: number): boolean {
+    return this.alert.claim.run(signature, at).changes === 1
+  }
+
+  /** Drop signatures claimed before `at`, which the cursor is long past. */
+  forgetSeen(before: number): number {
+    return this.alert.forget.run(before).changes
   }
 
   counts() {

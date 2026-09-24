@@ -1,0 +1,32 @@
+/* The lookup's own few rules. Everything else is the site's globals.css. */
+
+.form { display: flex; gap: 10px; align-items: stretch; margin-top: 14px; }
+/* `min-width: 0` so a 44-character address shrinks with the phone instead of widening the page */
+.input {
+  flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+.form :global(.act) { margin-top: 0; flex: 0 0 auto; }
+.mine { margin-top: 8px; }
+
+/* the table scrolls inside its panel on a phone; the page itself never scrolls sideways */
+.scroll { overflow-x: auto; margin-top: 6px; }
+.scroll table { min-width: 720px; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.when { white-space: nowrap; }
+
+/* paid more than the open, or less; neither is a pass or a failure, so neither is red or green */
+.more { color: var(--no); }
+.less { color: var(--accent); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 4px; font-size: 13px; color: var(--dim); }
+.stats strong { color: var(--text); font-weight: 600; }
+
+.caveats { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 13px; line-height: 1.6; }
+.caveats li + li { margin-top: 6px; }
+.caveats strong { color: var(--text); font-weight: 600; }
+
+@media (max-width: 560px) {
+  .form { flex-direction: column; }
+}

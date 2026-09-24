@@ -6,6 +6,7 @@
  * xStock. A symbol-keyed allowlist would route users straight into it, so a
  * symbol here is a label for humans and the address is the identity.
  */
+import mirrors from './mirrors.json' with { type: 'json' }
 
 /** Which issuer minted the token, and therefore what the holder actually owns. */
 export type Issuer =
@@ -13,6 +14,11 @@ export type Issuer =
   | 'backed'
   /** Backpack Securities: a UCC Article 8 entitlement to the real share. */
   | 'backpack'
+  /**
+   * Ondo Global Markets: a token Ondo backs with the underlying security, which
+   * it holds for token holders. Not offered to US persons.
+   */
+  | 'ondo'
 
 export interface Listing {
   /** Display label. Not an identifier. */
@@ -65,6 +71,13 @@ export interface Listing {
    * MarkTooWide. Default 50; the program's ceiling is 200.
    */
   maxConfBps?: number
+  /**
+   * Listed after the devnet deployment was made, so devnet carries it only
+   * once `src/mirrors.json` holds its mirror. Every other listing must have a
+   * mirror there, and `config.ts` refuses to start on devnet without one.
+   * See `MAINNET_LISTINGS` below for why this is a flag and not a fallback.
+   */
+  devnetWhenMirrored?: true
 }
 
 const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
@@ -158,20 +171,114 @@ const REAL: readonly Omit<Listing, 'mainnetMint'>[] = [
     note: 'Lockheed Martin (LMT) through Backpack: an entitlement to the real LMT share under UCC Article 8, not a tracker certificate.',
     maxConfBps: 100,
   },
+
+  // A third issuer, on the same five underlyings as five Backed names above, so
+  // the board can set two issuers' tokens for one security side by side.
+  //
+  // What was checked before listing them (2026-09-24): the deployed program
+  // reads all five real mints, and its gates refuse them exactly as they refuse
+  // an xStock (programs/bell-session/tests/test_ondo.rs). Ondo's extension set
+  // differs from Backed's: no permanent delegate, and a default account state,
+  // confidential-transfer config and on-mint metadata that the gates ignore.
+  // Its multipliers are written already in force, so a step gives no notice on
+  // the mint before it lands; the rebase guard covers only the 15 minutes after.
+  //
+  // Ondo's status list is keyed by its own symbol and carries no addresses. The
+  // symbol is still anchored to the address: each mint's on-chain metadata
+  // names it, with a URI under the same API (`.../assets/SPYon/...`).
+  //
+  // Liquidity is the honest limit. A $200 Jupiter quote, 2026-09-24 16:50 UTC,
+  // moved SPYon 75 bps, AAPLon 7.5%, QQQon 23%, NVDAon 60% and TSLAon 87%.
+  // No cap is raised for them: at the default 50 bps an order refuses those
+  // marks, and the keeper attests no mark wider than the program's 200 bps.
+  {
+    symbol: 'SPYon',
+    mint: 'k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo',
+    underlying: 'SPY',
+    exchangeMic: 'ARCX',
+    issuer: 'ondo',
+    note: 'The SPDR S&P 500 ETF (SPY) as an Ondo Global Markets token, not offered to US persons. BELL reads Ondo\'s public web-app status for it.',
+    devnetWhenMirrored: true,
+  },
+  {
+    symbol: 'QQQon',
+    mint: 'HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo',
+    underlying: 'QQQ',
+    exchangeMic: 'XNAS',
+    issuer: 'ondo',
+    note: 'Invesco QQQ, the Nasdaq-100 ETF, as an Ondo Global Markets token, not offered to US persons. BELL reads Ondo\'s public web-app status for it.',
+    devnetWhenMirrored: true,
+  },
+  {
+    symbol: 'AAPLon',
+    mint: '123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo',
+    underlying: 'AAPL',
+    exchangeMic: 'XNAS',
+    issuer: 'ondo',
+    note: 'Apple (AAPL) as an Ondo Global Markets token, not offered to US persons. BELL reads Ondo\'s public web-app status for it.',
+    devnetWhenMirrored: true,
+  },
+  {
+    symbol: 'NVDAon',
+    mint: 'gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo',
+    underlying: 'NVDA',
+    exchangeMic: 'XNAS',
+    issuer: 'ondo',
+    note: 'NVIDIA (NVDA) as an Ondo Global Markets token, not offered to US persons. BELL reads Ondo\'s public web-app status for it.',
+    devnetWhenMirrored: true,
+  },
+  {
+    symbol: 'TSLAon',
+    mint: 'KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo',
+    underlying: 'TSLA',
+    exchangeMic: 'XNAS',
+    issuer: 'ondo',
+    note: 'Tesla (TSLA) as an Ondo Global Markets token, not offered to US persons. BELL reads Ondo\'s public web-app status for it.',
+    devnetWhenMirrored: true,
+  },
 ] as const
 
 /**
- * The real mainnet allowlist. Pure data, no cluster resolution, never throws.
+ * Every listing, on every cluster. Pure data, no cluster resolution, never
+ * throws. What a mirror script reads, since it is what *produces* mirrors.
+ */
+export const LISTINGS: readonly Listing[] = REAL.map((l) => ({
+  ...l,
+  mainnetMint: l.mint,
+}))
+
+/** Same expression as `config.ts`, which cannot be imported from here: it imports this file. */
+const CLUSTER = process.env.NEXT_PUBLIC_BELL_CLUSTER ?? process.env.BELL_CLUSTER ?? 'mainnet'
+const MIRRORED: Readonly<Record<string, string>> = mirrors
+
+/**
+ * The real mainnet allowlist, which `config.ts` resolves for its cluster.
  *
  * Separate from `config.ts` on purpose. `config.ts` refuses to resolve a devnet
  * mint it has no mirror for, which is right — but `mirror-mints.ts` is the
  * script that *produces* those mirrors, so it cannot be made to require them.
  * Splitting the data from the resolution is what lets the resolution be strict.
+ *
+ * The one exception is a listing marked `devnetWhenMirrored`: on devnet it is
+ * left out until its mirror is recorded, and then it is resolved as strictly
+ * as the rest. A flag rather than a fallback, because the failure it avoids is
+ * specific. Without it, adding a name here would stop devnet from starting —
+ * the keeper, the page and every script — until someone had minted a mirror
+ * and committed it. Leaving the name out is the one safe answer there; putting
+ * the mainnet address in its place never is (see `config.ts`). Scoped to the
+ * listings that carry the flag, so a mirror missing for one of the original
+ * nine is still fatal, as it should be.
+ *
+ * Once the mirror is committed the name is on devnet's allowlist, before
+ * `scripts/register.ts` has created its accounts. The keeper leaves such a name
+ * out of its pushes until they exist (`TickResult.unregistered`).
  */
-export const MAINNET_LISTINGS: readonly Listing[] = REAL.map((l) => ({
-  ...l,
-  mainnetMint: l.mint,
-}))
+export const MAINNET_LISTINGS: readonly Listing[] = listingsFor(CLUSTER, MIRRORED)
+
+/** The rule above as a function of its inputs, so it can be tested on both clusters. */
+export function listingsFor(cluster: string, mirrored: Readonly<Record<string, string>>): Listing[] {
+  return LISTINGS.filter((l) => !(l.devnetWhenMirrored && cluster === 'devnet' && !mirrored[l.symbol]))
+}
 
 /** Ticker padded into the fixed-width form the program uses as a PDA seed. */
 export const SYMBOL_LEN = 12

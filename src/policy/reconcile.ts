@@ -84,6 +84,12 @@ export interface IssuerView {
   issuerHalted: boolean
   /** ISO-8601 instant at which the issuer expects the session to change. */
   nextChangeAt: string | null
+  /**
+   * What the issuer's stop is, when "withdrawn" would be the wrong word. Ondo
+   * publishes a pause flag, which is not a withdrawal, and the log should say
+   * which one happened. Only the words change; the verdict is the same.
+   */
+  stopDetail?: string
 }
 
 /**
@@ -189,7 +195,7 @@ export function reconcile(args: {
       openNow: false,
       nextChangeAt: next,
       confidence: pyth ? 'confirmed' : 'degraded',
-      detail: 'issuer has withdrawn this token; the underlying is not exchange-halted',
+      detail: `${issuer.stopDetail ?? 'issuer has withdrawn this token'}; the underlying is not exchange-halted`,
     }
   }
 

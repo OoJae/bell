@@ -16,8 +16,9 @@
  * orders closed under BELL_GC). The web service needs neither.
  *
  * Deliberately the simple version: one channel, and every subscriber sees every
- * event. Telling one wallet about only its own orders needs a way to link a
- * wallet to a chat, which is roadmap.
+ * event. Telling one wallet's followers about only its own fills is
+ * `alerts.ts`, run by the keeper, which links a chat to a wallet when someone
+ * sends the bot "/start <wallet>".
  *
  * A notification is never part of the venue. The fill has already landed and
  * the attestation has already been pushed by the time anything here runs, so a
@@ -437,6 +438,64 @@ async function post(f: Fetch, token: string, chatId: string, text: string, timeo
     return `HTTP ${res.status}${why ? ` ${why}` : ''}`
   } catch (e) {
     return describe(e)
+  }
+}
+
+/** What one Bot API call came to. `status` is null when Telegram never answered. */
+export type TelegramOutcome = { ok: true; result: unknown } | { ok: false; status: number | null; why: string }
+
+/**
+ * One Bot API call to any method, for the keeper's per-wallet alerts
+ * (`alerts.ts`), which read commands with `getUpdates` and write to private
+ * chats rather than the channel.
+ *
+ * The same promises `notify` makes: it resolves, never rejects, within
+ * `timeoutMs` however Telegram behaves, and the token is redacted from any
+ * reason it gives. A refusal keeps its HTTP status, so a caller can tell a
+ * user who blocked the bot (403) from a network that failed (null).
+ */
+export async function telegram(
+  token: string,
+  method: string,
+  params: Record<string, unknown>,
+  opts: { fetch?: Fetch; timeoutMs?: number } = {},
+): Promise<TelegramOutcome> {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const call = async (): Promise<TelegramOutcome> => {
+    try {
+      const res = await (opts.fetch ?? fetch)(`https://api.telegram.org/bot${token}/${method}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(params),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      const body = await res.text().catch(() => '')
+      type Answer = { ok?: boolean; result?: unknown; description?: string }
+      let parsed: Answer | null = null
+      try {
+        parsed = JSON.parse(body) as Answer
+      } catch {
+        // Not JSON; the raw text explains it below.
+      }
+      if (res.ok && parsed?.ok === true) return { ok: true, result: parsed.result }
+      const why = parsed?.description ?? body.slice(0, 200)
+      return { ok: false, status: res.status, why: `HTTP ${res.status}${why ? ` ${why}` : ''}` }
+    } catch (e) {
+      return { ok: false, status: null, why: describe(e) }
+    }
+  }
+  try {
+    const expired = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), timeoutMs)
+    })
+    const outcome = await Promise.race([call(), expired])
+    if (outcome === 'timeout') return { ok: false, status: null, why: `Telegram did not answer within ${timeoutMs}ms` }
+    return outcome.ok ? outcome : { ...outcome, why: redact(outcome.why, token) }
+  } catch (e) {
+    return { ok: false, status: null, why: redact(describe(e), token) }
+  } finally {
+    clearTimeout(timer)
   }
 }
 

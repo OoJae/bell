@@ -10,17 +10,33 @@
  * because every number here is already public on chain, and a venue that says
  * "the transaction is the record" should make the record easy to read.
  *
- * Everything below `fillsOf` is pure: a transaction as the RPC returns it goes
- * in, rows come out. The loader at the bottom is the only part that talks to
- * the network, and it takes its transport as an argument so tests can stand in
- * for the RPC.
+ * The fills themselves are read by `fillsOf`, in `src/chain/fills.ts` and
+ * re-exported below. Everything from there to the loader is pure: a
+ * transaction as the RPC returns it goes in, rows come out. The loader at the
+ * bottom is the only part that talks to the network, and it takes its
+ * transport as an argument so tests can stand in for the RPC.
  */
-import idl from '../../src/chain/idl.json' with { type: 'json' }
 import { decodeSymbolMark } from '../../src/chain/codec.ts'
 import { markPda } from '../../src/chain/client.ts'
+import { PROGRAM_ADDRESS, fillsOf, fromBase64, type RpcTransaction } from '../../src/chain/fills.ts'
 import type { Listing } from '../../src/listings.ts'
 
-export const PROGRAM_ID: string = idl.address
+// The fill reader moved to src/chain/fills.ts so the keeper, whose image holds
+// only src/ and scripts/, can read fills for per-wallet alerts. Re-exported
+// here under the names the tape always had, so every import of them still
+// works and the tape and the alerts cannot disagree about what a fill is.
+export {
+  decodeOrderFilled,
+  decodeSellOrderFilled,
+  fillsOf,
+  fromBase58,
+  type Fill,
+  type OrderFilled,
+  type RpcInstruction,
+  type RpcTransaction,
+} from '../../src/chain/fills.ts'
+
+export const PROGRAM_ID: string = PROGRAM_ADDRESS
 
 /** Mainnet USDC, the only quote asset here that is worth a dollar. */
 const USDC_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -32,252 +48,6 @@ const USDC_MAINNET = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
  */
 export const quoteLabel = (mint: string, demoQuoteMint: string | undefined): string =>
   mint === USDC_MAINNET ? 'USDC' : mint === demoQuoteMint ? 'demo-USDC' : mint
-
-// Read from the IDL rather than restated, for the reason codec.ts gives: a
-// program change that moved one of these is caught here, not on the tape.
-const FILL_IX = idl.instructions.find((i) => i.name === 'fill_order')
-const FILLED_EVENT = idl.events.find((e) => e.name === 'OrderFilled')
-if (!FILL_IX || !FILLED_EVENT) throw new Error('fill_order or OrderFilled missing from the IDL')
-const FILL_DISCRIMINATOR = Uint8Array.from(FILL_IX.discriminator)
-const EVENT_DISCRIMINATOR = Uint8Array.from(FILLED_EVENT.discriminator)
-/** Where each account sits in a `fill_order` instruction, by its IDL name. */
-const FILL_ACCOUNT = Object.fromEntries(FILL_IX.accounts.map((a, i) => [a.name, i])) as Record<string, number>
-// The sell side's pair. Its accounts are declared with the same names in the
-// same order as `fill_order`'s, but they are looked up by name from their own
-// instruction all the same, so a reordering there cannot misattribute a sell.
-const SELL_FILL_IX = idl.instructions.find((i) => i.name === 'fill_sell_order')
-const SELL_FILLED_EVENT = idl.events.find((e) => e.name === 'SellOrderFilled')
-if (!SELL_FILL_IX || !SELL_FILLED_EVENT) throw new Error('fill_sell_order or SellOrderFilled missing from the IDL')
-const SELL_FILL_DISCRIMINATOR = Uint8Array.from(SELL_FILL_IX.discriminator)
-const SELL_EVENT_DISCRIMINATOR = Uint8Array.from(SELL_FILLED_EVENT.discriminator)
-const SELL_FILL_ACCOUNT = Object.fromEntries(SELL_FILL_IX.accounts.map((a, i) => [a.name, i])) as Record<string, number>
-const MARK_SOURCES: readonly string[] =
-  (idl.types.find((t) => t.name === 'MarkSource')?.type as { variants?: { name: string }[] } | undefined)
-    ?.variants?.map((v) => v.name) ?? []
-
-// ------------------------------------------------------------------ encodings
-
-const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-
-/** Base58, as instruction data arrives in the RPC's `json` encoding. */
-export function fromBase58(s: string): Uint8Array {
-  let n = 0n
-  for (const c of s) {
-    const d = B58.indexOf(c)
-    if (d < 0) throw new Error(`not base58: ${s}`)
-    n = n * 58n + BigInt(d)
-  }
-  const bytes: number[] = []
-  while (n > 0n) {
-    bytes.unshift(Number(n & 0xffn))
-    n >>= 8n
-  }
-  for (const c of s) {
-    if (c !== '1') break
-    bytes.unshift(0)
-  }
-  return Uint8Array.from(bytes)
-}
-
-function fromBase64(s: string): Uint8Array {
-  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
-}
-
-const startsWith = (b: Uint8Array, prefix: Uint8Array) =>
-  b.length >= prefix.length && prefix.every((x, i) => b[i] === x)
-
-// ---------------------------------------------------------------------- event
-
-/**
- * `OrderFilled`, as the program emits it (state.rs), and `SellOrderFilled`,
- * which has the same fields in the same order.
- *
- * On a buy `amountIn` is quote and `amountOut` stock; on a sell it is the other
- * way round, `amountIn` the stock taken and `amountOut` the quote paid. In both,
- * the "in" leg is what left the user and the "out" leg what reached them.
- */
-export interface OrderFilled {
-  symbol: string
-  amountIn: bigint
-  /** What actually landed in the user's account, measured by the program. */
-  amountOut: bigint
-  /** The mark that priced the fill: `pxNum × 10^pxExpo` quote units per share. */
-  pxNum: bigint
-  pxExpo: number
-  source: string
-  markObservedAt: number
-  realizedBps: number
-}
-
-/**
- * Decode one `Program data:` payload, or return null when it is not an
- * `OrderFilled`. The owner and filler keys are skipped: the filler is read from
- * the instruction instead, and the buyer is left off the tape (see `TapeRow`).
- */
-export const decodeOrderFilled = (data: Uint8Array): OrderFilled | null => decodeFillEvent(data, EVENT_DISCRIMINATOR)
-
-/** The same for a `SellOrderFilled`, whose payload differs only in its first eight bytes. */
-export const decodeSellOrderFilled = (data: Uint8Array): OrderFilled | null =>
-  decodeFillEvent(data, SELL_EVENT_DISCRIMINATOR)
-
-function decodeFillEvent(data: Uint8Array, discriminator: Uint8Array): OrderFilled | null {
-  // discriminator 8, symbol 12, owner 32, filler 32, three u64, i32, u8, i64, u16
-  if (!startsWith(data, discriminator) || data.length < 123) return null
-  const d = new DataView(data.buffer, data.byteOffset, data.byteLength)
-  let o = 8
-  const symbol = new TextDecoder().decode(data.subarray(o, o + 12)).trimEnd()
-  o += 12 + 32 + 32
-  const amountIn = d.getBigUint64(o, true)
-  const amountOut = d.getBigUint64(o + 8, true)
-  const pxNum = d.getBigUint64(o + 16, true)
-  const pxExpo = d.getInt32(o + 24, true)
-  const source = d.getUint8(o + 28)
-  const markObservedAt = Number(d.getBigInt64(o + 29, true))
-  const realizedBps = d.getUint16(o + 37, true)
-  return {
-    symbol,
-    amountIn,
-    amountOut,
-    pxNum,
-    pxExpo,
-    source: MARK_SOURCES[source] ?? `source ${source}`,
-    markObservedAt,
-    realizedBps,
-  }
-}
-
-// ---------------------------------------------------------------- transaction
-
-/** One instruction as the RPC's `json` encoding gives it. */
-export interface RpcInstruction {
-  programIdIndex: number
-  accounts: number[]
-  /** Base58. */
-  data: string
-}
-
-interface RpcTokenBalance {
-  mint: string
-  uiTokenAmount: { decimals: number }
-}
-
-/** `getTransaction` with `encoding: 'json'`, as far as the tape reads it. */
-export interface RpcTransaction {
-  slot: number
-  blockTime: number | null
-  meta: {
-    err: unknown
-    logMessages?: string[] | null
-    innerInstructions?: { index: number; instructions: RpcInstruction[] }[] | null
-    loadedAddresses?: { writable: string[]; readonly: string[] } | null
-    preTokenBalances?: RpcTokenBalance[] | null
-    postTokenBalances?: RpcTokenBalance[] | null
-  } | null
-  transaction: {
-    signatures: string[]
-    message: { accountKeys: string[]; instructions: RpcInstruction[] }
-  }
-}
-
-/** A fill, with the accounts its instruction named. */
-export interface Fill {
-  /** `fill_order` is a buy, `fill_sell_order` a sell. */
-  side: 'buy' | 'sell'
-  event: OrderFilled
-  order: string
-  /** The order's owner: the buyer, or on a sell the seller. Kept off the public tape; see `TapeRow.buyer`. */
-  owner: string
-  filler: string
-  quoteMint: string
-  stockMint: string
-}
-
-const INVOKE = /^Program (\S+) invoke \[\d+\]$/
-const EXIT = /^Program (\S+) (success|failed)/
-const DATA = 'Program data: '
-
-/** How each fill instruction is read: its side, its event, and where its accounts sit. */
-const FILL_KINDS = [
-  { side: 'buy', ix: FILL_DISCRIMINATOR, decode: decodeOrderFilled, account: FILL_ACCOUNT },
-  { side: 'sell', ix: SELL_FILL_DISCRIMINATOR, decode: decodeSellOrderFilled, account: SELL_FILL_ACCOUNT },
-] as const
-
-/**
- * Every `fill_order` and `fill_sell_order` in a transaction, with the event
- * each one emitted.
- *
- * An event is only believed when BELL itself logged it. `Program data:` lines
- * carry no author, and any program in the same transaction can write one with
- * the right eight bytes in front — so the logs are walked as a call stack, and
- * a payload counts only while the frame on top is BELL executing a fill. The
- * event must also be the one that instruction emits: an `OrderFilled` inside
- * `fill_sell_order`, or a `SellOrderFilled` inside `fill_order`, is not a fill,
- * because the program never writes either, and believing one would print a
- * sale as a purchase.
- * The same walk ties each event to its instruction: every instruction, top
- * level or cross-program, logs exactly one `invoke` line, in execution order,
- * so the n-th `invoke` is the n-th instruction of the flattened list. That is
- * where the order's address comes from; the event does not carry it.
- *
- * Throws rather than guess when the logs and the instructions do not line up,
- * which is what a truncated log looks like. A fill left off the tape and
- * counted as unreadable is honest; one attributed to the wrong order is not.
- */
-export function fillsOf(tx: RpcTransaction): Fill[] {
-  const meta = tx.meta
-  // A failed transaction changed nothing, whatever its logs say.
-  if (!meta || (meta.err !== null && meta.err !== undefined)) return []
-  const logs = meta.logMessages ?? []
-  if (logs.some((l) => l.startsWith('Log truncated'))) throw new Error('log truncated')
-
-  const keys = [
-    ...tx.transaction.message.accountKeys,
-    ...(meta.loadedAddresses?.writable ?? []),
-    ...(meta.loadedAddresses?.readonly ?? []),
-  ]
-  const inner = new Map((meta.innerInstructions ?? []).map((g) => [g.index, g.instructions]))
-  const flat: RpcInstruction[] = []
-  tx.transaction.message.instructions.forEach((ix, i) => flat.push(ix, ...(inner.get(i) ?? [])))
-
-  const fills: Fill[] = []
-  const stack: { program: string; ix: RpcInstruction }[] = []
-  let next = 0
-  for (const line of logs) {
-    const invoke = INVOKE.exec(line)
-    if (invoke) {
-      const ix = flat[next++]
-      if (!ix || keys[ix.programIdIndex] !== invoke[1]) {
-        throw new Error(`log invokes ${invoke[1]} where instruction ${next - 1} is not it`)
-      }
-      stack.push({ program: invoke[1], ix })
-      continue
-    }
-    if (EXIT.test(line)) {
-      stack.pop()
-      continue
-    }
-    if (!line.startsWith(DATA)) continue
-    const top = stack.at(-1)
-    if (!top || top.program !== PROGRAM_ID) continue
-    const ixData = fromBase58(top.ix.data)
-    const kind = FILL_KINDS.find((k) => startsWith(ixData, k.ix))
-    if (!kind) continue
-    // sol_log_data writes one base64 field per slice; Anchor's emit! uses one.
-    const event = kind.decode(fromBase64(line.slice(DATA.length).split(' ')[0]))
-    if (!event) continue
-    const account = (name: string) => keys[top.ix.accounts[kind.account[name]]]
-    fills.push({
-      side: kind.side,
-      event,
-      order: account('order'),
-      owner: account('owner'),
-      filler: account('filler'),
-      quoteMint: account('quote_mint'),
-      stockMint: account('stock_mint'),
-    })
-  }
-  return fills
-}
 
 // ------------------------------------------------------------------ the rows
 

@@ -1601,6 +1601,32 @@ export default function Page() {
             {shortKey(PROGRAM)} on Solana Explorer ↗
           </a>
         </span>
+        <span>
+          mainnet{' '}
+          <a href="/overpay">did you overpay at night?</a>
+        </span>
+        <span>
+          fills{' '}
+          <a href="https://t.me/bellfills" target="_blank" rel="noreferrer">
+            t.me/bellfills ↗
+          </a>
+        </span>
+        {/* Opens the bot with "/start <wallet>" ready to send. The keeper then
+            messages that chat when this wallet's orders fill. Fills are public
+            on chain, so the link proves nothing and needs nothing signed. */}
+        {publicKey && (
+          <span>
+            telegram{' '}
+            <a
+              href={`https://t.me/Bell_solbot?start=${publicKey.toBase58()}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Anyone can follow any wallet: fills are public on chain."
+            >
+              alerts for this wallet ↗
+            </a>
+          </span>
+        )}
       </footer>
     </div>
   )

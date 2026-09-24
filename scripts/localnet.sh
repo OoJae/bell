@@ -22,6 +22,7 @@ exec solana-test-validator -r \
   --url https://api.mainnet-beta.solana.com \
   --ledger test-ledger \
   --clone XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W --clone Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh --clone Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ --clone XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB --clone XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp --clone XsbELVbLGBkn7xfMfyYuUipKGt1iRUc2B7pYRvFTFu3 --clone XsCAXu7xTaZMG9b9KJhNWYapuvNjxPuE4SysZq8uvMq --clone PFER6ENqP8r8NF3CqVt4mFowxsin3V5MLidBNQFCC3x --clone LMT3i1BHgixFqPUgcyteJhnEz2dpy9i3cYy4pi9BoeV \
+  --clone k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo --clone HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo --clone 123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo --clone gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo --clone KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo \
   $SEED \
   --bpf-program 56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx target/deploy/bell_session.so \
   --quiet

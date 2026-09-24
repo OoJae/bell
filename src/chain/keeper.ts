@@ -9,14 +9,21 @@
  * is 120, so if this process dies every symbol becomes untradeable two minutes
  * later without anyone doing anything. Silence closes the venue.
  */
-import { Connection, Keypair, PublicKey } from '@solana/web3.js'
+import { Connection, Keypair, PublicKey, Transaction, type TransactionInstruction } from '@solana/web3.js'
 import { ALLOWLIST, type Listing } from '../config.ts'
 import { fetchAsset, type XStock } from '../sensor/xstocks.ts'
 import { fetchEquitySessions, type PythSession } from '../sensor/pyth.ts'
 import { fetchHalts, isActive, type Halt } from '../sensor/halts.ts'
 import { fetchSessions, fetchHolidays, fetchSecurities } from '../sensor/backpack.ts'
+import { fetchOndoAssets, OndoFeed, type OndoAsset } from '../sensor/ondo.ts'
 import { resolveSession, type SessionWindow, type HolidayWindow } from '../policy/sessions.ts'
-import { reconcile, HaltState, type CalendarView, type Verdict } from '../policy/reconcile.ts'
+import {
+  reconcile,
+  HaltState,
+  type CalendarView,
+  type IssuerView,
+  type Verdict,
+} from '../policy/reconcile.ts'
 import { isRegularOpen, nextChange } from '../policy/calendar.ts'
 import {
   ixPushMark,
@@ -26,8 +33,8 @@ import {
   readAllSymbols,
   send,
 } from './client.ts'
-import { MarkSource, fairOut, rateQ64 } from './codec.ts'
-import { quote, usdc, fetchTokens, USDC } from '../sensor/jupiter.ts'
+import { LIMITS, MarkSource, fairOut, rateQ64, type SymbolMark } from './codec.ts'
+import { quote, usdc, fetchTokens, USDC, type Quote } from '../sensor/jupiter.ts'
 import { multiplierOf } from './codec.ts'
 import { readTokenRisk } from './client.ts'
 import { PublicKey as Web3PublicKey } from '@solana/web3.js'
@@ -44,6 +51,33 @@ import { PublicKey as Web3PublicKey } from '@solana/web3.js'
  * `fair` what a filler can actually get, so max_slip_bps is their whole margin.
  */
 const MARK_NOTIONAL_USD = 200
+
+/** The program's ceiling on a mark's uncertainty, read from the IDL. */
+const MAX_CONF_BPS = LIMITS.MAX_CONF_BPS ?? 200
+
+/**
+ * The value a circuit breaker leaves in a mark: `conf_bps` at its maximum.
+ *
+ * No instruction writes it today — `push_mark` refuses anything over 200. This
+ * is the keeper's half of a breaker that does not exist yet, so that when one
+ * trips, the next routine price does not quietly overwrite it. `open_mark`
+ * writes the same value into a mark nobody has priced, with `observed_at` 0,
+ * and the keeper must still give that one its first price; so the marker is
+ * the maximum with a real timestamp beside it, and a breaker has to write one.
+ */
+export const BREAKER_CONF_BPS = 65_535
+export const breakerTripped = (m: Pick<SymbolMark, 'confBps' | 'observedAt'>): boolean =>
+  m.confBps === BREAKER_CONF_BPS && m.observedAt > 0n
+
+/**
+ * Ondo's status list, read in the background (`sensor/ondo.ts`): three
+ * megabytes and several seconds, so never inside a tick. Only the Ondo names
+ * on this cluster's allowlist are kept, and with none it never starts.
+ */
+const ONDO_SYMBOLS: ReadonlySet<string> = new Set(
+  ALLOWLIST.filter((l) => l.issuer === 'ondo').map((l) => l.symbol),
+)
+export const ondoFeed = new OndoFeed({ load: () => fetchOndoAssets(ONDO_SYMBOLS) })
 
 /**
  * The cluster's idea of the current time, which is what the program compares
@@ -74,6 +108,12 @@ export interface MarkReading {
 export interface PushedMark extends MarkReading {
   /** The `observed_at` in the instruction, in unix seconds on the cluster's clock. */
   observedAt: number
+  /**
+   * The transaction that carried this mark. Absent in a dry run. With more
+   * marks than fit one transaction they land in several, so this, not the
+   * tick's `markSignature`, is the one that names where this price went.
+   */
+  signature?: string
 }
 
 /** Everything the loop needs, gathered once per tick. */
@@ -98,6 +138,15 @@ export interface Observation {
   } | null
   /** Why `backpack` is null, when it is. */
   backpackError: string | null
+  /**
+   * Ondo's status per token symbol, as the background cache held it when the
+   * tick sensed. Null when there was no reading under ten minutes old; see
+   * `ondoError`. Optional so an observation built before Ondo was listed still
+   * types, and absent reads as no reading.
+   */
+  ondo?: Map<string, OndoAsset> | null
+  /** Why `ondo` is null, when it is. */
+  ondoError?: string | null
 }
 
 export async function sense(): Promise<Observation> {
@@ -151,6 +200,18 @@ export async function sense(): Promise<Observation> {
       },
     ),
   ])
+  // Ondo's list is taken from the cache as it stands, never awaited here: a
+  // three-megabyte read would put the tick's attestation at risk for names the
+  // tick can close instead. The first ticks after a start have no reading, and
+  // their Ondo names are closed until one arrives.
+  let ondo: Map<string, OndoAsset> | null = null
+  let ondoError: string | null = null
+  if (ONDO_SYMBOLS.size > 0) {
+    ondoFeed.start()
+    const r = ondoFeed.reading()
+    if (r.assets) ondo = r.assets
+    else ondoError = r.error
+  }
   return {
     at: new Date(),
     xstocks: new Map(
@@ -161,6 +222,8 @@ export async function sense(): Promise<Observation> {
     halts,
     backpack,
     backpackError,
+    ondo,
+    ondoError,
   }
 }
 
@@ -180,14 +243,101 @@ export interface Decision {
   }
 }
 
+/** What a listing's issuer says, and anything the verdict's detail should add. */
+interface IssuerReading {
+  view: IssuerView | null
+  /** Appended to the verdict's detail. One line; null adds nothing. */
+  aside: string | null
+}
+
+/**
+ * What this listing's issuer says, or nothing.
+ *
+ * One branch per issuer, each named. An issuer with no branch has no reading,
+ * and `reconcile` closes it. This used to be an `else`: every issuer that was
+ * not Backed took Backpack's path, so a third issuer would have been judged by
+ * Backpack's calendar — open all session, with nobody reading its own state.
+ */
+function issuerReading(listing: Listing, obs: Observation): IssuerReading {
+  switch (listing.issuer) {
+    case 'backed': {
+      const x = obs.xstocks.get(listing.mainnetMint)
+      return {
+        view: x ? { openNow: x.openNow, issuerHalted: x.halted, nextChangeAt: x.nextChangeAt } : null,
+        aside: null,
+      }
+    }
+    case 'backpack': {
+      const supported = obs.backpack?.supported.get(`${listing.underlying}.US`)
+      if (!obs.backpack || !supported) return { view: null, aside: null }
+      const s = resolveSession({
+        sessions: obs.backpack.sessions,
+        holidays: obs.backpack.holidays,
+        supported,
+        now: obs.at,
+      })
+      // Backpack publishes no halt flag; halts for its names arrive only via
+      // the exchange feed above.
+      return { view: { openNow: s.regularOpen, issuerHalted: false, nextChangeAt: null }, aside: null }
+    }
+    case 'ondo':
+      return ondoReading(listing, obs)
+    default: {
+      const unknown: never = listing.issuer
+      return { view: null, aside: `no sensor reads issuer ${JSON.stringify(unknown)}` }
+    }
+  }
+}
+
+/**
+ * Ondo's word on one token, from the cached status list.
+ *
+ * The list is keyed by Ondo's symbol and carries no addresses, so the row's
+ * underlying ticker is checked as well: a row that names another security is
+ * not this token, whatever it is called, and counts as no reading.
+ *
+ * Open means Ondo would trade it now: not paused, tradeable, and Ondo's market
+ * open. That is the issuer's side only. Whether the regular session is open is
+ * still Pyth's question and the calendar's, as for every other issuer.
+ */
+function ondoReading(listing: Listing, obs: Observation): IssuerReading {
+  if (!obs.ondo) {
+    return { view: null, aside: obs.ondoError ? `Ondo status unread: ${obs.ondoError}` : null }
+  }
+  const o = obs.ondo.get(listing.symbol)
+  if (!o) return { view: null, aside: `Ondo's status list has no ${listing.symbol}` }
+  if (o.ticker !== listing.underlying) {
+    return { view: null, aside: `Ondo lists ${listing.symbol} as ${o.ticker ?? 'no ticker'}, not ${listing.underlying}` }
+  }
+  const openNow = !o.paused && o.tradeable && o.marketOpen
+  return {
+    view: {
+      openNow,
+      issuerHalted: o.paused,
+      // Ondo publishes a `nextMarketOpen`, but read during the regular session
+      // on 2026-09-24 it pointed at 16:01 ET: its next session, not the close.
+      // The session's times come from Pyth and the calendar instead.
+      nextChangeAt: null,
+      ...(o.paused ? { stopDetail: `Ondo has paused this token${o.pauseReason ? ` (${o.pauseReason})` : ''}` } : {}),
+    },
+    aside:
+      !openNow && !o.paused
+        ? `Ondo: ${o.tradeable ? 'tradeable' : 'not tradeable'}, its market ${o.marketOpen ? 'open' : 'closed'}, session ${o.session}`
+        : null,
+  }
+}
+
 /**
  * Turn one observation into a verdict per listing.
  *
- * The two issuers are not symmetric and the code says so rather than pretending
+ * The issuers are not symmetric and the code says so rather than pretending
  * otherwise: Backed publishes a per-security flag, Backpack publishes a session
- * calendar and no halt state at all. The Nasdaq feed is what covers the gap.
+ * calendar and no halt state at all, Ondo a pause flag and a tradeable flag in
+ * a list its web app reads. The Nasdaq feed is what covers the gap.
+ *
+ * `listings` is the allowlist unless a test says otherwise.
  */
-export function decide(obs: Observation): Decision[] {
+export function decide(obs: Observation, listings: readonly Listing[] = ALLOWLIST): Decision[] {
   const nowSeconds = Math.floor(obs.at.getTime() / 1000)
 
   // The NYSE calendar at the instant of the observation, once for every
@@ -199,7 +349,7 @@ export function decide(obs: Observation): Decision[] {
   const calendar: CalendarView | null =
     calendarOpen === null ? null : { isOpen: calendarOpen, nextChangeAt: nextChange(obs.at) }
 
-  return ALLOWLIST.map((listing) => {
+  return listings.map((listing) => {
     const feed = obs.pyth.get(listing.underlying)
     const halt = obs.halts.get(listing.underlying)
     const exchangeHalt =
@@ -207,30 +357,7 @@ export function decide(obs: Observation): Decision[] {
         ? { kind: halt.kind as HaltState, resumesAt: halt.resumesAt }
         : null
 
-    let issuer = null
-    if (listing.issuer === 'backed') {
-      const x = obs.xstocks.get(listing.mainnetMint)
-      if (x) {
-        issuer = {
-          openNow: x.openNow,
-          issuerHalted: x.halted,
-          nextChangeAt: x.nextChangeAt,
-        }
-      }
-    } else if (obs.backpack) {
-      const supported = obs.backpack.supported.get(`${listing.underlying}.US`)
-      if (supported) {
-        const s = resolveSession({
-          sessions: obs.backpack.sessions,
-          holidays: obs.backpack.holidays,
-          supported,
-          now: obs.at,
-        })
-        // Backpack publishes no halt flag; halts for its names arrive only via
-        // the exchange feed above.
-        issuer = { openNow: s.regularOpen, issuerHalted: false, nextChangeAt: null }
-      }
-    }
+    const { view: issuer, aside } = issuerReading(listing, obs)
 
     const verdict = reconcile({
       pyth: feed
@@ -244,6 +371,7 @@ export function decide(obs: Observation): Decision[] {
     // fault from one Pyth has stopped publishing, and the fix is different, so
     // the verdict names it.
     if (!feed && obs.pythError) verdict.detail += ` (Pyth feed list unread: ${obs.pythError})`
+    if (aside) verdict.detail += ` (${aside})`
 
     return {
       listing,
@@ -275,18 +403,60 @@ export function needsPush(
 }
 
 /**
- * Price every allowlisted symbol from an executable quote.
+ * The mark one executable quote supports, or null when it supports none.
+ *
+ * The quote's own price impact is the uncertainty we can actually see, so it
+ * is the mark's `conf_bps`. Past the program's ceiling (200 bps) the quote
+ * supports no mark at all. It used to be clamped to 200 and attested anyway,
+ * which claims a precision the quote does not have, while the price it carries
+ * is the impacted one. On 2026-09-24 a $200 quote moved TSLAon 87%: attested,
+ * that is a price about seven times Tesla's, labelled as good to 2%. No mark
+ * means no fill, which is the honest outcome. The nine earlier names were far
+ * inside it the same day (PFE 56 bps, LMT 74, TSLAx 2), and below the ceiling
+ * nothing changes.
+ */
+export function markFromQuote(args: {
+  symbol: string
+  q: Pick<Quote, 'outAmount' | 'priceImpact'>
+  decimals: number
+  multiplier: number
+}): MarkReading | null {
+  const { q, decimals, multiplier } = args
+  if (q.outAmount === 0n) return null
+  const confBps = Math.max(1, Math.round(q.priceImpact * 10_000))
+  if (!(confBps <= MAX_CONF_BPS)) return null
+
+  // Executable price per share, with the multiplier applied.
+  const shares = (Number(q.outAmount) / 10 ** decimals) * multiplier
+  const pricePerShare = MARK_NOTIONAL_USD / shares
+  return {
+    symbol: args.symbol,
+    rateQ64: rateQ64({ pricePerShare, multiplier, quoteDecimals: 6, stockDecimals: decimals }),
+    pxNum: BigInt(Math.round(pricePerShare * 1e6)),
+    pxExpo: -6,
+    confBps,
+    source: MarkSource.Jupiter,
+  }
+}
+
+/**
+ * Price the allowlisted symbols from an executable quote.
  *
  * Symbols with no route get no mark, and therefore cannot fill — the honest
- * coverage limit rather than a guess. The scaled-UI multiplier is folded in
- * here because raw balances are not share units.
+ * coverage limit rather than a guess. So does a route too thin to state a
+ * price within the program's ceiling (see `markFromQuote`). The scaled-UI
+ * multiplier is folded in here because raw balances are not share units.
+ *
+ * `listings` defaults to the whole allowlist; the tick passes only the names
+ * registered on this cluster, so an unregistered one costs no quote.
  */
 export async function readMarks(
   conn: Connection,
   decimalsByMint: Map<string, number>,
+  listings: readonly Listing[] = ALLOWLIST,
 ): Promise<MarkReading[]> {
   const out: MarkReading[] = []
-  for (const listing of ALLOWLIST) {
+  for (const listing of listings) {
     const mint = new Web3PublicKey(listing.mint)
     // Decimals are a property of the security, and the devnet mirror is created
     // to match, so the real address is the right key for both.
@@ -300,22 +470,55 @@ export async function readMarks(
 
     const risk = await readTokenRisk(conn, mint)
     if (!risk) continue
-    const multiplier = multiplierOf(risk.multiplierBits)
 
-    // Executable price per share, with the multiplier applied.
-    const shares = (Number(q.outAmount) / 10 ** decimals) * multiplier
-    const pricePerShare = MARK_NOTIONAL_USD / shares
-
-    out.push({
-      symbol: listing.symbol,
-      rateQ64: rateQ64({ pricePerShare, multiplier, quoteDecimals: 6, stockDecimals: decimals }),
-      pxNum: BigInt(Math.round(pricePerShare * 1e6)),
-      pxExpo: -6,
-      // The quote's own price impact is the uncertainty we can actually see.
-      confBps: Math.min(200, Math.max(1, Math.round(q.priceImpact * 10_000))),
-      source: MarkSource.Jupiter,
-    })
+    const m = markFromQuote({ symbol: listing.symbol, q, decimals, multiplier: multiplierOf(risk.multiplierBits) })
+    if (m) out.push(m)
   }
+  return out
+}
+
+/** A legacy transaction's hard size limit, in bytes. */
+export const TX_LIMIT = 1_232
+
+/**
+ * The serialized size of one transaction carrying `ixs`, paid for and signed
+ * by `payer` alone: the message, one signature, and its length byte. Every
+ * transaction the keeper sends has exactly that one signer, the attestor.
+ */
+export function txBytes(ixs: readonly TransactionInstruction[], payer: PublicKey): number {
+  const tx = new Transaction().add(...ixs)
+  tx.feePayer = payer
+  tx.recentBlockhash = PublicKey.default.toBase58()
+  return tx.serializeMessage().length + 1 + 64
+}
+
+/**
+ * Split instructions, in order, into as few transactions as fit `TX_LIMIT`.
+ *
+ * Measured, not counted: the sizes are fixed per instruction kind but differ
+ * between kinds, and a count per transaction would be wrong for one of them.
+ * Measured on 2026-09-24, one session push adds 75 bytes, one TokenRisk
+ * refresh 77 and one mark 129. So nine sessions are 841 bytes and fourteen
+ * 1,216, one transaction either way; nine refreshes are 859 and fourteen 1,244,
+ * which is two; seven marks are 1,069 but nine are 1,327, so marks already
+ * needed two once more than eight names priced. With nine names each batch
+ * packs exactly as it was sent before. An instruction too big to share still
+ * goes alone, so the node refuses it by name rather than this dropping it.
+ */
+export function packInstructions(
+  ixs: readonly TransactionInstruction[],
+  payer: PublicKey,
+): TransactionInstruction[][] {
+  const out: TransactionInstruction[][] = []
+  let cur: TransactionInstruction[] = []
+  for (const ix of ixs) {
+    if (cur.length > 0 && txBytes([...cur, ix], payer) > TX_LIMIT) {
+      out.push(cur)
+      cur = []
+    }
+    cur.push(ix)
+  }
+  if (cur.length > 0) out.push(cur)
   return out
 }
 
@@ -359,12 +562,35 @@ export interface TickResult {
    * refreshing is the silent failure this field exists to make loud.
    */
   riskError: string | null
+  /**
+   * Every transaction this tick landed, in the order sent: sessions, then
+   * refreshes, then marks. With fourteen names a batch can take two, and
+   * `signature` and `markSignature` name only the first of theirs.
+   */
+  signatures: string[]
+  /**
+   * Allowlisted names with no `SymbolState` or `TokenRisk` on this cluster yet,
+   * left out of every push. A name reaches the allowlist before
+   * `scripts/register.ts` has run for it — on devnet, the moment its mirror is
+   * committed — and one push for an account that does not exist fails the
+   * whole transaction it is in, closing every name beside it.
+   */
+  unregistered: string[]
+  /**
+   * Names whose on-chain mark carries the circuit-breaker marker
+   * (`BREAKER_CONF_BPS`). The keeper does not price them: a new mark would
+   * overwrite the breaker. Logged as PAUSED (circuit breaker) every tick.
+   */
+  breaker: string[]
 }
 
+/** What the log last said about unregistered names, so it is said on change. */
+let lastUnregistered = ''
+
 /**
- * One pass. All pushes go in a single transaction — nine instructions is 841
- * bytes against the 1,232 limit, so this is one signature regardless of how
- * many symbols moved.
+ * One pass. Each kind of push goes in as few transactions as fit the 1,232
+ * byte limit (`packInstructions`): with nine names, one each, exactly as
+ * before; with fourteen, the refreshes and the marks can take two.
  */
 export async function tick(args: {
   conn: Connection
@@ -402,8 +628,8 @@ export async function tick(args: {
   // to 1,520 — a mark carries a u128 rate plus price fields, so it is a much
   // fatter instruction. Two signatures a tick instead of one is a fee rounding
   // error next to getting this wrong at the open.
-  const sessionIxs = []
-  const markIxs = []
+  const sessionIxs: TransactionInstruction[] = []
+  const markIxs: TransactionInstruction[] = []
   const pushed: string[] = []
 
   // Every symbol's on-chain state in one read: one consistent snapshot, and
@@ -412,8 +638,25 @@ export async function tick(args: {
     conn,
     decisions.map((d) => d.listing),
   )
+
+  // A name with no accounts here yet is left out of every batch below: one
+  // push for an account that does not exist fails its whole transaction.
+  const unregistered = decisions
+    .filter((d) => {
+      const a = onChain.get(d.listing.symbol)
+      return !a?.state || !a.risk
+    })
+    .map((d) => d.listing.symbol)
+  if (unregistered.join(',') !== lastUnregistered) {
+    if (unregistered.length > 0) {
+      console.log(`  not registered on this cluster, left out of every push: ${unregistered.join(', ')} (run scripts/register.ts)`)
+    }
+    lastUnregistered = unregistered.join(',')
+  }
+
   for (const d of decisions) {
     const state = onChain.get(d.listing.symbol)?.state ?? null
+    if (!state) continue
     if (!needsPush(state, d.verdict, nowSeconds, refreshBefore)) continue
     sessionIxs.push(
       ixPushSession({
@@ -431,8 +674,8 @@ export async function tick(args: {
   // Marks refresh far more often than sessions: MAX_MARK_AGE_SECONDS is 60, so
   // a price older than a minute cannot settle anything.
   //
-  // Isolated from the session push on purpose. Pricing needs nine Jupiter
-  // quotes a tick, roughly two thousand times a day, against an endpoint that
+  // Isolated from the session push on purpose. Pricing needs a Jupiter quote
+  // per name every tick, thousands a day, against an endpoint that
   // rate-limits and times out — and every one of those failures used to throw
   // out of `tick()` before the session attestation was ever sent, so a routine
   // sensor hiccup closed the entire venue 120 seconds later. That is
@@ -441,16 +684,35 @@ export async function tick(args: {
   // The two are not equally critical: a stale session is a safety question, a
   // stale mark only means nothing can fill. Degrading to "no fresh price" is
   // the honest outcome, and the gate still refuses those fills by itself.
-  const marks: PushedMark[] = []
+  let marks: PushedMark[] = []
   let markError: string | null = null
+
+  // A tripped breaker is read from the snapshot so the name costs no quote,
+  // and again just before its mark would be built, so one tripped mid-tick is
+  // not overwritten either. The program is what must finally refuse a price
+  // while it is tripped; this only keeps the keeper from being the one to undo it.
+  const breaker = decisions
+    .filter((d) => {
+      const m = onChain.get(d.listing.symbol)?.mark
+      return m ? breakerTripped(m) : false
+    })
+    .map((d) => d.listing.symbol)
+
   if (args.withMarks !== false) {
     try {
       const decimals = new Map(
         [...(await fetchTokens(ALLOWLIST.map((l) => l.mainnetMint)))].map(([m, t]) => [m, t.decimals]),
       )
-      for (const m of await readMarks(conn, decimals)) {
+      const priced = decisions
+        .map((d) => d.listing)
+        .filter((l) => !unregistered.includes(l.symbol) && !breaker.includes(l.symbol))
+      for (const m of await readMarks(conn, decimals, priced)) {
         const existing = await readMark(conn, m.symbol)
         if (!existing) continue // not opened yet
+        if (breakerTripped(existing)) {
+          breaker.push(m.symbol)
+          continue
+        }
         markIxs.push(
           ixPushMark({
             attestor: attestor.publicKey,
@@ -471,15 +733,30 @@ export async function tick(args: {
       marks.length = 0
     }
   }
+  for (const symbol of breaker) console.log(`  ${symbol} PAUSED (circuit breaker): its mark reads conf_bps ${BREAKER_CONF_BPS}, so no new price is pushed`)
 
   let signature: string | null = null
   let markSignature: string | null = null
   let refreshed = 0
   let riskError: string | null = null
+  const signatures: string[] = []
   if (!dryRun) {
-    // Sessions first, and in their own transaction. If a later push fails, the
-    // attestation that keeps the venue open has already landed.
-    if (sessionIxs.length > 0) signature = await send(conn, sessionIxs, [attestor])
+    // Sessions first, and in their own transactions. If a later push fails,
+    // the attestation that keeps the venue open has already landed. Every
+    // batch is sent even when an earlier one failed, so one bad batch closes
+    // only its own names; the tick then fails as it always has, and the
+    // refreshes and marks wait for the next.
+    let sessionFailure: unknown = null
+    for (const batch of packInstructions(sessionIxs, attestor.publicKey)) {
+      try {
+        const sig = await send(conn, batch, [attestor])
+        signature = signature ?? sig
+        signatures.push(sig)
+      } catch (e) {
+        sessionFailure = sessionFailure ?? e
+      }
+    }
+    if (sessionFailure) throw sessionFailure
 
     // Re-read every mint's Token-2022 extensions into its TokenRisk record.
     //
@@ -492,29 +769,41 @@ export async function tick(args: {
     // everyone skipping it, and the one party that profits from a stale record
     // is the one party that never will.
     //
-    // Its own transaction (nine refreshes are 859 bytes; with sessions it would
-    // not fit) and its own try/catch: a failed refresh must never cost the
-    // session push above or the marks below.
-    try {
-      await send(
-        conn,
-        ALLOWLIST.map((l) => ixRefreshTokenRisk(new PublicKey(l.mint))),
-        [attestor],
-      )
-      refreshed = ALLOWLIST.length
-    } catch (e) {
-      riskError = (e as Error).message
-    }
-
-    if (markIxs.length > 0) {
+    // Its own transactions (nine refreshes are 859 bytes; with sessions they
+    // would not fit, and fourteen take two) and its own try/catch: a failed
+    // refresh must never cost the session push above or the marks below.
+    // Only records that exist: a refresh of one that does not fails the batch.
+    const refreshIxs = decisions
+      .map((d) => d.listing)
+      .filter((l) => onChain.get(l.symbol)?.risk)
+      .map((l) => ixRefreshTokenRisk(new PublicKey(l.mint)))
+    for (const batch of packInstructions(refreshIxs, attestor.publicKey)) {
       try {
-        markSignature = await send(conn, markIxs, [attestor])
-        signature = signature ?? markSignature
+        signatures.push(await send(conn, batch, [attestor]))
+        refreshed += batch.length
       } catch (e) {
-        markError = (e as Error).message
-        marks.length = 0
+        riskError = riskError ?? (e as Error).message
       }
     }
+
+    // A mark batch that fails costs its own marks only; the ones that landed
+    // are kept, each with the transaction that carried it.
+    const landed: PushedMark[] = []
+    let at = 0
+    for (const batch of packInstructions(markIxs, attestor.publicKey)) {
+      const carried = marks.slice(at, at + batch.length)
+      at += batch.length
+      try {
+        const sig = await send(conn, batch, [attestor])
+        markSignature = markSignature ?? sig
+        signatures.push(sig)
+        for (const m of carried) landed.push({ ...m, signature: sig })
+      } catch (e) {
+        markError = markError ?? (e as Error).message
+      }
+    }
+    marks = landed
+    signature = signature ?? markSignature
   }
 
   return {
@@ -530,6 +819,9 @@ export async function tick(args: {
     markError,
     refreshed,
     riskError,
+    signatures,
+    unregistered,
+    breaker,
   }
 }
 

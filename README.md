@@ -256,6 +256,38 @@ any new wallet. That openness has a cost, stated under "What you must trust".
 
 ---
 
+## How BELL would pay for itself
+
+This is intent, not traction. Nobody pays BELL real money today: on devnet
+every amount is test money.
+
+**The band is where a filler earns.** A filler is paid by the gap between the
+mark and what it delivers or pays. That gap is at most the order's band,
+`max_slip_bps`: 30 bps from the page, before rounding, and the program allows
+no more than 500. The hosted filler takes the whole band, or less where the
+order's own floor asks for more (`scripts/crank.ts`), so on devnet the band is
+what BELL's filler collects today, in test money. It is a margin before costs,
+not a profit: on mainnet a filler would first have to buy the stock it delivers,
+or sell the stock it takes, and neither is built. It is measured against a mark
+the same operator attests (`NOTICE.md`, item l). It is also anyone's to take,
+because fills are permissionless.
+
+**The attestation is what an integrator relies on.** `assert_tradeable` takes
+no fee, needs no permission and is under the MIT licence (`LICENSE`; how to
+prepend it is in [`docs/INTEGRATE.md`](docs/INTEGRATE.md)), so the instruction
+itself is not for sale. What a wallet or venue that prepends it depends on is
+the keeper's session and halt attestation, pushed every 45 seconds. If it
+stops, every symbol reads closed within 120 seconds and the gate refuses every
+trade it guards. Nothing else the gate reads needs BELL to keep it fresh: an
+integrator can carry its own mint re-read, which is permissionless, and the gate
+does not read the marks, which price BELL's own orders. A venue that needs the attestation kept
+up could pay for that. None does, and nothing on chain would make one.
+
+**There is no per-fill fee.** None is implemented: the program has no fee
+account and no instruction that takes one (`NOTICE.md`, item u).
+
+---
+
 ## What is proven, not claimed
 
 **On a local validator cloning the real mainnet mints** — the same bytes mainnet
@@ -434,6 +466,37 @@ could take whatever you currently have approved — your open orders plus any
 approval not revoked — each order capped at $1,000 (a sale at its value when
 placed). Burning it is the production step and is named as such rather than
 quietly skipped.
+
+**Who holds which key.** Four keys run the devnet deployment. Each hosted
+process that signs loads exactly one, from a variable named after its key file
+(`loadKeypair` in `src/chain/keys.ts`; the faucet reads its own in
+`web/lib/faucet.ts`), and `.dockerignore` keeps every key file out of both
+images.
+
+| key | where it is held | what it can do |
+|---|---|---|
+| deploy, `Dqp6DbUh6j5Jddff9VHPAK1UpByo85NhLVw83S58Ziqs` | The author's laptop, as the Solana CLI's default key. Nothing hosted loads it: the keeper, the crank and the web server each read one other key, and the health workflow holds none. | Upgrade or close the program. Mint demo-USDC, as that mint's authority. Every issuer power over the nine mirror mints: mint, pause, change the multiplier, set a transfer hook, and move any holder's mirror tokens as the permanent delegate. |
+| attestor, `EsZp7XusAj9fJ1ntQYCTMEw7h6L9mfZUtAvaXDxi4TcG` | Railway, the keeper's service (`BELL_KEY_ATTESTOR`). | Open or close a symbol, set its mark, and classify a pending corporate action. It cannot touch the program or move anyone's tokens, but a leak can fill parked orders at a bad price, bounded as above. |
+| filler, `4v5r4eSnB7kmnAmJ6ia9X1Mhu7tZKpznLb3x5PdMjtN2` | Railway, the crank's cron service (`BELL_KEY_FILLER`). | Sign fills, which anyone may do, and spend its own mirror stock and demo-USDC. It has no power in the program that a stranger's filler lacks, so a leak loses its inventory and nothing of anyone else's. |
+| faucet, `piSfW5NsLpC1eYCmouMjHj6EEn1SrsXjeZnv3jDmpt5` | Railway, the web service (`BELL_KEY_FAUCET`). | Spend its own pool of demo-USDC and its SOL. It cannot mint and cannot touch the program; the deploy key refills it. |
+
+The attestor's and the filler's key files also stay on the laptop, gitignored,
+for the scripts run by hand (`register.ts`, `classify.ts`, a hand-run crank).
+The faucet's file is kept outside the repository. The program's own address
+keypair chose its address at the first deploy; the upgradeable loader gives it
+no power after that.
+
+**Planned, not done.** Today each of these keys acts alone (`NOTICE.md`, item
+n). Two changes are planned. The upgrade authority is to move from the deploy
+key to a Squads multisig on Friday 25 September, before submission. An upgrade
+would then need the multisig's threshold of signatures rather than one key, but
+the authority would still be live, so "The upgrade authority is live", above,
+still says what it could do. Moving it does not move the mint authorities: the
+mirror mints and demo-USDC stay with the deploy key unless they are moved
+separately. And a second, independent checker key is to be added beside the
+attestor, held by a process apart from the keeper that reads other sources. The
+program has no instruction for it yet. Until each change shows on chain, this
+section describes the deployment as it is.
 
 **One delegate slot per token account.** SPL delegation is per-owner, not
 per-order, so a `revoke` unfunds every one of your orders at once, and placing

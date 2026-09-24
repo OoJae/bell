@@ -235,12 +235,15 @@ function classifiedDetail(r: TokenRisk): string {
 
 /**
  * The permanent delegate each issuer's real mainnet mints name. Two keys cover
- * all nine listings (README, verified against the mainnet accounts), and the
- * mainnet mint fixtures the program tests parse carry the same two.
+ * the Backed and Backpack listings (README, verified against the mainnet
+ * accounts), and the mainnet mint fixtures the program tests parse carry the
+ * same two. Ondo's five mints name none (all five read on 24 Sep 2026), which
+ * is `null` here.
  */
-const ISSUER_DELEGATE: Record<Issuer, { name: string; key: string }> = {
+const ISSUER_DELEGATE: Record<Issuer, { name: string; key: string | null }> = {
   backed: { name: 'Backed', key: '5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq' },
   backpack: { name: 'Backpack', key: '2cVYpagTt7ZGc3mmTXBa7fAznUtx5DUu6aCq8uVDaf4a' },
+  ondo: { name: 'Ondo', key: null },
 }
 
 /**
@@ -266,14 +269,17 @@ function delegateRow(listing: Listing, r: TokenRisk): GateRow {
   }
   const issuer = ISSUER_DELEGATE[listing.issuer]
   const power = `${shortKey(onChain)} can move or burn this token in any wallet, without the holder's signature`
+  const real = issuer.key ? `${issuer.name}'s ${shortKey(issuer.key)}` : `no one: ${issuer.name}'s real mint names none`
   const whose =
     CLUSTER === 'devnet'
       ? onChain === DEVNET_DEPLOY_KEY
-        ? `On this devnet mirror that is BELL's own deploy key; on the real mint it is ${issuer.name}'s ${shortKey(issuer.key)}.`
+        ? `On this devnet mirror that is BELL's own deploy key; on the real mint it is ${real}.`
         : `It is not the key this devnet mirror was made with.`
       : onChain === issuer.key
         ? `It is ${issuer.name}'s key.`
-        : `It is not ${issuer.name}'s known key, ${shortKey(issuer.key)}.`
+        : issuer.key
+          ? `It is not ${issuer.name}'s known key, ${shortKey(issuer.key)}.`
+          : `${issuer.name}'s real mints name no permanent delegate, so this one is unexpected.`
   return { label, ok: 'disclosure', detail: `${power}. ${whose}` }
 }
 

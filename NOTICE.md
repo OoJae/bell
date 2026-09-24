@@ -328,6 +328,27 @@ acts alone. None is a multisig, and none is timelocked.
   their buys on the demo-USDC account, or their sales of one stock on its
   account.
 
+**Where the keys are held.** The deploy key is the Solana CLI's default key on
+the author's laptop, and nothing hosted loads it. The attestor's key is on
+Railway, in the keeper's environment (`BELL_KEY_ATTESTOR`). Two more keys run
+services and hold no power in the program. The hosted filler's,
+`4v5r4eSnB7kmnAmJ6ia9X1Mhu7tZKpznLb3x5PdMjtN2`, is on Railway in the crank's
+environment (`BELL_KEY_FILLER`); it can do nothing a stranger's filler cannot,
+and a leak loses only its own inventory. The faucet's,
+`piSfW5NsLpC1eYCmouMjHj6EEn1SrsXjeZnv3jDmpt5`, is on Railway in the web
+server's (`BELL_KEY_FAUCET`); it owns a pool of demo-USDC and some SOL, is not
+the demo-USDC mint authority (the deploy key is), and cannot touch the program.
+Each hosted process that signs loads one key (`src/chain/keys.ts`,
+`web/lib/faucet.ts`), and no key file is in either image (`.dockerignore`). Two
+changes are planned and not made. The upgrade authority is to move to a Squads
+multisig on Friday 25 September 2026, before submission. An upgrade would then
+need the multisig's threshold of signatures rather than one key, and the
+authority would still not be burned. Moving it would not move the mint
+authorities. And a second, independent checker key is to be added beside the
+attestor; the program has no instruction for it yet. Until
+each shows on chain, this item describes the deployment as it is (README,
+"What you must trust", under "Who holds which key").
+
 ### o. Entry of Trading Interest
 
 *Procedures and functionality for entering trading interest, the information
@@ -568,6 +589,15 @@ which returns to its owner when the order fills or closes. A first sale from a
 wallet with no demo-USDC account also creates that account, the user's own,
 for the proceeds; it holds 2,039,280 lamports of rent. Nothing is shared with
 anyone. On devnet, all of it is test money.
+
+**No per-fill fee is implemented.** The program has no fee account and no
+instruction that takes one. So the band is the most a filler earns against the
+mark, and it goes to whichever filler lands the fill; BELL's hosted filler is
+one (item l). As intent only, BELL might charge a venue or wallet that puts the
+gate in front of its own trades (`docs/INTEGRATE.md`) for keeping fresh the
+session attestations that gate reads. No such arrangement exists.
+`assert_tradeable` takes no fee and needs no permission, so nothing on chain
+would enforce one (README, "How BELL would pay for itself").
 
 ### v. Complaints and Disputes
 

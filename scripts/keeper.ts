@@ -7,11 +7,12 @@
  * Dry run is the default, following the same invariant as Ripcord: a process
  * that writes to a chain should never do so because someone forgot a flag.
  */
-import { connect, readAllSymbols } from '../src/chain/client.ts'
+import { ALERT_RPC_TIMEOUT_MS, createAlerts } from '../src/alerts.ts'
+import { connect, readAllSymbols, rpcUrl } from '../src/chain/client.ts'
 import { MarkSource, REBASE_GUARD_SECONDS } from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
-import { CLUSTER } from '../src/config.ts'
+import { ALLOWLIST, CLUSTER } from '../src/config.ts'
 import { announced, keeperEvents, notify } from '../src/notify.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
 import { Recorder, type TransitionRow } from '../src/record.ts'
@@ -58,7 +59,19 @@ const sourceName = (s: number) =>
 /** What the channel has already been told: the day's open and close, and who is in a rebase window. */
 const told = announced()
 
-async function once() {
+/**
+ * Per-wallet Telegram alerts (src/alerts.ts): the bot answers "/start <wallet>"
+ * and messages that chat when the wallet's orders fill. Armed only, like the
+ * channel, and for a second reason: only one process may read a bot's
+ * commands, and a dry run on a laptop must not take them from the hosted one.
+ */
+const alerts = createAlerts({ cluster: CLUSTER, listings: ALLOWLIST, rpcUrl: rpcUrl() })
+console.log(
+  `alerts: ${!alerts.enabled ? 'off (no BELL_TELEGRAM_BOT_TOKEN)' : dryRun ? 'off in a dry run' : 'on (bot commands and fill messages)'}`,
+)
+
+/** `started` is when this tick began, in milliseconds: the next one is due an interval later. */
+async function once(started = Date.now()) {
   const conn = connect()
   const attestor = loadKeypair(ATTESTOR_PATH)
   const result = await tick({ conn, attestor, dryRun })
@@ -130,7 +143,8 @@ async function once() {
             confBps: m.confBps,
             source: sourceName(m.source),
             rateQ64: m.rateQ64,
-            signature: result.markSignature,
+            // Marks can land in two transactions now; each row names its own.
+            signature: m.signature ?? result.markSignature,
           })),
         )
       } catch (e) {
@@ -194,6 +208,23 @@ async function once() {
     } catch (e) {
       console.error(`  notify: skipped this tick: ${(e as Error).message}`)
     }
+
+    // Started, not awaited, for the reason `notify` is not: a pass reads the
+    // chain and writes to Telegram, and neither may hold up the next
+    // attestation. `afterTick` never throws, runs one pass at a time and stops
+    // reading after twenty seconds. It needs the log, where follows are kept;
+    // with no log there is nobody to tell. The tick's own signatures are
+    // attestations, which it never fetches. It shares this keeper's RPC
+    // endpoint, so it stops starting reads early enough that its last one
+    // (bounded by ALERT_RPC_TIMEOUT_MS) is over before the next tick's
+    // attestation needs the endpoint.
+    if (recorder) {
+      alerts.afterTick(recorder, {
+        own: result.signatures,
+        board: after,
+        readUntil: started + INTERVAL_MS - ALERT_RPC_TIMEOUT_MS - 2_000,
+      })
+    }
   }
 }
 
@@ -208,6 +239,9 @@ if (ONCE) {
   }
 } else {
   console.log(`keeper every ${INTERVAL_MS / 1000}s — ctrl-c to stop`)
+  // Commands are read continuously, not per tick, so "/start" is answered in
+  // a second rather than at the next tick. Not in --once: it never ends.
+  if (!dryRun) alerts.listen(() => recorder)
   let lastOk = Date.now()
   setInterval(() => {
     if (Date.now() - lastOk > WATCHDOG_MS) {
@@ -218,7 +252,7 @@ if (ONCE) {
   for (;;) {
     const started = Date.now()
     try {
-      await once()
+      await once(started)
       lastOk = Date.now()
     } catch (e) {
       // Never exit the loop on a transient sensor failure: an attestation that
