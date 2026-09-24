@@ -87,6 +87,24 @@ test('a dead order closed by the filler says why and where the rent went', () =>
   assert.ok(text.includes('?cluster=devnet'))
 })
 
+test('a sell is worded as a sale, and a buy reads exactly as it did before sells existed', () => {
+  // The same numbers as the buy above, the other way round: 0.290294 SPYx went
+  // out, 200 demo-USDC came in.
+  const sold = formatEvent({ ...fill, side: 'sell' }, 'devnet')
+  assert.match(sold, /^Sold: 0\.290294 SPYx for 200\.00 demo-USDC, 688\.96 demo-USDC a share, 5 min after the bell\.\n/)
+  assert.ok(!sold.includes('Filled'), 'a sale is never called a fill, which reads as a purchase')
+  assert.match(sold, /Owner 7xKX…gAsU/)
+  assert.ok(sold.includes(`https://explorer.solana.com/tx/${SIG}?cluster=devnet`))
+
+  // `side: 'buy'` and no side at all are the same message, word for word.
+  assert.equal(formatEvent({ ...fill, side: 'buy' }, 'devnet'), formatEvent(fill, 'devnet'))
+  assert.match(formatEvent(fill, 'devnet'), /^Filled: /)
+
+  const closed = { kind: 'closed', symbol: 'QQQx', owner: OWNER, why: 'expired', signature: SIG } as const
+  assert.match(formatEvent({ ...closed, side: 'sell' }, 'devnet'), /^Closed a dead QQQx sell order: expired\./)
+  assert.equal(formatEvent({ ...closed, side: 'buy' }, 'devnet'), formatEvent(closed, 'devnet'))
+})
+
 test('halt messages tell entering, leaving and changing apart, and name only a known kind', () => {
   const into = formatEvent(
     { kind: 'halt', symbol: 'TSLAx', fromHalt: HaltState.None, toHalt: HaltState.Luld, toOpen: false, detail: 'halted on the primary listing exchange' },

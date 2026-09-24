@@ -155,14 +155,21 @@ pub fn handle_cancel_order(ctx: Context<CancelOrder>) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
     let o = &ctx.accounts.order;
 
-    if ctx.accounts.signer.key() != o.owner {
-        let expired = now >= o.expires_at;
+    // An expired order is closable by anyone without reading its quote account
+    // at all. A live one is closable by a stranger only once its quote account
+    // no longer backs what remains: revoked, delegated for less, or closed so
+    // that it no longer reads as a token account at all. Treating an unreadable
+    // account as an error instead left such an order, expired or not, stuck in
+    // the book until its owner came back to close it themselves.
+    if ctx.accounts.signer.key() != o.owner && now < o.expires_at {
         let remaining = o.amount_in.saturating_sub(o.filled_in);
         let (auth, _) =
             Pubkey::find_program_address(&[AUTH_SEED, o.owner.as_ref()], ctx.program_id);
-        let pin = read_token_account_any(&ctx.accounts.payer_in.to_account_info())?;
-        let defunded = pin.delegate != Some(auth) || pin.delegated_amount < remaining;
-        require!(expired || defunded, BellError::NotOrderOwner);
+        let defunded = match read_token_account_any(&ctx.accounts.payer_in.to_account_info()) {
+            Ok(p) => p.delegate != Some(auth) || p.delegated_amount < remaining,
+            Err(_) => true,
+        };
+        require!(defunded, BellError::NotOrderOwner);
     }
     Ok(())
 }

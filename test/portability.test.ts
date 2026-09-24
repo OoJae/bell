@@ -53,6 +53,8 @@ test('the guard actually bites', () => {
 test('PDA derivation needs no Node Buffer', () => {
   // orderPda is the one that shipped broken: its nonce is a u64 seed.
   assert.ok(client.orderPda(OWNER, 1_758_500_000_000n) instanceof PublicKey)
+  // The sell side derives its address from the same u64 nonce seed.
+  assert.ok(client.sellOrderPda(OWNER, 1_758_500_000_000n) instanceof PublicKey)
   assert.ok(client.symbolPda('SPYx') instanceof PublicKey)
   assert.ok(client.riskPda(MINT) instanceof PublicKey)
   assert.ok(client.markPda('SPYx') instanceof PublicKey)
@@ -66,6 +68,7 @@ test('a nonce round-trips through the derived seed', () => {
   const a = client.orderPda(OWNER, 7n)
   const b = client.orderPda(OWNER, 8n)
   assert.notEqual(a.toBase58(), b.toBase58())
+  assert.notEqual(client.sellOrderPda(OWNER, 7n).toBase58(), client.sellOrderPda(OWNER, 8n).toBase58())
 })
 
 test('every instruction the browser builds encodes', () => {
@@ -86,6 +89,12 @@ test('every instruction the browser builds encodes', () => {
   }
   assert.ok(client.ixPlaceOrder(args).data.length > 0)
   assert.ok(client.ixCancelOrder({ signer: OWNER, owner: OWNER, nonce: 42n, payerIn: args.payerIn }).data.length > 0)
+  // A sell's legs are the other way round: stock pays, quote is paid.
+  const sell = { ...args, payerIn: args.payeeOut, payeeOut: args.payerIn, floorRateQ64: codec.sellLossFloor(1n << 64n) }
+  assert.ok(client.ixPlaceSellOrder(sell).data.length > 0)
+  assert.ok(client.ixCancelSellOrder({ signer: OWNER, owner: OWNER, nonce: 42n, payerIn: sell.payerIn }).data.length > 0)
+  assert.ok(spl.ixApproveChecked({ source: sell.payerIn, mint: MINT, delegate: client.authPda(OWNER), owner: OWNER, amount: 100_000_000n, decimals: 8, tokenProgram: spl.TOKEN_2022 }).data.length === 10)
+  assert.ok(spl.ixRevoke(sell.payerIn, OWNER, spl.TOKEN_2022).data.length === 1)
   assert.ok(client.ixAssertTradeable({ symbol: 'SPYx', mint: MINT, mode: codec.Mode.Strict, expectedMultiplierBits: 0n }).data.length > 0)
   assert.ok(spl.ixApproveChecked({ source: args.payerIn, mint: MINT, delegate: client.authPda(OWNER), owner: OWNER, amount: 200_000_000n, decimals: 6 }).data.length === 10)
   assert.ok(spl.ixRevoke(args.payerIn, OWNER).data.length === 1)
@@ -128,6 +137,14 @@ test('a decoder reads back what the encoder wrote', () => {
   const data = codec.encodeFillOrder({ amountInLeg: 2n ** 63n - 1n, amountOut: 123_456_789n })
   assert.ok(contains(data, le(2n ** 63n - 1n, 8)))
   assert.ok(contains(data, le(123_456_789n, 8)))
+  const sell = codec.encodeFillSellOrder({ amountInLeg: 2n ** 64n - 1n, amountOut: 332_998_221n })
+  assert.ok(contains(sell, le(2n ** 64n - 1n, 8)))
+  assert.ok(contains(sell, le(332_998_221n, 8)))
+  const place = codec.encodePlaceSellOrder({
+    symbol: new Uint8Array(12), nonce: 42n, amountIn: 2n ** 64n - 1n, minFillIn: 1n, maxSlipBps: 30,
+    maxConfBps: 50, floorRateQ64: 2n ** 128n - 1n, notBefore: 0n, expiresAt: 1_758_600_000n,
+  })
+  assert.ok(contains(place, le(2n ** 128n - 1n, 16)), 'u128 floor missing from the sell wire')
 })
 
 test('the scaled-UI multiplier decodes without readDoubleLE', () => {

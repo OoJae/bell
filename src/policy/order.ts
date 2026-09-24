@@ -5,6 +5,7 @@
  * the same order. Pure, no I/O.
  */
 import type { Listing } from '../listings.ts'
+import { sellLimitFloor, sellLossFloor } from '../chain/codec.ts'
 
 /**
  * The loss cap: an order will not fill for less than this fraction of what
@@ -74,6 +75,64 @@ export function orderFloor(
 export function maxPricePerShare(markPxUsd: number, limitUsd: number | null | undefined): number {
   const byLoss = (markPxUsd * Number(LOSS_FLOOR.den)) / Number(LOSS_FLOOR.num)
   return limitUsd && limitUsd > 0 ? Math.min(limitUsd, byLoss) : byLoss
+}
+
+// ------------------------------------------------------------------ selling
+//
+// A sell's floor runs the other way: it is the least quote per share the user
+// accepts, so a limit on a sell is a minimum price where a buy's is a maximum.
+// The loss cap is the same three quarters of the placement-time price, applied
+// from below.
+
+/**
+ * The floor a sell is placed with: the stricter of the loss cap (three quarters
+ * of the mark's price) and the user's own minimum price per share. As with a
+ * buy, the user can only ever tighten the protection, never loosen it below
+ * the loss cap. Zero, meaning no floor, without a mark; `place_sell_order`
+ * refuses an unpriced mark anyway, so a sell is never placed that way.
+ */
+export function sellOrderFloor(
+  markRateQ64: bigint | null | undefined,
+  markPx: MarkPrice | null | undefined,
+  minLimitUsd: number | null | undefined,
+): bigint {
+  if (!markRateQ64 || markRateQ64 <= 0n) return 0n
+  const loss = sellLossFloor(markRateQ64)
+  const limit = markPx && minLimitUsd ? sellLimitFloor(minLimitUsd, markPx, markRateQ64) : 0n
+  return limit > loss ? limit : loss
+}
+
+/**
+ * The least a sell can ever be paid per share, whatever the price does before
+ * it fills: the user's minimum, or the loss cap (three quarters of the
+ * placement price), whichever is higher. The mirror of `maxPricePerShare`.
+ */
+export function minPricePerShare(markPxUsd: number, limitUsd: number | null | undefined): number {
+  const byLoss = (markPxUsd * Number(LOSS_FLOOR.num)) / Number(LOSS_FLOOR.den)
+  return limitUsd && limitUsd > 0 ? Math.max(limitUsd, byLoss) : byLoss
+}
+
+/**
+ * Raw stock units for a number of shares: shares ÷ the scaled-UI multiplier,
+ * in units of 10^-decimals, rounded down.
+ *
+ * A raw balance of these tokens is not a share count; a share is raw × the
+ * multiplier in force. Rounded down because a sell a fraction of a raw unit
+ * smaller than asked is still the user's sell, and one raw unit larger is
+ * stock they did not ask to part with. The share count is parsed as decimal
+ * text rather than a float, so "0.29" is 29,000,000 raw at eight decimals and
+ * not 28,999,999.
+ */
+export function sharesToRaw(shares: string, decimals: number, multiplier: number): bigint {
+  const m = /^(\d+)(?:\.(\d*))?$/.exec(shares.trim())
+  if (!m) throw new Error(`not a share count: ${shares}`)
+  if (!(multiplier > 0) || !Number.isFinite(multiplier)) throw new Error(`not a multiplier: ${multiplier}`)
+  const frac = (m[2] ?? '').slice(0, decimals).padEnd(decimals, '0')
+  const unscaled = BigInt(m[1]) * 10n ** BigInt(decimals) + BigInt(frac || '0')
+  if (multiplier === 1) return unscaled
+  // The multiplier is an f64 on the mint, so this one division is float. The
+  // raw amount is exact below 2^53, which at eight decimals is 90 million shares.
+  return BigInt(Math.floor(Number(unscaled) / multiplier))
 }
 
 /**

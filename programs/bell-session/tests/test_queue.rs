@@ -835,3 +835,51 @@ fn the_last_fill_may_be_under_the_minimum_but_must_take_all_that_remains() {
     assert!(ctx.order(1).is_none(), "completed and closed");
     assert_eq!(ctx.balance(&legs.payer_in), 9_000_000);
 }
+
+// ------------------------------------------------- a quote account closed under an order
+//
+// Closing a token account is as final a cancel as a revoke, and more so: the
+// account no longer reads as a token account at all. `cancel_order` used to
+// read it with `?`, so the unreadable account was an error rather than proof of
+// defunding, and a stranger could close neither a live order nor an expired
+// one — the order sat in the book until its owner came back for the rent.
+
+#[test]
+fn a_stranger_may_close_a_live_order_whose_quote_account_was_closed() {
+    let mut ctx = Ctx::new();
+    ready(&mut ctx);
+    let legs = fund(&mut ctx, 1_000_000);
+    place(&mut ctx, 1, &legs, 1_000_000, 30, 0, NOW + 86_400).unwrap();
+
+    // What a closed account reads as: no lamports, no data, the system program.
+    ctx.svm
+        .set_account(legs.payer_in, Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 })
+        .unwrap();
+
+    let u = ctx.user.pubkey();
+    let before = ctx.svm.get_account(&u).unwrap().lamports;
+    let flr = ctx.filler.insecure_clone();
+    cancel_as(&mut ctx, 1, &legs, &flr).unwrap();
+    assert!(ctx.order(1).is_none());
+    assert!(ctx.svm.get_account(&u).unwrap().lamports > before, "rent returns to the owner");
+}
+
+#[test]
+fn a_stranger_may_close_an_expired_order_whose_quote_account_was_closed() {
+    let mut ctx = Ctx::new();
+    ready(&mut ctx);
+    let legs = fund(&mut ctx, 1_000_000);
+    place(&mut ctx, 1, &legs, 1_000_000, 30, 0, NOW + 600).unwrap();
+
+    ctx.svm
+        .set_account(legs.payer_in, Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 })
+        .unwrap();
+    ctx.warp(NOW + 600);
+
+    let u = ctx.user.pubkey();
+    let before = ctx.svm.get_account(&u).unwrap().lamports;
+    let flr = ctx.filler.insecure_clone();
+    cancel_as(&mut ctx, 1, &legs, &flr).unwrap();
+    assert!(ctx.order(1).is_none());
+    assert!(ctx.svm.get_account(&u).unwrap().lamports > before, "rent returns to the owner");
+}

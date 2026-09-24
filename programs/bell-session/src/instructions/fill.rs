@@ -33,7 +33,7 @@ fn mul_shr64(a: u128, q64: u128) -> Result<u128> {
 /// shorter than bridging the types and immune to that skew.
 ///
 /// The same layout serves SPL Token and Token-2022; only the program id differs.
-fn transfer_checked_ix(
+pub(crate) fn transfer_checked_ix(
     token_program: &Pubkey,
     source: &Pubkey,
     mint: &Pubkey,
@@ -58,7 +58,7 @@ fn transfer_checked_ix(
     }
 }
 
-fn mint_decimals(info: &AccountInfo) -> Result<u8> {
+pub(crate) fn mint_decimals(info: &AccountInfo) -> Result<u8> {
     use spl_token_2022::{extension::StateWithExtensions, state::Mint};
     let data = info.try_borrow_data()?;
     Ok(StateWithExtensions::<Mint>::unpack(&data)

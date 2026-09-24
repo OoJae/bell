@@ -45,19 +45,24 @@ const SESSION_MINUTES = 390
 export type NotifyEvent =
   | {
       kind: 'fill'
+      /**
+       * Which way the stock moved. Absent means a buy, which is what every fill
+       * was before sells existed, so an older caller still reads correctly.
+       */
+      side?: 'buy' | 'sell'
       symbol: string
-      /** Quote spent, in whole units. */
+      /** The quote leg, in whole units: what a buy spent, or what a sell was paid. */
       amountIn: number
       /** What the quote is called on this cluster, e.g. `demo-USDC`. */
       quote: string
-      /** Shares delivered, multiplier applied; null if the mint could not be read. */
+      /** Shares bought or sold, multiplier applied; null if the mint could not be read. */
       shares: number | null
       /** Minutes since 09:30 ET; null outside the regular session. */
       minutesAfterBell: number | null
       owner: string
       signature: string
     }
-  | { kind: 'closed'; symbol: string; owner: string; why: string; signature: string }
+  | { kind: 'closed'; side?: 'buy' | 'sell'; symbol: string; owner: string; why: string; signature: string }
   | {
       kind: 'halt'
       symbol: string
@@ -179,15 +184,18 @@ export function formatEvent(e: NotifyEvent, cluster: string): string {
       const what = e.shares !== null ? `${e.shares.toFixed(6)} ${e.symbol}` : e.symbol
       const price = e.shares ? `, ${money(e.amountIn / e.shares)} ${e.quote} a share` : ''
       const when = e.minutesAfterBell !== null ? `, ${e.minutesAfterBell} min after the bell` : ''
+      // A sell is worded as one: "Filled" alone would read as a purchase, and a
+      // subscriber who sold would be told they had bought.
+      const verb = e.side === 'sell' ? 'Sold' : 'Filled'
       return [
-        `Filled: ${what} for ${money(e.amountIn)} ${e.quote}${price}${when}.`,
+        `${verb}: ${what} for ${money(e.amountIn)} ${e.quote}${price}${when}.`,
         `Owner ${shortKey(e.owner)}`,
         linkLine(e.signature, cluster),
       ].join('\n')
     }
     case 'closed':
       return [
-        `Closed a dead ${e.symbol} order: ${e.why}. Its rent went back to the owner, ${shortKey(e.owner)}.`,
+        `Closed a dead ${e.symbol} ${e.side === 'sell' ? 'sell ' : ''}order: ${e.why}. Its rent went back to the owner, ${shortKey(e.owner)}.`,
         linkLine(e.signature, cluster),
       ].join('\n')
     case 'halt': {

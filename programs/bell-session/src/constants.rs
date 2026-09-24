@@ -53,6 +53,12 @@ pub const ORDER_SEED: &[u8] = b"ord";
 #[constant]
 pub const AUTH_SEED: &[u8] = b"auth";
 
+/// Sell orders live under their own seed rather than sharing `ORDER_SEED`, so a
+/// buy and a sell with the same nonce are two different accounts and neither
+/// side's client has to know which nonces the other has used.
+#[constant]
+pub const SELL_SEED: &[u8] = b"sell";
+
 /// A price goes stale far faster than a session does.
 ///
 /// This bound is also what makes "filled at a price that is sane *then*"

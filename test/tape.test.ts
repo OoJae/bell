@@ -16,6 +16,7 @@ import {
   type RowContext,
   type RpcTransaction,
 } from '../web/lib/tape.ts'
+import { OWNER, QUOTE_PAID, SELL_ORDER, SELL_TIME, STOCK_SOLD, fillEvent, sellFill } from './fixtures/sell-fill.ts'
 
 // The hosted crank's fill of 23 September 2026, 09:35:24 ET, exactly as devnet's
 // `getTransaction` (json encoding, finalized) returned it on 24 September.
@@ -323,4 +324,96 @@ test('each fill carries its buyer, for receipts, and it is the order owner', () 
   // The 23 Sep overnight order was placed by the demo wallet the film uses.
   const [f] = fillsOf(FILL)
   assert.equal(f!.owner, '9wNeE9MRMa8SwH6BAmYw9cDnvwReGUgnEcxNmpsCbeEJ')
+})
+
+// -------------------------------------------------------------------- sells
+//
+// A sell built from the recorded buy (see fixtures/sell-fill.ts): the real
+// event bytes under SellOrderFilled's discriminator, the real accounts under
+// fill_sell_order's, and the token transfers in a sell's order.
+
+test('a fill_sell_order decodes as a sale: stock in from the seller, quote out to them', () => {
+  const fills = fillsOf(sellFill())
+  assert.equal(fills.length, 1)
+  const [f] = fills
+  assert.equal(f!.side, 'sell')
+  assert.deepEqual(f!.event, {
+    symbol: 'SPYx',
+    amountIn: STOCK_SOLD,
+    amountOut: QUOTE_PAID,
+    pxNum: 772_617_876n,
+    pxExpo: -6,
+    source: 'Jupiter',
+    markObservedAt: 1790170506,
+    realizedBps: 30,
+  })
+  assert.equal(f!.order, SELL_ORDER, 'the order is read from the instruction by its account name')
+  assert.equal(f!.owner, OWNER)
+  assert.equal(f!.filler, FILLER)
+  assert.equal(f!.quoteMint, DEMO_USDC)
+  assert.equal(f!.stockMint, SPYX_MIRROR)
+  // The buy is still a buy.
+  assert.equal(fillsOf(FILL)[0]!.side, 'buy')
+})
+
+test('a sale becomes a sell row: the stock contributed, the quote withdrawn, the same share arithmetic', () => {
+  const { rows, excluded } = tapeRows(sellFill(), ctx())
+  assert.equal(excluded, 0)
+  const [r] = rows
+  assert.equal(r!.direction, 'sell')
+  assert.equal(r!.contributed, 'SPYx')
+  assert.equal(r!.withdrawn, 'demo-USDC')
+  assert.equal(r!.paired, 'demo-USDC')
+  assert.equal(r!.stockRaw, '25661713')
+  assert.equal(r!.quoteRaw, '198801792')
+  assert.equal(r!.notionalUsd, 198.801792)
+  // The same raw SPYx as the buy, so the same share count; the price is the
+  // quote received over it, 30bps under the mark's $772.617876 once the
+  // multiplier is counted.
+  assert.equal(r!.shares, 0.258083584)
+  assert.equal(r!.priceUsd, 770.300028)
+  assert.equal(r!.markPriceUsd, 772.617876)
+  assert.equal(r!.realizedBps, 30)
+  assert.equal(r!.order, SELL_ORDER)
+  assert.equal(r!.time, new Date(SELL_TIME * 1000).toISOString().replace('.000Z', 'Z'))
+  // The seller is carried as a seller, never as a buyer.
+  assert.equal(r!.seller, OWNER)
+  assert.equal(r!.buyer, undefined)
+  const [b] = tapeRows(FILL, ctx()).rows
+  assert.equal(b!.buyer, OWNER)
+  assert.equal(b!.seller, undefined)
+})
+
+test('an event is only believed from the instruction that emits it', () => {
+  // A SellOrderFilled inside fill_order, or an OrderFilled inside
+  // fill_sell_order, is a payload the program never writes. Believing either
+  // would print a sale as a purchase or the other way round.
+  assert.equal(fillsOf(sellFill({ instruction: 'fill_order' })).length, 0)
+  assert.equal(fillsOf(sellFill({ event: 'OrderFilled' })).length, 0)
+  const buyWithSellEvent = clone()
+  buyWithSellEvent.meta!.logMessages = buyWithSellEvent.meta!.logMessages!.map((l) =>
+    l.startsWith('Program data: ') ? `Program data: ${fillEvent('SellOrderFilled', 1n, 1n, 0)}` : l,
+  )
+  assert.equal(fillsOf(buyWithSellEvent).length, 0)
+
+  // And a SellOrderFilled logged by another program in the same transaction is not a sale.
+  const forged = sellFill()
+  const fake = 'Fake1111111111111111111111111111111111111111'
+  forged.transaction.message.accountKeys.push(fake)
+  forged.transaction.message.instructions.push({ programIdIndex: forged.transaction.message.accountKeys.length - 1, accounts: [], data: '' })
+  forged.meta!.logMessages!.push(`Program ${fake} invoke [1]`, `Program data: ${fillEvent('SellOrderFilled', 9n, 9n, 0)}`, `Program ${fake} success`)
+  assert.equal(fillsOf(forged).length, 1, 'only the real one')
+})
+
+test('buys and sells share the daily volume and the CSV, each row saying which it was', () => {
+  const [b] = tapeRows(FILL, ctx()).rows
+  const [s] = tapeRows(sellFill(), ctx()).rows
+  const t = SELL_TIME + 3_600
+  assert.deepEqual(volume24h([b!, s!], t), [
+    { symbol: 'SPYx', paired: 'demo-USDC', trades: 2, shares: 0.516167168, notionalUsd: 398.801792 },
+  ])
+  const lines = toCsv([b!, s!]).trimEnd().split('\r\n')
+  assert.ok(lines[1]!.includes(',SPYx,SPY,demo-USDC,buy,demo-USDC,SPYx,'))
+  assert.ok(lines[2]!.includes(',SPYx,SPY,demo-USDC,sell,SPYx,demo-USDC,770.300028,'))
+  assert.ok(!toCsv([b!, s!]).includes(OWNER), 'neither party is in the CSV')
 })

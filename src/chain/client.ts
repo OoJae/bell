@@ -20,16 +20,20 @@ import {
   MarkSource,
   accountDiscriminator,
   decodeBellOrder,
+  decodeSellOrder,
   decodeSymbolMark,
   decodeSymbolState,
   decodeTokenRisk,
   encodeAssertTradeable,
   encodeCancelOrder,
+  encodeCancelSellOrder,
   encodeClassifyRebase,
   encodeFillOrder,
+  encodeFillSellOrder,
   encodeInitTokenRisk,
   encodeOpenMark,
   encodePlaceOrder,
+  encodePlaceSellOrder,
   encodePushMark,
   encodePushSession,
   encodeRefreshTokenRisk,
@@ -37,6 +41,7 @@ import {
   type RebaseKind,
   errorName,
   type BellOrder,
+  type SellOrder,
   type SymbolMark,
   type SymbolState,
   type TokenRisk,
@@ -48,6 +53,7 @@ const SYMBOL_SEED = Buffer.from('sym')
 const RISK_SEED = Buffer.from('risk')
 const MARK_SEED = Buffer.from('mark')
 const ORDER_SEED = Buffer.from('ord')
+const SELL_SEED = Buffer.from('sell')
 const AUTH_SEED = Buffer.from('auth')
 
 /** Plain SPL Token, which is what the quote leg (USDC) lives under. */
@@ -70,15 +76,27 @@ export const riskPda = (mint: PublicKey) =>
 export const markPda = (symbol: string) =>
   PublicKey.findProgramAddressSync([MARK_SEED, Buffer.from(symbolSeed(symbol))], PROGRAM_ID)[0]
 
-export const orderPda = (owner: PublicKey, nonce: bigint) => {
+/** A nonce as the little-endian u64 seed both order PDAs are derived from. */
+const nonceSeed = (nonce: bigint): Uint8Array => {
   // DataView, not `Buffer.writeBigUInt64LE`: this runs in the browser too, and
   // the bundled Buffer polyfill has no BigInt methods. See FRICTION.md — this
   // is the second instance of that trap, and it hid here because the seed is
   // derived rather than encoded, so the codec sweep missed it.
   const n = new Uint8Array(8)
   new DataView(n.buffer).setBigUint64(0, nonce, true)
-  return PublicKey.findProgramAddressSync([ORDER_SEED, owner.toBytes(), n], PROGRAM_ID)[0]
+  return n
 }
+
+export const orderPda = (owner: PublicKey, nonce: bigint) =>
+  PublicKey.findProgramAddressSync([ORDER_SEED, owner.toBytes(), nonceSeed(nonce)], PROGRAM_ID)[0]
+
+/**
+ * A sell order's address. Its own seed rather than the buy side's, so a buy
+ * and a sell with the same nonce are two accounts, and neither side's client
+ * has to know which nonces the other has used.
+ */
+export const sellOrderPda = (owner: PublicKey, nonce: bigint) =>
+  PublicKey.findProgramAddressSync([SELL_SEED, owner.toBytes(), nonceSeed(nonce)], PROGRAM_ID)[0]
 
 /**
  * The per-owner delegate authority.
@@ -319,6 +337,117 @@ export function ixFillOrder(args: {
   })
 }
 
+// --------------------------------------------------------------- sell side
+//
+// The account lists below are the buy side's, name for name and flag for flag,
+// because the program declares them that way; only the order's address and
+// what each token account holds differ. `test/sell.test.ts` checks each list
+// against the IDL.
+
+/**
+ * Park a sell. The caller puts `approve_checked` on the **stock** account, under
+ * Token-2022, in front of this in the same transaction; the program verifies
+ * that delegation rather than creating it.
+ */
+export function ixPlaceSellOrder(args: {
+  owner: PublicKey
+  symbol: string
+  mint: PublicKey
+  nonce: bigint
+  /** Stock raw units to sell. */
+  amountIn: bigint
+  minFillIn: bigint
+  maxSlipBps: number
+  maxConfBps: number
+  /** Quote raw per stock raw, Q64.64; 0 for none. */
+  floorRateQ64: bigint
+  notBefore: bigint
+  expiresAt: bigint
+  /** The seller's stock account, delegated to `authPda(owner)`. */
+  payerIn: PublicKey
+  /** The seller's quote account, which the filler pays. */
+  payeeOut: PublicKey
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.owner, isSigner: true, isWritable: true },
+      { pubkey: symbolPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: riskPda(args.mint), isSigner: false, isWritable: false },
+      { pubkey: markPda(args.symbol), isSigner: false, isWritable: false },
+      { pubkey: sellOrderPda(args.owner, args.nonce), isSigner: false, isWritable: true },
+      { pubkey: args.payerIn, isSigner: false, isWritable: false },
+      { pubkey: args.payeeOut, isSigner: false, isWritable: false },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    data: encodePlaceSellOrder({ ...args, symbol: symbolSeed(args.symbol) }),
+  })
+}
+
+export function ixCancelSellOrder(args: {
+  signer: PublicKey
+  owner: PublicKey
+  nonce: bigint
+  /** The order's stock account, read by the program to tell a revoked order from a live one. */
+  payerIn: PublicKey
+}): TransactionInstruction {
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.signer, isSigner: true, isWritable: false },
+      { pubkey: args.owner, isSigner: false, isWritable: true },
+      { pubkey: sellOrderPda(args.owner, args.nonce), isSigner: false, isWritable: true },
+      { pubkey: args.payerIn, isSigner: false, isWritable: false },
+    ],
+    data: encodeCancelSellOrder(),
+  })
+}
+
+/**
+ * Settle a sell: the filler pays quote from `fillerOut` first, and the program
+ * then takes the stock into `fillerIn`.
+ *
+ * The same fifteen accounts as `ixFillOrder` in the same order, so here
+ * `fillerIn` is the filler's **stock** account and `fillerOut` its **quote**
+ * account: the reverse of a buy. The token programs default the same way,
+ * quote under SPL Token and stock under Token-2022.
+ */
+export function ixFillSellOrder(args: {
+  filler: PublicKey
+  order: SellOrder
+  fillerIn: PublicKey
+  fillerOut: PublicKey
+  /** Stock raw taken from the seller. */
+  amountInLeg: bigint
+  /** Quote raw paid to the seller. */
+  amountOut: bigint
+  stockTokenProgram?: PublicKey
+  quoteTokenProgram?: PublicKey
+}): TransactionInstruction {
+  const o = args.order
+  return new TransactionInstruction({
+    programId: PROGRAM_ID,
+    keys: [
+      { pubkey: args.filler, isSigner: true, isWritable: true },
+      { pubkey: sellOrderPda(o.owner, o.nonce), isSigner: false, isWritable: true },
+      { pubkey: symbolPda(o.symbol), isSigner: false, isWritable: false },
+      { pubkey: riskPda(o.mint), isSigner: false, isWritable: false },
+      { pubkey: markPda(o.symbol), isSigner: false, isWritable: false },
+      { pubkey: authPda(o.owner), isSigner: false, isWritable: false },
+      { pubkey: o.owner, isSigner: false, isWritable: true },
+      { pubkey: o.payerIn, isSigner: false, isWritable: true },
+      { pubkey: o.payeeOut, isSigner: false, isWritable: true },
+      { pubkey: args.fillerIn, isSigner: false, isWritable: true },
+      { pubkey: args.fillerOut, isSigner: false, isWritable: true },
+      { pubkey: o.quoteMint, isSigner: false, isWritable: false },
+      { pubkey: o.mint, isSigner: false, isWritable: false },
+      { pubkey: args.quoteTokenProgram ?? TOKEN_PROGRAM, isSigner: false, isWritable: false },
+      { pubkey: args.stockTokenProgram ?? TOKEN_2022, isSigner: false, isWritable: false },
+    ],
+    data: encodeFillSellOrder({ amountInLeg: args.amountInLeg, amountOut: args.amountOut }),
+  })
+}
+
 // ------------------------------------------------------------------ helpers
 
 /**
@@ -493,6 +622,30 @@ export async function readOrders(conn: Connection, owner?: PublicKey): Promise<B
   return accounts.map((a) => decodeBellOrder(a.account.data))
 }
 
+export async function readSellOrder(
+  conn: Connection,
+  owner: PublicKey,
+  nonce: bigint,
+): Promise<SellOrder | null> {
+  const acc = await conn.getAccountInfo(sellOrderPda(owner, nonce))
+  return acc ? decodeSellOrder(acc.data) : null
+}
+
+/**
+ * Every live sell, or one owner's: `readOrders` with the `SellOrder`
+ * discriminator. The owner is the first field after it, as in a `BellOrder`,
+ * so the same offset-8 filter narrows it on the node.
+ */
+export async function readSellOrders(
+  conn: Pick<Connection, 'getProgramAccounts'>,
+  owner?: PublicKey,
+): Promise<SellOrder[]> {
+  const filters = [{ memcmp: { offset: 0, bytes: bs58Encode(accountDiscriminator('SellOrder')) } }]
+  if (owner) filters.push({ memcmp: { offset: 8, bytes: owner.toBase58() } })
+  const accounts = await conn.getProgramAccounts(PROGRAM_ID, { filters })
+  return accounts.map((a) => decodeSellOrder(a.account.data))
+}
+
 /** web3.js wants base58 for memcmp; this is the only place we need it. */
 function bs58Encode(b: Buffer): string {
   const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -568,4 +721,4 @@ export async function checkGate(
 }
 
 export { Mode, MarkSource, TOKEN_2022, errorName }
-export type { BellOrder, SymbolMark, SymbolState, TokenRisk }
+export type { BellOrder, SellOrder, SymbolMark, SymbolState, TokenRisk }

@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import type { PublicKey } from '@solana/web3.js'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import {
   clearsWhen,
@@ -12,6 +13,7 @@ import {
   explorerTx,
   loadBoard,
   loadOrders,
+  loadSellOrders,
   marketLine,
   localWhenOf,
   nyClockOf,
@@ -22,32 +24,48 @@ import {
   RPC_URL,
   shortKey,
   type GateRow,
+  type Holding,
   type Status,
   type SymbolView,
   type WalletView,
 } from '../lib/bell.ts'
 import {
   cancelOrderTxs,
+  cancelSellOrderTxs,
+  MAX_ORDER_IN_RAW,
   MAX_ORDER_USD,
+  maxSellRaw,
   orderExpiry,
   packTransactions,
   placeInstructions,
   placeOrderTx,
+  placeSellOrderTx,
+  rawToShares,
   recurringSlots,
   QUOTE_DECIMALS,
   QUOTE_MINT,
   refusalFrom,
   revokeAllTxs,
+  SELL_MAX_USD,
+  sellFloorUsd,
+  sharesShown,
   submit,
   submitInOrder,
 } from '../lib/queue.ts'
 import { authPda } from '../../src/chain/client.ts'
-import type { BellOrder } from '../../src/chain/codec.ts'
-import { ataFor } from '../../src/chain/spl.ts'
+import type { BellOrder, SellOrder } from '../../src/chain/codec.ts'
+import { ataFor, TOKEN_2022 } from '../../src/chain/spl.ts'
 import { ALLOWLIST, CLUSTER } from '../../src/config.ts'
-import { deadReason, maxPricePerShare, stillOwed, upcomingOpens } from '../../src/policy/order.ts'
+import {
+  deadReason,
+  maxPricePerShare,
+  sellOrderFloor,
+  sharesToRaw,
+  stillOwed,
+  upcomingOpens,
+} from '../../src/policy/order.ts'
 import { isRegularOpen, nextChange } from '../../src/policy/calendar.ts'
-import { LIMITS } from '../../src/chain/codec.ts'
+import { LIMITS, multiplierOf as multiplierFromBits, sellOrderValue, stockToQuoteCeil } from '../../src/chain/codec.ts'
 import type { Reference } from '../lib/reference.ts'
 import type { TapeRow } from '../lib/tape.ts'
 
@@ -62,6 +80,18 @@ const POLL_MS = 10_000
 const MIN_SOL_FOR_ORDER = 0.0036
 /** Each further order in a recurring buy is another order account's rent, plus a fee's share. */
 const SOL_PER_EXTRA_ORDER = 0.00201
+/**
+ * An SPL Token account's rent (165 bytes, 2,039,280 lamports): what a sale
+ * costs on top of its order when the proceeds need a quote account made for them.
+ */
+const QUOTE_ACCOUNT_RENT_SOL = 0.00204
+
+/**
+ * How the page keys a sale wherever it tracks orders by nonce. A buy and a sale
+ * are separate accounts that may share a nonce, so a sale's key carries its
+ * side and a buy's stays the bare nonce it always was.
+ */
+const sellKey = (o: { nonce: bigint }) => `sell:${o.nonce}`
 
 /**
  * The badge says what kind of no it is. It used to be binary — "closed" for a
@@ -169,6 +199,10 @@ const usd = (raw: bigint) =>
     maximumFractionDigits: 2,
   })
 
+/** "1 AAPLx share", "0.5 AAPLx shares". */
+const sharesOf = (n: string, symbol: string) => `${n} ${symbol} ${n === '1' ? 'share' : 'shares'}`
+
+
 /** A failure, in the program's own words where it has any. */
 function describe(e: unknown): string {
   const code = refusalFrom(e)
@@ -185,6 +219,17 @@ export default function Page() {
   const [wallet, setWallet] = useState<WalletView | null>(null)
   // `null` means "not read yet, or the last read failed" — never "none".
   const [orders, setOrders] = useState<BellOrder[] | null>(null)
+  // The same for sales, read separately: a sale is its own account type.
+  const [sells, setSells] = useState<SellOrder[] | null>(null)
+  // Buying spends demo-USDC and selling spends shares. The page opens on buy,
+  // and everything about a buy is the same whichever side was last shown.
+  const [side, setSide] = useState<'buy' | 'sell'>('buy')
+  // Shares as typed. Kept as text so "0.29" becomes raw units exactly, never
+  // through a float that makes it 0.28999999.
+  const [sellShares, setSellShares] = useState('')
+  // Optional: "don't sell for less than this a share". Empty means the price
+  // the bell sets, protected only by the band and the loss cap.
+  const [sellLimit, setSellLimit] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -196,7 +241,7 @@ export default function Page() {
   const [repeat, setRepeat] = useState(1)
   // The last US price of each underlying, for display beside the pool's price.
   const [refs, setRefs] = useState<Record<string, Reference | null>>({})
-  // This wallet's fills, from the public tape's per-buyer view: the receipts.
+  // This wallet's fills, purchases and sales, from the tape's per-wallet view: the receipts.
   const [fills, setFills] = useState<TapeRow[]>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -226,15 +271,17 @@ export default function Page() {
 
   // Receipts: the tape already reads every fill from the chain (cached a minute
   // on the server), so the page asks it for this wallet's rows rather than
-  // walking transaction history from the browser.
+  // walking transaction history from the browser. Purchases and sales are
+  // asked for by name, because the tape never hands a sale to a buyer query.
   useEffect(() => {
     if (!publicKey) {
       setFills([])
       return
     }
     let stopped = false
+    const me = publicKey.toBase58()
     const load = () =>
-      fetch(`/api/tape?buyer=${publicKey.toBase58()}`)
+      fetch(`/api/tape?buyer=${me}&seller=${me}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
           if (!stopped && j?.rows) setFills((j.rows as TapeRow[]).slice().sort((a, b) => b.time.localeCompare(a.time)))
@@ -248,8 +295,13 @@ export default function Page() {
     }
   }, [publicKey])
 
-  // A limit is a price for one security; it must not carry over to the next.
-  useEffect(() => setLimit(''), [selected])
+  // A limit is a price for one security, and a share count is a count of one
+  // security; neither may carry over to the next.
+  useEffect(() => {
+    setLimit('')
+    setSellLimit('')
+    setSellShares('')
+  }, [selected])
 
   // One poll at a time. A slow or throttled read used to overlap the next
   // one, and each overlap was another request at an endpoint already saying no.
@@ -276,6 +328,15 @@ export default function Page() {
     },
     [orders],
   )
+  /** `known` for sales, keyed so a sale can never be mistaken for a buy with its nonce. */
+  const knownSells = useCallback(
+    (fresh: SellOrder[]) => {
+      const byKey = new Map<string, SellOrder>()
+      for (const o of [...(sells ?? []), ...fresh]) byKey.set(sellKey(o), o)
+      return [...byKey.values()].filter((o) => !closed.current.has(sellKey(o)))
+    },
+    [sells],
+  )
   const latest = useRef<() => Promise<void>>(async () => {})
   const refresh = useCallback(async () => {
     if (polling.current) {
@@ -300,16 +361,20 @@ export default function Page() {
         setError((e as Error).message)
       }
       if (publicKey) {
-        try {
-          const book = await loadOrders(conn, publicKey)
-          setOrders(book.filter((o) => !closed.current.has(String(o.nonce))))
-        } catch {
-          // Keep showing the last list we actually read. What must never happen
-          // is a failed read becoming "you have no orders" — `place()` below
-          // re-reads for itself rather than trusting this copy.
-        }
+        // Both books at once, each kept or dropped on its own: a failed read of
+        // the sales must not cost the buys their fresh read, or the reverse.
+        const [book, sellBook] = await Promise.allSettled([
+          loadOrders(conn, publicKey),
+          loadSellOrders(conn, publicKey),
+        ])
+        // A failure keeps showing the last list we actually read. What must
+        // never happen is a failed read becoming "you have no orders" —
+        // `place()` below re-reads for itself rather than trusting this copy.
+        if (book.status === 'fulfilled') setOrders(book.value.filter((o) => !closed.current.has(String(o.nonce))))
+        if (sellBook.status === 'fulfilled') setSells(sellBook.value.filter((o) => !closed.current.has(sellKey(o))))
       } else {
         setOrders(null)
+        setSells(null)
       }
     } finally {
       polling.current = false
@@ -358,6 +423,31 @@ export default function Page() {
       return bellDelegated && wallet.delegatedAmount >= stillOwed(list, nowS(), multiplierOf)
     },
     [auth, bellDelegated, multiplierOf, wallet],
+  )
+
+  /** A stock account of this wallet's as the board last read it; null for one it does not read. */
+  const holdingAt = useCallback(
+    (account: PublicKey): Holding | null => wallet?.holdings.find((h) => h.account.equals(account)) ?? null,
+    [wallet],
+  )
+
+  /**
+   * A sale is funded when its stock account's one delegation is BELL's and
+   * covers every live sale from that account. An account the page does not
+   * read is not called unfunded, because that would be a guess.
+   */
+  const sellFunded = useCallback(
+    (o: SellOrder, list: SellOrder[]) => {
+      const h = holdingAt(o.payerIn)
+      if (!h || !auth) return true
+      const owed = stillOwed(
+        list.filter((x) => x.payerIn.equals(o.payerIn)),
+        nowS(),
+        multiplierOf,
+      )
+      return !!h.delegate?.equals(auth) && h.delegatedAmount >= owed
+    },
+    [auth, holdingAt, multiplierOf],
   )
 
   const getFunds = useCallback(async () => {
@@ -520,6 +610,126 @@ export default function Page() {
     }
   }, [amount, conn, current, known, limit, multiplierOf, publicKey, refresh, repeat, signAllTransactions, signTransaction, wallet])
 
+  /**
+   * Place a sale. The mirror of `place()` on the other account: the approval is
+   * on the wallet's stock account, under Token-2022, for every live sale of
+   * that stock plus this one. The quote approval that funds the wallet's buys
+   * is never touched, because approving it for a sale would defund them all.
+   */
+  const placeSell = useCallback(async () => {
+    if (!publicKey || !signTransaction || !current) return
+    setBusy(true)
+    setNotice(null)
+    try {
+      const symbol = current.listing.symbol
+      // Checked before the wallet opens, as for a buy, so a problem is
+      // explained in words instead of refused by a program in hex.
+      const holding = wallet?.holdings.find((h) => h.symbol === symbol) ?? null
+      if (!holding || holding.raw === 0n) throw new Error(`This wallet holds no ${symbol} to sell.`)
+      if (current.status === 'withdrawn') {
+        throw new Error('The issuer has withdrawn this token, so a sale would wait on the issuer, not on a bell.')
+      }
+      // The program sizes a sale against the mark and refuses one without a
+      // price, so there is nothing to place without one.
+      if (!current.markRateQ64 || !current.markPx || current.multiplierBits === null) {
+        throw new Error('There is no attested price for this symbol yet, and a sale is sized against it. Try again in a minute.')
+      }
+      const multiplier = multiplierFromBits(current.multiplierBits)
+      let amountIn: bigint
+      try {
+        amountIn = sharesToRaw(sellShares, holding.decimals, multiplier)
+      } catch {
+        throw new Error('Enter a number of shares to sell, such as 0.5.')
+      }
+      if (amountIn <= 0n) throw new Error(`That is less than the smallest unit of ${symbol} there is.`)
+      const shown = sharesShown(sellShares, amountIn, holding.decimals, multiplier)
+      const limitUsd = sellLimit.trim() ? Number(sellLimit) : null
+      // A cent at least, for the reason `place()` gives: below that the
+      // minimum rounds to nothing in the mark's units.
+      if (limitUsd !== null && !(limitUsd >= 0.01)) {
+        throw new Error('Enter a minimum price per share, or leave it empty to sell at the price the bell sets.')
+      }
+      const value = sellOrderValue(amountIn, current.markRateQ64)
+      if (value > MAX_ORDER_IN_RAW) {
+        throw new Error(
+          `${sharesOf(shown, symbol)} are worth $${usd(value)} at the price now. A sale is capped at $${MAX_ORDER_USD.toLocaleString()} of value while the program has an upgrade authority; "max" offers up to about $${SELL_MAX_USD}.`,
+        )
+      }
+      const now = nowS()
+      const nextOpen = current.openNow ? null : current.nextChangeAt || null
+      // A sale snapshots the multiplier as a buy does, and parking one across a
+      // scheduled change parks an order that can never fill.
+      if (current.changeAt > 0 && current.changeAt < orderExpiry(now, nextOpen) && !current.allowed) {
+        throw new Error(
+          `A corporate action is scheduled for ${nyWhenOf(current.changeAt)}, before this sale could fill — it would be refused as resized. Place it after the change lands.`,
+        )
+      }
+      // The order's rent, and a quote account's when the proceeds need one made.
+      const solNeeded = SOL_PER_EXTRA_ORDER + (wallet?.quote === null ? QUOTE_ACCOUNT_RENT_SOL : 0)
+      if (!wallet || wallet.sol < solNeeded) {
+        throw new Error('This wallet needs a little devnet SOL for account rent — use "Get demo funds".')
+      }
+
+      // Re-read this wallet's sales now, with no fallback, for the reason
+      // `place()` re-reads its orders: the approval assigns, so it has to cover
+      // every live sale from this stock account, and a guess at them defunds them.
+      let book: SellOrder[]
+      try {
+        book = knownSells(await loadSellOrders(conn, publicKey))
+      } catch {
+        throw new Error(
+          'Could not read your existing sales just now, so nothing was sent — approving without them would defund them. Try again in a moment.',
+        )
+      }
+      const committed = stillOwed(
+        book.filter((o) => o.payerIn.equals(holding.account)),
+        now,
+        multiplierOf,
+      )
+      // A sale of shares the wallet does not hold would park and never fill.
+      if (holding.raw < committed + amountIn) {
+        throw new Error(
+          committed > 0n
+            ? `Your other sales of ${symbol} already offer ${rawToShares(committed, holding.decimals, multiplier)}; with this one that is more than the ${rawToShares(holding.raw, holding.decimals, multiplier)} the wallet holds.`
+            : `The wallet holds ${rawToShares(holding.raw, holding.decimals, multiplier)} ${symbol}.`,
+        )
+      }
+
+      const { tx } = placeSellOrderTx({
+        owner: publicKey,
+        listing: current.listing,
+        amountIn,
+        decimals: holding.decimals,
+        nonce: BigInt(Date.now()),
+        now,
+        committed,
+        nextOpen,
+        markRateQ64: current.markRateQ64,
+        markPx: current.markPx,
+        minLimitUsd: limitUsd,
+      })
+      const sig = await submit(conn, tx, publicKey, signTransaction)
+      const placed = current.allowed
+        ? `Placed a sale of ${sharesOf(shown, symbol)}. The filler settles it on its next pass, within about five minutes. Your shares stay in your wallet until then.`
+        : current.status === 'closed'
+          ? `Queued a sale of ${sharesOf(shown, symbol)} for the opening bell. Your shares never left your wallet.`
+          : `Parked a sale of ${sharesOf(shown, symbol)}; it fills when ${clearsWhen(current)}. Your shares never left your wallet.`
+      const limitNote =
+        limitUsd === null
+          ? ''
+          : current.priceUsd && limitUsd > current.priceUsd
+            ? ` Minimum $${limitUsd.toFixed(2)} a share: above the pool's price now, so it sells only if the price comes up to it.`
+            : ` Minimum $${limitUsd.toFixed(2)} a share.`
+      setNotice({ ok: true, sig, text: placed + limitNote })
+      setSellShares('')
+      await refresh()
+    } catch (e) {
+      setNotice({ ok: false, text: describe(e) })
+    } finally {
+      setBusy(false)
+    }
+  }, [conn, current, knownSells, multiplierOf, publicKey, refresh, sellLimit, sellShares, signTransaction, wallet])
+
   const cancel = useCallback(
     async (order: BellOrder) => {
       if (!publicKey || !signTransaction) return
@@ -590,43 +800,168 @@ export default function Page() {
   )
 
   /**
+   * Cancel a sale: revoke the stock account's approval on its own, close the
+   * order, then re-approve the other sales from that account — the buy
+   * cancel's three steps, on the stock account.
+   */
+  const cancelSell = useCallback(
+    async (order: SellOrder) => {
+      if (!publicKey || !signTransaction || !auth) return
+      setBusy(true)
+      setNotice(null)
+      try {
+        const holding = holdingAt(order.payerIn)
+        // Revoke when the account's approval is BELL's. When the page does not
+        // read the account (a sale placed from the command line out of another
+        // one), revoke all the same: it was BELL's when the sale was placed,
+        // and stopping is the safe direction. Only a read that found no such
+        // account at all leaves nothing to revoke.
+        const missing =
+          !holding && !!wallet && order.payerIn.equals(ataFor(publicKey, order.mint, TOKEN_2022))
+        const stockDelegated = holding ? !!holding.delegate?.equals(auth) : !missing
+        const decimals =
+          holding?.decimals ?? wallet?.holdings.find((h) => h.symbol === order.symbol)?.decimals ?? null
+        // What the other sales from this account still need, read fresh. As
+        // for a buy, an unreadable book does not hold up the cancel.
+        let rest = 0n
+        let unread = false
+        try {
+          const book = knownSells(await loadSellOrders(conn, publicKey))
+          rest = stillOwed(
+            book.filter((o) => o.nonce !== order.nonce && o.payerIn.equals(order.payerIn)),
+            nowS(),
+            multiplierOf,
+          )
+        } catch {
+          unread = true
+        }
+        const refund = stockDelegated && rest > 0n && decimals !== null
+        const txs = cancelSellOrderTxs(publicKey, order, rest, stockDelegated, decimals)
+        const { sigs, error, failedAt } = await submitInOrder(
+          conn,
+          txs,
+          publicKey,
+          signTransaction,
+          signAllTransactions,
+          (i, e) => stockDelegated && i === 1 && refusalFrom(e) === 'AlreadyClosed',
+        )
+        const revoked = stockDelegated && sigs[0] != null
+        if (failedAt === null) {
+          closed.current.add(sellKey(order))
+          setSells((list) => list?.filter((o) => o.nonce !== order.nonce) ?? list)
+        }
+        const restShown = decimals === null ? `${rest} raw` : rawToShares(rest, decimals, multiplierFromBits(order.expectedMultiplierBits))
+        if (failedAt === null) {
+          setNotice({
+            ok: true,
+            sig: sigs[0] ?? undefined,
+            text: !stockDelegated
+              ? 'Closed, and the rent returned. It was already unfunded — nothing was revoked.'
+              : `Cancelled. The stock approval was revoked first, then ${sigs[1] ? 'the sale closed and its rent returned' : 'the sale turned out to be closed already'}${refund ? `, then your other sales of ${order.symbol} re-approved (${sharesOf(restShown, order.symbol)})` : ''}.${unread ? ` Your other sales of ${order.symbol} could not be read, so they are unfunded too — cancel or re-place them.` : ''}${rest > 0n && decimals === null ? ` Your other sales of ${order.symbol} could not be re-approved from here, so they are unfunded — cancel or re-place them.` : ''}`,
+          })
+        } else if (revoked) {
+          // The part that matters landed. Say so before saying what did not.
+          setNotice({
+            ok: true,
+            sig: sigs[0] ?? undefined,
+            text:
+              failedAt === 1
+                ? `Stock approval revoked — this sale can no longer fill. Closing it failed (${describe(error)}); press cancel sell again to reclaim the rent.${rest > 0n ? ` Your other sales of ${order.symbol} are unfunded until then.` : ''}`
+                : `Cancelled, but re-approving your other sales of ${order.symbol} failed (${describe(error)}). They cannot fill until re-approved — placing any sale of ${order.symbol} re-approves them all.`,
+          })
+        } else {
+          setNotice({ ok: false, text: describe(error) })
+        }
+        await refresh()
+      } catch (e) {
+        setNotice({ ok: false, text: describe(e) })
+      } finally {
+        setBusy(false)
+      }
+    },
+    [auth, conn, holdingAt, knownSells, multiplierOf, publicKey, refresh, signAllTransactions, signTransaction, wallet],
+  )
+
+  /**
    * The emergency exit: revoke every approval to BELL, then close every order.
    * Offered whenever any approval is outstanding, including one no order
    * explains — an approval whose order never landed is still an approval.
+   * The quote account's revoke goes first and alone, as it always has; then
+   * each stock account BELL may sell from; then every buy and sale is closed.
    */
   const revokeAll = useCallback(async () => {
-    if (!publicKey || !signTransaction) return
+    if (!publicKey || !signTransaction || !auth) return
     setBusy(true)
     setNotice(null)
     try {
       const book = await loadOrders(conn, publicKey).catch(() => orders ?? [])
-      const txs = revokeAllTxs(publicKey, ataFor(publicKey, QUOTE_MINT), book)
+      const sellBook = await loadSellOrders(conn, publicKey).catch(() => sells ?? [])
+      // The stock accounts to revoke: each the last read saw delegated to
+      // BELL, and each live sale's own account too, since a sale placed after
+      // that read has an approval the read never saw. Revoking an account with
+      // no approval costs nothing, so the only ones left out are an account
+      // whose approval the read says belongs to someone else, which is not
+      // BELL's to take away, and one the read found does not exist, whose
+      // revoke would fail and take the others in its transaction with it.
+      const stock = new Map<string, PublicKey>()
+      for (const h of wallet?.holdings ?? []) {
+        if (h.delegate?.equals(auth)) stock.set(h.account.toBase58(), h.account)
+      }
+      for (const o of sellBook) {
+        const h = holdingAt(o.payerIn)
+        if (h?.delegate && !h.delegate.equals(auth)) continue
+        if (!h && wallet && o.payerIn.equals(ataFor(publicKey, o.mint, TOKEN_2022))) continue
+        stock.set(o.payerIn.toBase58(), o.payerIn)
+      }
+      // The quote account, unless there is none or its approval is someone
+      // else's; either way there is nothing of BELL's on it to revoke.
+      const quote =
+        wallet && (wallet.quote === null || (wallet.delegate && !wallet.delegate.equals(auth)))
+          ? null
+          : ataFor(publicKey, QUOTE_MINT)
+      const { txs, revokes } = revokeAllTxs(publicKey, quote, book, [...stock.values()], sellBook)
+      if (txs.length === 0) {
+        setNotice({ ok: true, text: 'Nothing to revoke: BELL holds no approval on this wallet, and it has no orders.' })
+        return
+      }
       const { sigs, error, failedAt } = await submitInOrder(
         conn,
         txs,
         publicKey,
         signTransaction,
         signAllTransactions,
-        (_, e) => refusalFrom(e) === 'AlreadyClosed',
+        (i, e) => i >= revokes && refusalFrom(e) === 'AlreadyClosed',
       )
+      const closedCount = book.length + sellBook.length
       if (failedAt === null) {
         for (const o of book) closed.current.add(String(o.nonce))
+        for (const o of sellBook) closed.current.add(sellKey(o))
         setOrders([])
+        setSells([])
       }
+      const what = stock.size > 0 ? 'spend any of your demo-USDC or sell any of your shares' : 'spend any of your demo-USDC'
       setNotice(
         failedAt === null
           ? {
               ok: true,
               sig: sigs[0] ?? undefined,
-              text: `Funding revoked — BELL can no longer spend any of your demo-USDC.${book.length ? ` ${book.length} order(s) closed and their rent returned.` : ''}`,
+              text: `Funding revoked — BELL can no longer ${what}.${closedCount ? ` ${closedCount} order(s) closed and their rent returned.` : ''}`,
             }
-          : failedAt > 0
+          : failedAt >= revokes
             ? {
                 ok: true,
                 sig: sigs[0] ?? undefined,
                 text: `Funding revoked — nothing can fill. Closing the orders failed (${describe(error)}); cancel them to reclaim the rent.`,
               }
-            : { ok: false, text: describe(error) },
+            : failedAt > 0
+              ? {
+                  // A revoke landed and a later stock revoke did not: a sale
+                  // can still fill, so this is not the all-clear.
+                  ok: false,
+                  sig: sigs[0] ?? undefined,
+                  text: `${quote ? 'Your demo-USDC funding was revoked, so no buy can fill — but revoking' : 'Revoking'} the approval on some of your shares failed (${describe(error)}), so a sale still can. Press "Revoke all funding" again.`,
+                }
+              : { ok: false, text: describe(error) },
       )
       await refresh()
     } catch (e) {
@@ -634,10 +969,62 @@ export default function Page() {
     } finally {
       setBusy(false)
     }
-  }, [conn, orders, publicKey, refresh, signAllTransactions, signTransaction])
+  }, [auth, conn, holdingAt, orders, publicKey, refresh, sells, signAllTransactions, signTransaction, wallet])
 
   const bookFunded = orders ? funded(orders) : true
   const canPlace = !!current && !['withdrawn', 'offline', 'unlisted'].includes(current.status)
+
+  // What the wallet holds: the stock accounts with a balance. An empty one
+  // stays in the wallet view for "Revoke all funding", but is not a holding.
+  const held = wallet?.holdings.filter((h) => h.raw > 0n) ?? []
+  /** Raw stock as shares, at the multiplier in force for its symbol. */
+  const sharesAt = (h: Pick<Holding, 'symbol' | 'decimals'>, raw: bigint) => {
+    const bits = multiplierOf(h.symbol)
+    return rawToShares(raw, h.decimals, bits != null ? multiplierFromBits(bits) : 1)
+  }
+  // Each approval BELL holds, on the quote account and on any stock account.
+  const quoteApproved = !!wallet && bellDelegated && wallet.delegatedAmount > 0n
+  const stockApprovals = auth
+    ? (wallet?.holdings ?? []).filter((h) => h.delegate?.equals(auth) && h.delegatedAmount > 0n)
+    : []
+
+  // The sale being typed: the account it would draw on, and its size in raw
+  // units, or null while the text is not yet a number of shares.
+  const sellHolding = (current && wallet?.holdings.find((h) => h.symbol === current.listing.symbol)) || null
+  const sellMultiplier = current?.multiplierBits != null ? multiplierFromBits(current.multiplierBits) : null
+  const sellRaw = (() => {
+    if (!sellHolding || sellMultiplier === null || !sellShares.trim()) return null
+    try {
+      return sharesToRaw(sellShares, sellHolding.decimals, sellMultiplier)
+    } catch {
+      return null
+    }
+  })()
+  /**
+   * "max": what this stock account holds less what the wallet's other sales
+   * already offer, and at most about $990 of it at the price now, so the sale
+   * it proposes is one the program's $1,000 cap accepts.
+   */
+  const sellMax = () => {
+    if (!current || !sellHolding || sellMultiplier === null) return
+    const symbol = current.listing.symbol
+    const owed = stillOwed(
+      (sells ?? []).filter((o) => o.payerIn.equals(sellHolding.account)),
+      nowS(),
+      multiplierOf,
+    )
+    const raw = maxSellRaw({ held: sellHolding.raw, owed, rateQ64: current.markRateQ64 })
+    if (raw > 0n) {
+      setSellShares(rawToShares(raw, sellHolding.decimals, sellMultiplier))
+      return
+    }
+    setNotice({
+      ok: false,
+      text: !current.markRateQ64
+        ? `There is no attested price for ${symbol} yet, so there is nothing to size a sale against.`
+        : `Your other sales of ${symbol} already offer every share this wallet holds.`,
+    })
+  }
 
   return (
     <div className="wrap">
@@ -647,7 +1034,7 @@ export default function Page() {
           → Developer Settings → Testnet Mode → Solana Devnet). <em>Get demo funds</em> gives a
           fresh wallet 1,000 demo-USDC — a devnet token BELL issued, not USDC — and a little devnet
           SOL for rent and fees. Your wallet will warn that an order lets another account spend your
-          demo-USDC: that is the delegation, and cancelling revokes it. If your wallet shows zero
+          demo-USDC (for a sale, your shares): that is the delegation, and cancelling revokes it. If your wallet shows zero
           after funding, it is looking at mainnet.
         </div>
       )}
@@ -693,21 +1080,34 @@ export default function Page() {
             )}
           </div>
         )}
-        {publicKey && wallet && bellDelegated && wallet.delegatedAmount > 0n && (
+        {publicKey && wallet && (quoteApproved || stockApprovals.length > 0) && (
           <div className="revoke">
             <span>
-              BELL may spend up to <strong>${usd(wallet.delegatedAmount)}</strong> of your demo-USDC,
-              for your orders only.
+              BELL may{' '}
+              {quoteApproved && (
+                <>
+                  spend up to <strong>${usd(wallet.delegatedAmount)}</strong> of your demo-USDC
+                </>
+              )}
+              {quoteApproved && stockApprovals.length > 0 && ' and '}
+              {stockApprovals.length > 0 && 'sell up to '}
+              {stockApprovals.map((h, i) => (
+                <Fragment key={h.symbol}>
+                  {i === 0 ? '' : i === stockApprovals.length - 1 ? ' and ' : ', '}
+                  <strong>{sharesAt(h, h.delegatedAmount)}</strong> {h.symbol}
+                </Fragment>
+              ))}
+              , for your orders only.
             </span>
             <button className="mini" disabled={busy} onClick={() => void revokeAll()}>
               Revoke all funding
             </button>
           </div>
         )}
-        {publicKey && wallet && wallet.holdings.length > 0 && (
+        {publicKey && wallet && held.length > 0 && (
           <div className="bal holdings">
             <span>holding</span>
-            {wallet.holdings.map((h) => (
+            {held.map((h) => (
               <span key={h.symbol}>
                 <strong>{h.shares.toLocaleString(undefined, { maximumFractionDigits: 6 })}</strong>{' '}
                 {h.symbol}
@@ -800,6 +1200,18 @@ export default function Page() {
             {CLUSTER === 'devnet' && " On devnet this is BELL's mirror of that token, not the security itself."}
           </div>
 
+          {/* Buy or sell. Buy is where the page opens, and its row below is the
+              same row whichever side was shown last. */}
+          <div className="side" role="group" aria-label="buy or sell">
+            <button type="button" aria-pressed={side === 'buy'} onClick={() => setSide('buy')}>
+              Buy
+            </button>
+            <button type="button" aria-pressed={side === 'sell'} onClick={() => setSide('sell')}>
+              Sell
+            </button>
+          </div>
+
+          {side === 'buy' ? (
           <div className="buy">
             <label className="amt">
               <span>$</span>
@@ -852,8 +1264,68 @@ export default function Page() {
                           : `Park it — fills when ${clearsWhen(current)}`}
             </button>
           </div>
+          ) : (
+          // The sale row. It takes the buy row's layout, and its own controls:
+          // shares rather than dollars, a minimum price rather than a maximum,
+          // and no repeat, since a sale is of shares already held.
+          <div className="buy sell">
+            <div className="amt shares">
+              <input
+                inputMode="decimal"
+                value={sellShares}
+                onChange={(e) => setSellShares(e.target.value)}
+                placeholder="0"
+                aria-label="shares to sell"
+              />
+              <span>{current.listing.symbol}</span>
+              <button
+                type="button"
+                className="mini max"
+                disabled={busy || !sellHolding || sellHolding.raw === 0n}
+                onClick={sellMax}
+                title={`Everything you hold that your other sales do not offer, up to about $${SELL_MAX_USD} at the price now`}
+              >
+                max
+              </button>
+            </div>
+            <label className="amt lim" title="Leave empty to sell at the price the bell sets">
+              <span>min $</span>
+              <input
+                inputMode="decimal"
+                value={sellLimit}
+                onChange={(e) => setSellLimit(e.target.value)}
+                placeholder="any"
+                aria-label="sell limit price per share"
+              />
+              <span>/share</span>
+            </label>
+            <button
+              className={`act ${current.allowed ? '' : 'secondary'}`}
+              disabled={!publicKey || busy || !canPlace || !sellHolding || sellHolding.raw === 0n || !(sellRaw && sellRaw > 0n)}
+              onClick={() => void placeSell()}
+            >
+              {busy
+                ? 'working…'
+                : !publicKey
+                  ? 'Connect a wallet'
+                  : !sellHolding || sellHolding.raw === 0n
+                    ? `Nothing to sell · this wallet holds no ${current.listing.symbol}`
+                    : current.allowed
+                      ? 'Place sale · the filler settles it within ~5 min'
+                      : current.status === 'withdrawn'
+                        ? 'Not queueable · fills only if the issuer resumes'
+                        : current.status === 'offline'
+                          ? 'Cannot reach the chain'
+                          : current.status === 'closed'
+                            ? `Queue the sale for the opening bell${
+                                current.nextChangeAt > 0 ? ` · ${nyWhenOf(current.nextChangeAt)}` : ''
+                              }`
+                            : `Park it — fills when ${clearsWhen(current)}`}
+            </button>
+          </div>
+          )}
 
-          {current.priceUsd && current.markRateQ64 && Number(amount) > 0 && canPlace && (() => {
+          {side === 'buy' && current.priceUsd && current.markRateQ64 && Number(amount) > 0 && canPlace && (() => {
             // What the user is agreeing to, in money, before the wallet opens.
             // The band is relative to the price at the bell; the cap is absolute.
             const usdAmount = Number(amount)
@@ -878,6 +1350,47 @@ export default function Page() {
                 {limitUsd && limitUsd < current.priceUsd
                   ? ' Your limit is under the price now, so it fills only if the price comes down to it; if it does not, the order lapses and nothing is spent.'
                   : ''}
+              </div>
+            )
+          })()}
+
+          {side === 'sell' && current.priceUsd && current.markRateQ64 && sellHolding && sellMultiplier !== null && sellRaw && sellRaw > 0n && canPlace && (() => {
+            // The same promise as the buy box, from the seller's side: the band
+            // is relative to the price at the fill, the floor is absolute, and
+            // both are in the seller's favour. "About" because the fill is priced
+            // at that moment, not now.
+            const limitUsd = sellLimit.trim() && Number(sellLimit) >= 0.01 ? Number(sellLimit) : null
+            // The minimum is read back from the floor `placeSell` would put on
+            // the order, built by the same function from the same mark, so the
+            // figure promised is the one the program enforces, rounded down to
+            // the cent, and never three quarters of a price rounded up past it.
+            if (!current.markPx) return null
+            const lossFloor = sellOrderFloor(current.markRateQ64, current.markPx, null)
+            let placedFloor: bigint
+            try {
+              placedFloor = sellOrderFloor(current.markRateQ64, current.markPx, limitUsd)
+            } catch {
+              // A minimum too large to carry as a floor; `placeSell` says so.
+              return null
+            }
+            const floor = sellFloorUsd(placedFloor, current.markRateQ64, current.markPx)
+            const byLimit = placedFloor > lossFloor
+            const n = sharesShown(sellShares, sellRaw, sellHolding.decimals, sellMultiplier)
+            const proceeds = stockToQuoteCeil(sellRaw, current.markRateQ64)
+            const over = sellOrderValue(sellRaw, current.markRateQ64) > MAX_ORDER_IN_RAW
+            return (
+              <div className="worst">
+                At the pool's price now (${current.priceUsd.toFixed(2)}), {sharesOf(n, current.listing.symbol)} sell for
+                about ${usd(proceeds)}. The fill uses the price at that moment, minus at most 30bps — and whatever the
+                price does before then, never less than{' '}
+                <strong>${floor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a share</strong>
+                {byLimit ? ' (your limit)' : ' (three quarters of the price now: the loss cap)'}.{' '}
+                {byLimit && limitUsd! > current.priceUsd
+                  ? 'Your limit is over the price now, so it sells only if the price comes up to it; if it does not, the order lapses and none of your shares are taken.'
+                  : byLimit
+                    ? 'If the price is under your limit when it comes to fill, the order does not sell and none of your shares are taken.'
+                    : `If the stock ${current.openNow ? 'falls' : 'opens'} more than 25% below the price now, the order does not sell and none of your shares are taken.`}
+                {over && ` That is over the $${MAX_ORDER_USD.toLocaleString()} a sale may be worth; "max" offers the most it can.`}
               </div>
             )
           })()}
@@ -912,19 +1425,35 @@ export default function Page() {
             // Over the checked price, as a price: the program's `realizedBps`
             // is the stock short of fair, rounded down, so a fill at the edge
             // of a 30bps band reads 31 beside a box that promised at most 30.
+            // On a sale it is the quote short of fair, which is a price under
+            // the mark, so the fallback turns it the other way.
+            const sold = f.direction === 'sell'
             const over =
               f.priceUsd !== null && f.markPriceUsd > 0
                 ? Math.round((f.priceUsd / f.markPriceUsd - 1) * 10_000)
-                : f.realizedBps
+                : sold
+                  ? -f.realizedBps
+                  : f.realizedBps
+            const count =
+              f.shares !== null ? f.shares.toLocaleString(undefined, { maximumFractionDigits: 6 }) : f.stockRaw + ' raw'
             return (
               <div className="receipt" key={`${f.signature}:${f.order}`}>
                 <span className="label">{f.symbol}</span>
                 <span className="detail">
                   {nyWhenOf(at)}
-                  {after !== null ? ` · ${after} min after the bell` : ''} · ${f.notionalUsd.toFixed(2)} bought{' '}
-                  {f.shares !== null ? f.shares.toLocaleString(undefined, { maximumFractionDigits: 6 }) : f.stockRaw + ' raw'}{' '}
-                  {f.symbol}
-                  {f.priceUsd !== null ? ` at $${f.priceUsd.toFixed(2)} a share` : ''} ·{' '}
+                  {after !== null ? ` · ${after} min after the bell` : ''} ·{' '}
+                  {sold ? (
+                    <>
+                      sold {count} {f.symbol} for ${f.notionalUsd.toFixed(2)}
+                      {f.priceUsd !== null ? ` ($${f.priceUsd.toFixed(2)} a share)` : ''}
+                    </>
+                  ) : (
+                    <>
+                      ${f.notionalUsd.toFixed(2)} bought {count} {f.symbol}
+                      {f.priceUsd !== null ? ` at $${f.priceUsd.toFixed(2)} a share` : ''}
+                    </>
+                  )}{' '}
+                  ·{' '}
                   {over < 0 ? `${-over}bps under` : `${over}bps over`} the price it was checked against (${f.markPriceUsd.toFixed(2)}, a {f.markSource} quote) ·{' '}
                   <a href={f.explorer} target="_blank" rel="noreferrer">
                     receipt on the explorer ↗
@@ -936,8 +1465,8 @@ export default function Page() {
           <div className="note">
             Read back from the chain by this site&apos;s tape route: each line is a fill transaction and
             the event the program emitted when it settled, and each links to that transaction, so none of
-            it rests on our word. The same record, for every buyer and without wallets, is the public tape
-            at <a href="/api/tape">/api/tape</a>.
+            it rests on our word. The same record, for every buyer and seller and without wallets, is the
+            public tape at <a href="/api/tape">/api/tape</a>.
           </div>
         </div>
       )}
@@ -993,6 +1522,68 @@ export default function Page() {
             on its own first — that alone makes every order unfillable, and it works even if this
             program never runs again — then closes the order for its rent, then re-funds any others
             you still have.
+          </div>
+        </div>
+      )}
+
+      {/* Sales get their own list and their own row class. Not `.order`: the
+          judge-path script counts `.order` rows to watch a buy fill, and presses
+          every button named exactly "cancel" to cancel buys. */}
+      {publicKey && sells && sells.length > 0 && (
+        <div className="panel">
+          <p className="verdict">Your sell orders</p>
+          {sells.map((o) => {
+            const dead = deadReason(o, nowS(), multiplierOf(o.symbol))
+            const view = views.find((v) => v.listing.symbol === o.symbol)
+            const decimals =
+              holdingAt(o.payerIn)?.decimals ?? wallet?.holdings.find((h) => h.symbol === o.symbol)?.decimals
+            // In shares at the multiplier the sale was sized at, which is the
+            // one it can fill under.
+            const shares = (raw: bigint) =>
+              decimals === undefined
+                ? `${raw} raw`
+                : rawToShares(raw, decimals, multiplierFromBits(o.expectedMultiplierBits))
+            return (
+              <div className="sell-order" key={sellKey(o)}>
+                <span className="label">{o.symbol}</span>
+                <span className="detail">
+                  sell {shares(o.amountIn)} {o.symbol}
+                  {o.filledIn > 0n ? ` · ${shares(o.filledIn)} sold` : ''}
+                  {dead === 'expired'
+                    ? ' · expired — cancel to reclaim the rent'
+                    : dead === 'resized'
+                      ? ' · refused: a corporate action changed its size — cancel to reclaim the rent'
+                      : !sellFunded(o, sells)
+                        ? ' · not funded — the approval on your shares no longer covers it, so it cannot fill'
+                        : view?.allowed
+                          ? ' · the filler settles it on its next pass'
+                          : !view || view.status === 'closed'
+                            ? ' · waiting for the bell'
+                            : ` · parked — fills when ${clearsWhen(view)}`}{' '}
+                  {(() => {
+                    // The floor as a price. A sale's floor is quote per stock,
+                    // the inverse of the mark's rate, so the price is today's
+                    // price scaled by the floor times today's rate, rounded
+                    // down to the cent as the box before signing rounds it.
+                    // Only meaningful while the multiplier it was built on holds.
+                    if (!view?.markRateQ64 || !view.markPx || o.floorRateQ64 <= 0n || dead) return null
+                    const min = sellFloorUsd(o.floorRateQ64, view.markRateQ64, view.markPx)
+                    return <> · never below ${min.toFixed(2)}/share</>
+                  })()}
+                  {' '}· slip ≤ {o.maxSlipBps}bps · until {nyWhenOf(Number(o.expiresAt))}
+                </span>
+                <button className="mini" disabled={busy} onClick={() => void cancelSell(o)}>
+                  cancel sell
+                </button>
+              </div>
+            )
+          })}
+          <div className="note">
+            Your shares stay in your wallet until a fill: each sale is funded by an approval on that
+            stock&apos;s account, not a transfer, and the filler pays you before it takes them.
+            Cancelling sends <code>revoke</code> on that account on its own first — that alone makes
+            every sale of that stock unfillable, and it works even if this program never runs again —
+            then closes the sale for its rent, then re-approves any other sales of the same stock.
           </div>
         </div>
       )}

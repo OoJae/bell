@@ -142,4 +142,38 @@ pub mod bell_session {
             ctx, symbol, mode, expected_multiplier_bits,
         )
     }
+
+    /// Park an intent to sell at the next open. The stock stays in the user's wallet.
+    #[allow(clippy::too_many_arguments)]
+    pub fn place_sell_order(
+        ctx: Context<PlaceSellOrder>,
+        symbol: [u8; SYMBOL_LEN],
+        nonce: u64,
+        amount_in: u64,
+        min_fill_in: u64,
+        max_slip_bps: u16,
+        max_conf_bps: u16,
+        floor_rate_q64: u128,
+        not_before: i64,
+        expires_at: i64,
+    ) -> Result<()> {
+        instructions::sell::handle_place_sell_order(
+            ctx, symbol, nonce, amount_in, min_fill_in, max_slip_bps, max_conf_bps,
+            floor_rate_q64, not_before, expires_at,
+        )
+    }
+
+    /// Settle a due sell order: quote delivered first, then stock taken.
+    pub fn fill_sell_order(
+        ctx: Context<FillSellOrder>,
+        amount_in_leg: u64,
+        amount_out: u64,
+    ) -> Result<()> {
+        instructions::sell::handle_fill_sell_order(ctx, amount_in_leg, amount_out)
+    }
+
+    /// Reclaim a sell order's rent. The real cancel is `spl_token::revoke`.
+    pub fn cancel_sell_order(ctx: Context<CancelSellOrder>) -> Result<()> {
+        instructions::sell::handle_cancel_sell_order(ctx)
+    }
 }

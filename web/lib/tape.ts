@@ -42,6 +42,15 @@ const FILL_DISCRIMINATOR = Uint8Array.from(FILL_IX.discriminator)
 const EVENT_DISCRIMINATOR = Uint8Array.from(FILLED_EVENT.discriminator)
 /** Where each account sits in a `fill_order` instruction, by its IDL name. */
 const FILL_ACCOUNT = Object.fromEntries(FILL_IX.accounts.map((a, i) => [a.name, i])) as Record<string, number>
+// The sell side's pair. Its accounts are declared with the same names in the
+// same order as `fill_order`'s, but they are looked up by name from their own
+// instruction all the same, so a reordering there cannot misattribute a sell.
+const SELL_FILL_IX = idl.instructions.find((i) => i.name === 'fill_sell_order')
+const SELL_FILLED_EVENT = idl.events.find((e) => e.name === 'SellOrderFilled')
+if (!SELL_FILL_IX || !SELL_FILLED_EVENT) throw new Error('fill_sell_order or SellOrderFilled missing from the IDL')
+const SELL_FILL_DISCRIMINATOR = Uint8Array.from(SELL_FILL_IX.discriminator)
+const SELL_EVENT_DISCRIMINATOR = Uint8Array.from(SELL_FILLED_EVENT.discriminator)
+const SELL_FILL_ACCOUNT = Object.fromEntries(SELL_FILL_IX.accounts.map((a, i) => [a.name, i])) as Record<string, number>
 const MARK_SOURCES: readonly string[] =
   (idl.types.find((t) => t.name === 'MarkSource')?.type as { variants?: { name: string }[] } | undefined)
     ?.variants?.map((v) => v.name) ?? []
@@ -79,11 +88,18 @@ const startsWith = (b: Uint8Array, prefix: Uint8Array) =>
 
 // ---------------------------------------------------------------------- event
 
-/** `OrderFilled`, as the program emits it (state.rs). */
+/**
+ * `OrderFilled`, as the program emits it (state.rs), and `SellOrderFilled`,
+ * which has the same fields in the same order.
+ *
+ * On a buy `amountIn` is quote and `amountOut` stock; on a sell it is the other
+ * way round, `amountIn` the stock taken and `amountOut` the quote paid. In both,
+ * the "in" leg is what left the user and the "out" leg what reached them.
+ */
 export interface OrderFilled {
   symbol: string
   amountIn: bigint
-  /** What actually landed in the buyer's account, measured by the program. */
+  /** What actually landed in the user's account, measured by the program. */
   amountOut: bigint
   /** The mark that priced the fill: `pxNum × 10^pxExpo` quote units per share. */
   pxNum: bigint
@@ -98,9 +114,15 @@ export interface OrderFilled {
  * `OrderFilled`. The owner and filler keys are skipped: the filler is read from
  * the instruction instead, and the buyer is left off the tape (see `TapeRow`).
  */
-export function decodeOrderFilled(data: Uint8Array): OrderFilled | null {
+export const decodeOrderFilled = (data: Uint8Array): OrderFilled | null => decodeFillEvent(data, EVENT_DISCRIMINATOR)
+
+/** The same for a `SellOrderFilled`, whose payload differs only in its first eight bytes. */
+export const decodeSellOrderFilled = (data: Uint8Array): OrderFilled | null =>
+  decodeFillEvent(data, SELL_EVENT_DISCRIMINATOR)
+
+function decodeFillEvent(data: Uint8Array, discriminator: Uint8Array): OrderFilled | null {
   // discriminator 8, symbol 12, owner 32, filler 32, three u64, i32, u8, i64, u16
-  if (!startsWith(data, EVENT_DISCRIMINATOR) || data.length < 123) return null
+  if (!startsWith(data, discriminator) || data.length < 123) return null
   const d = new DataView(data.buffer, data.byteOffset, data.byteLength)
   let o = 8
   const symbol = new TextDecoder().decode(data.subarray(o, o + 12)).trimEnd()
@@ -159,9 +181,11 @@ export interface RpcTransaction {
 
 /** A fill, with the accounts its instruction named. */
 export interface Fill {
+  /** `fill_order` is a buy, `fill_sell_order` a sell. */
+  side: 'buy' | 'sell'
   event: OrderFilled
   order: string
-  /** The order's owner: the buyer. Kept off the public tape; see `TapeRow.buyer`. */
+  /** The order's owner: the buyer, or on a sell the seller. Kept off the public tape; see `TapeRow.buyer`. */
   owner: string
   filler: string
   quoteMint: string
@@ -172,13 +196,24 @@ const INVOKE = /^Program (\S+) invoke \[\d+\]$/
 const EXIT = /^Program (\S+) (success|failed)/
 const DATA = 'Program data: '
 
+/** How each fill instruction is read: its side, its event, and where its accounts sit. */
+const FILL_KINDS = [
+  { side: 'buy', ix: FILL_DISCRIMINATOR, decode: decodeOrderFilled, account: FILL_ACCOUNT },
+  { side: 'sell', ix: SELL_FILL_DISCRIMINATOR, decode: decodeSellOrderFilled, account: SELL_FILL_ACCOUNT },
+] as const
+
 /**
- * Every `fill_order` in a transaction, with the event each one emitted.
+ * Every `fill_order` and `fill_sell_order` in a transaction, with the event
+ * each one emitted.
  *
  * An event is only believed when BELL itself logged it. `Program data:` lines
  * carry no author, and any program in the same transaction can write one with
  * the right eight bytes in front — so the logs are walked as a call stack, and
- * a payload counts only while the frame on top is BELL executing `fill_order`.
+ * a payload counts only while the frame on top is BELL executing a fill. The
+ * event must also be the one that instruction emits: an `OrderFilled` inside
+ * `fill_sell_order`, or a `SellOrderFilled` inside `fill_order`, is not a fill,
+ * because the program never writes either, and believing one would print a
+ * sale as a purchase.
  * The same walk ties each event to its instruction: every instruction, top
  * level or cross-program, logs exactly one `invoke` line, in execution order,
  * so the n-th `invoke` is the n-th instruction of the flattened list. That is
@@ -223,12 +258,16 @@ export function fillsOf(tx: RpcTransaction): Fill[] {
     }
     if (!line.startsWith(DATA)) continue
     const top = stack.at(-1)
-    if (!top || top.program !== PROGRAM_ID || !startsWith(fromBase58(top.ix.data), FILL_DISCRIMINATOR)) continue
+    if (!top || top.program !== PROGRAM_ID) continue
+    const ixData = fromBase58(top.ix.data)
+    const kind = FILL_KINDS.find((k) => startsWith(ixData, k.ix))
+    if (!kind) continue
     // sol_log_data writes one base64 field per slice; Anchor's emit! uses one.
-    const event = decodeOrderFilled(fromBase64(line.slice(DATA.length).split(' ')[0]))
+    const event = kind.decode(fromBase64(line.slice(DATA.length).split(' ')[0]))
     if (!event) continue
-    const account = (name: string) => keys[top.ix.accounts[FILL_ACCOUNT[name]]]
+    const account = (name: string) => keys[top.ix.accounts[kind.account[name]]]
     fills.push({
+      side: kind.side,
       event,
       order: account('order'),
       owner: account('owner'),
@@ -316,13 +355,16 @@ export interface TapeRow {
   /** The asset the stock was paired with, and its mint. */
   paired: string
   pairedMint: string
-  /** Every BELL fill is a buy: the buyer contributes `paired` and withdraws `symbol`. */
-  direction: 'buy'
+  /**
+   * A buy contributes `paired` and withdraws `symbol`; a sell contributes
+   * `symbol` and withdraws `paired`.
+   */
+  direction: 'buy' | 'sell'
   contributed: string
   withdrawn: string
   /** Dollars per share; null when the stock mint's multiplier could not be read. */
   priceUsd: number | null
-  /** Shares delivered, multiplier applied; null when it could not be read. */
+  /** Shares bought or sold, multiplier applied; null when it could not be read. */
   shares: number | null
   notionalUsd: number
   stockRaw: string
@@ -333,7 +375,10 @@ export interface TapeRow {
   markPriceUsd: number
   markSource: string
   markObservedAt: string
-  /** How far below the mark's fair size the delivery landed, in bps. */
+  /**
+   * How far below the mark's fair value the user's side landed, in bps: the
+   * stock a buy received, or the quote a sell was paid.
+   */
   realizedBps: number
   order: string
   program: string
@@ -345,8 +390,15 @@ export interface TapeRow {
    * returns it only to a request for one buyer's own fills (`?buyer=`), which is
    * how the page shows you your receipts. Anyone can follow `signature` to the
    * same address, so this reveals nothing — but the default view is not an index.
+   * Set on buys only.
    */
   buyer?: string
+  /**
+   * The seller's wallet, on sells only, and kept off the public tape exactly as
+   * `buyer` is. A separate field rather than `buyer` reused, so a request for
+   * one wallet's purchases can never return its sales as though they were.
+   */
+  seller?: string
 }
 
 export interface RowContext {
@@ -405,10 +457,15 @@ export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]
     const qd = decimalsOf(f.quoteMint)
     const sd = decimalsOf(f.stockMint)
     if (qd === null || sd === null) throw new Error(`decimals unknown for ${f.event.symbol}`)
-    const notional = Number(f.event.amountIn) / 10 ** qd
+    // Each event names its legs from the user's side (see `OrderFilled`), so
+    // which one is stock depends on the side.
+    const sell = f.side === 'sell'
+    const quoteRaw = sell ? f.event.amountOut : f.event.amountIn
+    const stockRaw = sell ? f.event.amountIn : f.event.amountOut
+    const notional = Number(quoteRaw) / 10 ** qd
     const cfg = ctx.scaled(f.stockMint)
     const multiplier = cfg ? multiplierAt(cfg, at) : null
-    const shares = multiplier === null ? null : (Number(f.event.amountOut) / 10 ** sd) * multiplier
+    const shares = multiplier === null ? null : (Number(stockRaw) / 10 ** sd) * multiplier
     const paired = ctx.label(f.quoteMint)
     rows.push({
       time: iso(at),
@@ -418,14 +475,14 @@ export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]
       stockMint: f.stockMint,
       paired,
       pairedMint: f.quoteMint,
-      direction: 'buy',
-      contributed: paired,
-      withdrawn: listing.symbol,
+      direction: f.side,
+      contributed: sell ? listing.symbol : paired,
+      withdrawn: sell ? paired : listing.symbol,
       priceUsd: shares ? round(notional / shares, 6) : null,
       shares: shares === null ? null : round(shares, 9),
       notionalUsd: notional,
-      stockRaw: f.event.amountOut.toString(),
-      quoteRaw: f.event.amountIn.toString(),
+      stockRaw: stockRaw.toString(),
+      quoteRaw: quoteRaw.toString(),
       multiplier,
       // Divided rather than multiplied by a negative power: 10^-6 is not
       // exact in binary, and 772617876 × 1e-6 prints as 772.6178759999999.
@@ -441,7 +498,7 @@ export function tapeRows(tx: RpcTransaction, ctx: RowContext): { rows: TapeRow[]
       filler: f.filler,
       signature,
       explorer: explorerTx(signature, ctx.cluster),
-      buyer: f.owner,
+      ...(sell ? { seller: f.owner } : { buyer: f.owner }),
     })
   }
   return { rows, excluded }
@@ -573,8 +630,10 @@ interface AccountInfo {
  * nothing is lost by asking it: `fill_order` names its order's quote mint as an
  * account, the program requires that to be the mark's, and each mark's quote
  * mint is fixed when it is opened, so every fill of a listed symbol appears in
- * its mark's quote mint's history. Which quote mints those are is read from the
- * marks themselves on every refresh, not configured.
+ * its mark's quote mint's history. `fill_sell_order` names the quote mint the
+ * same way under the same rule, so sells are found by the same search. Which
+ * quote mints those are is read from the marks themselves on every refresh,
+ * not configured.
  *
  * Transactions are immutable once finalized, so each is read once and kept for
  * as long as it is inside the window; a refresh walks back from the newest
@@ -776,11 +835,12 @@ export function createTape(opts: {
 function notes(cluster: string): Record<string, string> {
   return {
     scope:
-      'Every fill_order of a listed symbol that finalized in the window. BELL has no liquidity pool: ' +
-      'a filler delivers the stock from its own inventory and is paid by the buyer’s delegation, ' +
+      'Every fill_order and fill_sell_order of a listed symbol that finalized in the window. BELL has ' +
+      'no liquidity pool: on a buy a filler delivers the stock from its own inventory and is paid by the ' +
+      'buyer’s delegation, and on a sell it pays the quote and takes the stock by the seller’s delegation, ' +
       'so there is no pool size to report and the program address stands in for a pool contract.',
     price:
-      'priceUsd is notionalUsd divided by the shares delivered, where shares are raw units times the ' +
+      'priceUsd is notionalUsd divided by the shares bought or sold, where shares are raw units times the ' +
       'stock mint’s scaled-UI multiplier in force at the block time. markPriceUsd is the attested ' +
       'price the program measured the fill against.',
     usd:
@@ -789,7 +849,8 @@ function notes(cluster: string): Record<string, string> {
         : 'The paired asset is demo-USDC, a devnet token with no value. It is counted at one dollar ' +
           'only so the arithmetic is the one mainnet USDC would use.',
     direction:
-      'Every BELL fill is a buy: the buyer contributes the paired asset and withdraws the stock.',
+      'A buy contributes the paired asset and withdraws the stock; a sell contributes the stock and ' +
+      'withdraws the paired asset.',
     time: 'The block time the cluster reports for the transaction, in UTC.',
     freshness:
       `Refreshed at most once a minute, at finalized commitment. A fill reaches the tape on the first ` +

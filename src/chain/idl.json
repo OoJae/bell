@@ -145,6 +145,63 @@
       "args": []
     },
     {
+      "name": "cancel_sell_order",
+      "docs": [
+        "Reclaim a sell order's rent. The real cancel is `spl_token::revoke`."
+      ],
+      "discriminator": [
+        35,
+        49,
+        106,
+        38,
+        91,
+        127,
+        157,
+        20
+      ],
+      "accounts": [
+        {
+          "name": "signer",
+          "signer": true
+        },
+        {
+          "name": "owner",
+          "writable": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "SellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer_in"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "classify_rebase",
       "docs": [
         "Record whether a pending multiplier change is a split or a dividend."
@@ -323,6 +380,183 @@
                 "kind": "account",
                 "path": "order.owner",
                 "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "owner so a filler can never collect the user's rent as a bonus."
+          ],
+          "writable": true
+        },
+        {
+          "name": "payer_in",
+          "writable": true
+        },
+        {
+          "name": "payee_out",
+          "writable": true
+        },
+        {
+          "name": "filler_in",
+          "writable": true
+        },
+        {
+          "name": "filler_out",
+          "writable": true
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "stock_mint"
+        },
+        {
+          "name": "quote_token_program"
+        },
+        {
+          "name": "stock_token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_in_leg",
+          "type": "u64"
+        },
+        {
+          "name": "amount_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fill_sell_order",
+      "docs": [
+        "Settle a due sell order: quote delivered first, then stock taken."
+      ],
+      "discriminator": [
+        251,
+        169,
+        25,
+        71,
+        13,
+        120,
+        20,
+        126
+      ],
+      "accounts": [
+        {
+          "name": "filler",
+          "signer": true
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "SellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "order.nonce",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.mint",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "auth",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.owner",
+                "account": "SellOrder"
               }
             ]
           }
@@ -612,6 +846,170 @@
                   111,
                   114,
                   100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer_in"
+        },
+        {
+          "name": "payee_out"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "nonce",
+          "type": "u64"
+        },
+        {
+          "name": "amount_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_fill_in",
+          "type": "u64"
+        },
+        {
+          "name": "max_slip_bps",
+          "type": "u16"
+        },
+        {
+          "name": "max_conf_bps",
+          "type": "u16"
+        },
+        {
+          "name": "floor_rate_q64",
+          "type": "u128"
+        },
+        {
+          "name": "not_before",
+          "type": "i64"
+        },
+        {
+          "name": "expires_at",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "place_sell_order",
+      "docs": [
+        "Park an intent to sell at the next open. The stock stays in the user's wallet."
+      ],
+      "discriminator": [
+        254,
+        177,
+        180,
+        104,
+        171,
+        194,
+        79,
+        86
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "docs": [
+            "Only the owner may place an order in their own name."
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "symbol_state.mint",
+                "account": "SymbolState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "order",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  108,
+                  108
                 ]
               },
               {
@@ -996,6 +1394,19 @@
       ]
     },
     {
+      "name": "SellOrder",
+      "discriminator": [
+        125,
+        28,
+        219,
+        150,
+        25,
+        64,
+        250,
+        236
+      ]
+    },
+    {
       "name": "SymbolMark",
       "discriminator": [
         203,
@@ -1047,6 +1458,19 @@
         116,
         174,
         30
+      ]
+    },
+    {
+      "name": "SellOrderFilled",
+      "discriminator": [
+        119,
+        36,
+        160,
+        142,
+        108,
+        196,
+        88,
+        104
       ]
     }
   ],
@@ -1506,6 +1930,206 @@
       }
     },
     {
+      "name": "SellOrder",
+      "docs": [
+        "A standing intent to sell at the next open: the mirror image of `BellOrder`.",
+        "",
+        "A separate account type rather than a direction flag on `BellOrder`, so that",
+        "nothing about the buy side's layout, discriminator or handlers changes, and",
+        "so that `fill_order` handed a sell order refuses it on the discriminator",
+        "before any of its own checks run. The fields are the same, in the same",
+        "order, with the two legs swapped: the user now pays in stock and is paid in",
+        "quote. As with a buy, the stock never leaves the user's wallet until a fill",
+        "pays for it, and the cancel is `spl_token::revoke` on the stock account."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "Stock mint, copied from `SymbolState` at placement."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "quote_mint",
+            "docs": [
+              "Pinned at placement so a later mark change cannot retarget the order."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "payer_in",
+            "docs": [
+              "The user's stock account, which carries the delegation."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "payee_out",
+            "docs": [
+              "Where the quote is delivered. Pinned rather than derived on-chain."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_in",
+            "docs": [
+              "In stock raw units. Bounded at placement by its quote value, not by its",
+              "raw size, because `MAX_ORDER_IN` is a quote amount."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "filled_in",
+            "type": "u64"
+          },
+          {
+            "name": "min_fill_in",
+            "docs": [
+              "Smallest acceptable partial fill, in stock raw units; equal to",
+              "`amount_in` means all-or-none."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "expected_multiplier_bits",
+            "docs": [
+              "Snapshotted at placement. A rebase between placing and filling",
+              "invalidates the order rather than silently resizing it."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "max_slip_bps",
+            "docs": [
+              "The spread the user pays the filler. Every fill lands at the band edge,",
+              "so this is a maximum cost, not a tolerance."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "max_conf_bps",
+            "type": "u16"
+          },
+          {
+            "name": "floor_rate_q64",
+            "docs": [
+              "The user's own worst acceptable price, quote raw per stock raw, Q64.64.",
+              "Zero means none — a pure market-on-open order."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "not_before",
+            "type": "i64"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "auth_bump",
+            "docs": [
+              "Bump for the per-owner delegate authority PDA, the same one a buy uses."
+            ],
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SellOrderFilled",
+      "docs": [
+        "Emitted on every sell fill, with the same fields as `OrderFilled` so a",
+        "reader decodes both with one layout and tells them apart by discriminator.",
+        "`amount_in` is the stock taken and `amount_out` the quote delivered."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "filler",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount_in",
+            "type": "u64"
+          },
+          {
+            "name": "amount_out",
+            "type": "u64"
+          },
+          {
+            "name": "px_num",
+            "type": "u64"
+          },
+          {
+            "name": "px_expo",
+            "type": "i32"
+          },
+          {
+            "name": "source",
+            "type": {
+              "defined": {
+                "name": "MarkSource"
+              }
+            }
+          },
+          {
+            "name": "mark_observed_at",
+            "type": "i64"
+          },
+          {
+            "name": "realized_bps",
+            "docs": [
+              "Realised cost against the mark, in basis points."
+            ],
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
       "name": "SymbolMark",
       "docs": [
         "An attested price for one symbol.",
@@ -1892,6 +2516,16 @@
       "name": "RISK_SEED",
       "type": "bytes",
       "value": "[114, 105, 115, 107]"
+    },
+    {
+      "name": "SELL_SEED",
+      "docs": [
+        "Sell orders live under their own seed rather than sharing `ORDER_SEED`, so a",
+        "buy and a sell with the same nonce are two different accounts and neither",
+        "side's client has to know which nonces the other has used."
+      ],
+      "type": "bytes",
+      "value": "[115, 101, 108, 108]"
     },
     {
       "name": "SYMBOL_SEED",

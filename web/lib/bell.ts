@@ -13,6 +13,7 @@ import {
   readAllSymbols,
   readBoard,
   readOrders,
+  readSellOrders,
   type SymbolAccounts,
 } from '../../src/chain/client.ts'
 import { ataFor, decodeTokenAccount, TOKEN_2022 } from '../../src/chain/spl.ts'
@@ -28,6 +29,7 @@ import {
   RebaseKind,
   rebaseKindName,
   type BellOrder,
+  type SellOrder,
   type SymbolMark,
   type TokenRisk,
 } from '../../src/chain/codec.ts'
@@ -685,6 +687,30 @@ export async function loadOrders(conn: Connection, owner: PublicKey): Promise<Be
   return readOrders(conn, owner)
 }
 
+/**
+ * One owner's sell orders. Throws on failure, for the reason `loadOrders`
+ * does: a sale's approval covers every sale from the same stock account, and a
+ * failed read taken for "none" would approve only the new one and defund the rest.
+ */
+export async function loadSellOrders(conn: Connection, owner: PublicKey): Promise<SellOrder[]> {
+  return readSellOrders(conn, owner)
+}
+
+/** One of the wallet's stock accounts, as the board read it. */
+export interface Holding {
+  symbol: string
+  /** The account: the wallet's associated Token-2022 account for the stock. */
+  account: PublicKey
+  /** Shares, raw × the multiplier in force ÷ 10^decimals. */
+  shares: number
+  /** Raw units, which is what an order counts and what "max" starts from. */
+  raw: bigint
+  decimals: number
+  /** Who may move this stock by approval, and how much: a sell's funding. */
+  delegate: PublicKey | null
+  delegatedAmount: bigint
+}
+
 /** What the connected wallet holds, read in the same round trip as the board. */
 export interface WalletView {
   sol: number
@@ -692,8 +718,12 @@ export interface WalletView {
   quote: bigint | null
   delegate: PublicKey | null
   delegatedAmount: bigint
-  /** Securities the wallet holds, in shares — what a fill leaves behind. */
-  holdings: { symbol: string; shares: number }[]
+  /**
+   * Every stock account the wallet has, including empty ones. An empty account
+   * can still carry an approval to BELL, and "Revoke all funding" has to find
+   * it; what the page lists as held is the ones with a balance.
+   */
+  holdings: Holding[]
 }
 
 /**
@@ -707,11 +737,12 @@ export async function loadBoard(
 ): Promise<{ views: SymbolView[]; wallet: WalletView | null }> {
   // The wallet, its quote account, then per symbol its stock account and the
   // mint (for decimals — read from the chain rather than assumed per issuer).
+  const stockAccounts = wallet ? ALLOWLIST.map((l) => ataFor(wallet, new PublicKey(l.mint), TOKEN_2022)) : []
   const extra = wallet
     ? [
         wallet,
         ataFor(wallet, quoteMint),
-        ...ALLOWLIST.flatMap((l) => [ataFor(wallet, new PublicKey(l.mint), TOKEN_2022), new PublicKey(l.mint)]),
+        ...ALLOWLIST.flatMap((l, i) => [stockAccounts[i]!, new PublicKey(l.mint)]),
       ]
     : []
   const { symbols, extras } = await readBoard(conn, ALLOWLIST, extra)
@@ -726,19 +757,24 @@ export async function loadBoard(
 
   // Shares, not raw units: raw × the scaled-UI multiplier ÷ 10^decimals. A
   // scaled mint's raw balance is not a share count, which is the whole reason
-  // gate 4 exists — so the page does the conversion the mint defines.
-  const holdings: { symbol: string; shares: number }[] = []
+  // gate 4 exists — so the page does the conversion the mint defines. The raw
+  // figures ride along, because a sale is placed and approved in them.
+  const holdings: Holding[] = []
   ALLOWLIST.forEach((l, i) => {
     const acct = perSymbol[i * 2]
     const mint = perSymbol[i * 2 + 1]
     const risk = symbols.get(l.symbol)?.risk
     if (!acct || !mint || !risk) return
-    const raw = decodeTokenAccount(acct.data).amount
-    if (raw === 0n) return
+    const t = decodeTokenAccount(acct.data)
     const decimals = mint.data[44]
     holdings.push({
       symbol: l.symbol,
-      shares: (Number(raw) / 10 ** decimals) * multiplierOf(risk.multiplierBits),
+      account: stockAccounts[i]!,
+      shares: (Number(t.amount) / 10 ** decimals) * multiplierOf(risk.multiplierBits),
+      raw: t.amount,
+      decimals,
+      delegate: t.delegate,
+      delegatedAmount: t.delegatedAmount,
     })
   })
 
@@ -810,6 +846,8 @@ export function explain(reason: string | null): string {
       return 'The price is attested less precisely than this order accepts, so it waits for a tighter one.'
     case 'AlreadyClosed':
       return 'That order is already closed — filled, or tidied up after its funding was revoked.'
+    case 'InstructionFallbackNotFound':
+      return 'The program on this cluster does not take sell orders yet; they arrive with its next upgrade. Nothing landed.'
     case 'unavailable':
       return 'Cannot reach the chain or the program right now — and that is not permission to trade.'
     case 'NotRegistered':

@@ -1,9 +1,15 @@
 /**
- * Placing and cancelling a bell order from a browser wallet.
+ * Placing and cancelling a bell order from a browser wallet, buying or selling.
  *
  * Builds the identical instructions `scripts/queue.ts` sends — same builders,
  * same SPL encoders, same PDAs — so a judge who places an order on the site and
  * one who places it from the CLI are exercising one code path, not two.
+ *
+ * A buy and a sell are funded from different accounts and must never share an
+ * approval. A buy delegates the wallet's quote account; a sell delegates the
+ * wallet's stock account, under Token-2022. Each account has one delegate slot
+ * and `Approve` assigns rather than adds, so a sell built with the buy side's
+ * approval would silently defund every buy the wallet has.
  *
  * Nothing here talks to a server. The browser signs and submits to RPC itself,
  * which is what makes the fail-closed property observable: when our keeper is
@@ -13,14 +19,16 @@ import { PublicKey, Transaction, type Connection, type TransactionInstruction } 
 import {
   authPda,
   ixCancelOrder,
+  ixCancelSellOrder,
   ixPlaceOrder,
+  ixPlaceSellOrder,
   ixRefreshTokenRisk,
 } from '../../src/chain/client.ts'
 import { errorName, LIMITS } from '../../src/chain/codec.ts'
 import { orderExpiry } from '../../src/policy/expiry.ts'
-import { committedOf, confCap, orderFloor, type MarkPrice } from '../../src/policy/order.ts'
+import { committedOf, confCap, orderFloor, sellOrderFloor, sharesToRaw, type MarkPrice } from '../../src/policy/order.ts'
 import { ataFor, ixApproveChecked, ixCreateAtaIdempotent, ixRevoke, TOKEN_2022 } from '../../src/chain/spl.ts'
-import type { BellOrder } from '../../src/chain/codec.ts'
+import type { BellOrder, SellOrder } from '../../src/chain/codec.ts'
 import type { Listing } from '../../src/config.ts'
 
 export { committedOf, orderExpiry }
@@ -43,7 +51,20 @@ export const DEFAULT_SLIP_BPS = 30
  * explained before signing instead of refused as `AmountTooLarge` after.
  */
 export const MAX_ORDER_USD = 1_000
-
+/**
+ * The same ceiling in raw quote. A sell is sized in stock, so the program
+ * compares the sale's value at the mark, rounded down, against this.
+ */
+export const MAX_ORDER_IN_RAW = BigInt(MAX_ORDER_USD) * 10n ** BigInt(QUOTE_DECIMALS)
+/**
+ * What the "max" button offers to sell, in dollars at the price now. Under the
+ * program's $1,000 on purpose: `place_sell_order` values the sale against the
+ * mark in force when the transaction lands, and the mark is re-attested every
+ * minute, so a max worked out to the dollar from this read would be refused as
+ * `AmountTooLarge` by any tick up before the wallet signs. One percent of room
+ * covers an ordinary minute.
+ */
+export const SELL_MAX_USD = 990
 
 export interface PlaceArgs {
   owner: PublicKey
@@ -180,6 +201,189 @@ export function recurringSlots(now: number, nonce: bigint, opens: readonly numbe
   }))
 }
 
+export interface SellArgs {
+  owner: PublicKey
+  listing: Listing
+  /** Stock raw units to sell. */
+  amountIn: bigint
+  /** The stock mint's decimals, which `approve_checked` has to name. */
+  decimals: number
+  /** Passed in rather than read from the clock so the caller owns the nonce. */
+  nonce: bigint
+  now: number
+  maxSlipBps?: number
+  /**
+   * Stock raw still owed on this owner's other live sells from the same stock
+   * account. The trap `PlaceArgs.committed` describes, on the other account:
+   * approving only this sale would silently defund every earlier sale of the
+   * same stock, and a defunded order is one a stranger may close.
+   */
+  committed?: bigint
+  /** The next opening bell, when the market is shut and it is known. */
+  nextOpen?: number | null
+  /** The symbol's attested rate; `place_sell_order` refuses a sale without one. */
+  markRateQ64: bigint
+  /** The price that rate stands for, so a minimum in dollars can be converted to it. */
+  markPx?: MarkPrice | null
+  /** "Don't sell for less than this a share": tightens the floor, never loosens it. */
+  minLimitUsd?: number | null
+}
+
+/**
+ * The instructions for one sale: re-read the mint, make sure the proceeds have
+ * somewhere to land, approve the stock, then place.
+ *
+ * One transaction and one signature, for the reason `placeOrderTx` gives: an
+ * approval without its order is a delegation nobody asked for, and an order
+ * without its approval cannot fill.
+ */
+export function placeSellInstructions(a: SellArgs): {
+  ixs: TransactionInstruction[]
+  amountIn: bigint
+  approved: bigint
+  floorRateQ64: bigint
+} {
+  const mint = new PublicKey(a.listing.mint)
+  const payerIn = ataFor(a.owner, mint, TOKEN_2022)
+  const payeeOut = ataFor(a.owner, QUOTE_MINT)
+  const approved = (a.committed ?? 0n) + a.amountIn
+  // The loss cap at three quarters of the price now, or the user's own minimum
+  // when that is higher: the same protection a buy has, from below.
+  const floorRateQ64 = sellOrderFloor(a.markRateQ64, a.markPx, a.minLimitUsd)
+  const ixs = [
+    // The order snapshots the multiplier, as a buy does, so the record it is
+    // snapshotted from is refreshed in the same transaction.
+    ixRefreshTokenRisk(mint),
+    // The proceeds land in the wallet's quote account, which a holder who has
+    // never held demo-USDC does not have yet, and the program checks it before
+    // it will park the order. Idempotent, so an existing one costs nothing.
+    ixCreateAtaIdempotent({ payer: a.owner, owner: a.owner, mint: QUOTE_MINT }),
+    // The stock account, under Token-2022, at the stock's own decimals. Never
+    // the quote account: that approval funds the wallet's buys.
+    ixApproveChecked({
+      source: payerIn,
+      mint,
+      delegate: authPda(a.owner),
+      owner: a.owner,
+      amount: approved,
+      decimals: a.decimals,
+      tokenProgram: TOKEN_2022,
+    }),
+    ixPlaceSellOrder({
+      owner: a.owner,
+      symbol: a.listing.symbol,
+      mint,
+      nonce: a.nonce,
+      amountIn: a.amountIn,
+      minFillIn: a.amountIn,
+      maxSlipBps: a.maxSlipBps ?? DEFAULT_SLIP_BPS,
+      maxConfBps: confCap(a.listing),
+      floorRateQ64,
+      notBefore: 0n,
+      expiresAt: BigInt(orderExpiry(a.now, a.nextOpen ?? null)),
+      payerIn,
+      payeeOut,
+    }),
+  ]
+  return { ixs, amountIn: a.amountIn, approved, floorRateQ64 }
+}
+
+/** `placeSellInstructions` as one transaction, for one signature. */
+export function placeSellOrderTx(a: SellArgs): { tx: Transaction; amountIn: bigint; approved: bigint } {
+  const { ixs, amountIn, approved } = placeSellInstructions(a)
+  return { tx: new Transaction().add(...ixs), amountIn, approved }
+}
+
+/**
+ * A sale's floor as the least it can be paid a share, in dollars rounded down
+ * to the cent: the figure the page may promise for it.
+ *
+ * Worked back from the floor the order carries, not from the dollar price it
+ * was built from, so the promise is the program's own number. The floor is
+ * quote raw per stock raw in Q64.64 and the mark's rate is the inverse
+ * direction, so floor × rate ÷ 2^128 is the floor as a fraction of the mark's
+ * price, and times the price it is dollars a share. Rounded down twice, to the
+ * mark's units and then to the cent, because a minimum shown a fraction of a
+ * cent above the one enforced is a promise the program does not keep: three
+ * quarters of $223.022379 is $167.266784, and "$167.27" would be over it.
+ */
+export function sellFloorUsd(floorRateQ64: bigint, markRateQ64: bigint, markPx: MarkPrice): number {
+  if (floorRateQ64 <= 0n || markRateQ64 <= 0n || markPx.num <= 0n) return 0
+  // In the mark's own units of 10^expo dollars a share, rounded down.
+  const units = (floorRateQ64 * markRateQ64 * markPx.num) >> 128n
+  const toCents = markPx.expo + 2
+  const cents = toCents >= 0 ? units * 10n ** BigInt(toCents) : units / 10n ** BigInt(-toCents)
+  return Number(cents) / 100
+}
+
+/**
+ * The most the "max" button fills in, in stock raw: what the wallet holds less
+ * what its other sales already offer, and no more than `capUsd` of value at
+ * the mark. Rounded down, so the sale it proposes is one the program accepts.
+ */
+export function maxSellRaw(args: {
+  held: bigint
+  owed: bigint
+  rateQ64: bigint | null
+  capUsd?: number
+}): bigint {
+  const free = args.held > args.owed ? args.held - args.owed : 0n
+  if (!args.rateQ64 || args.rateQ64 <= 0n) return 0n
+  // `value = (raw << 64) / rate`, so the largest raw worth at most the cap is
+  // `cap × rate >> 64`: shifting that back up can only land at or under it.
+  const capRaw = BigInt(Math.round((args.capUsd ?? SELL_MAX_USD) * 10 ** QUOTE_DECIMALS))
+  const byValue = (capRaw * args.rateQ64) >> 64n
+  return free < byValue ? free : byValue
+}
+
+/**
+ * Raw stock as the share count a person types: raw × the multiplier, at the
+ * stock's decimals, trailing zeros dropped.
+ *
+ * Chosen so that `sharesToRaw` reads it back as exactly `raw` wherever some
+ * count does, so the figure "max" fills in, the figure in the box above the
+ * wallet and the figure in the order list are one number. A scaled mint's
+ * share count is not a whole number of units, and flooring it would read back
+ * one raw unit short and print a different last digit in each place. Where no
+ * count reads back exactly (a multiplier under one can skip a raw amount), the
+ * count below it, which reads back short and never over.
+ */
+export function rawToShares(raw: bigint, decimals: number, multiplier: number): string {
+  // Units of 10^-decimals shares. Exact when the multiplier is one. Otherwise
+  // the smallest count whose raw value, floored as `sharesToRaw` floors it with
+  // the same float division, is `raw`, which is the product rounded up when
+  // that reads back; else the product rounded down.
+  let units = raw
+  if (multiplier !== 1) {
+    const x = Number(raw) * multiplier
+    const up = Math.ceil(x)
+    units = BigInt(Math.floor(up / multiplier) === Number(raw) ? up : Math.floor(x))
+  }
+  const s = units.toString().padStart(decimals + 1, '0')
+  const whole = s.slice(0, s.length - decimals)
+  const frac = s.slice(s.length - decimals).replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : whole
+}
+
+/**
+ * The share count to say back for a sale: as it was typed, tidied, when that
+ * is exactly what the order will carry; otherwise the count the order carries.
+ * On a scaled mint two typed counts can land on one raw amount, and echoing
+ * "1.29999999" to someone who typed 1.3 would be a correct and useless answer.
+ */
+export function sharesShown(typed: string, raw: bigint, decimals: number, multiplier: number): string {
+  const t = typed
+    .trim()
+    .replace(/^0+(?=\d)/, '')
+    .replace(/\.(\d*?)0*$/, (_, f: string) => (f ? `.${f}` : ''))
+  try {
+    if ((t.split('.')[1] ?? '').length <= decimals && sharesToRaw(t, decimals, multiplier) === raw) return t
+  } catch {
+    // Not a count sharesToRaw reads; say the order's own figure instead.
+  }
+  return rawToShares(raw, decimals, multiplier)
+}
+
 /** A legacy transaction's hard size limit, in bytes. */
 const TX_LIMIT = 1_232
 
@@ -257,6 +461,52 @@ export function cancelOrderTxs(
   return txs
 }
 
+/**
+ * Cancel one sale, in the order `cancelOrderTxs` cancels a buy and for the same
+ * reasons, on the stock account instead of the quote account:
+ *
+ * 1. `revoke` on the stock account, under Token-2022, alone in its
+ *    transaction. Once it lands no filler can take a share, whatever BELL does.
+ * 2. `cancel_sell_order` closes the order and returns its rent.
+ * 3. If other sales from the same stock account can still fill (`rest`),
+ *    approve them again: the revoke cleared the one delegate slot they shared.
+ *    Only after the close, so the cancelled sale is never funded again.
+ *
+ * `stockDelegated` false means the stock account is not delegated to BELL, so
+ * the order is already unfunded and only the close runs. `decimals` is the
+ * stock's, which `approve_checked` names; without it there is no re-approval,
+ * and the caller says so.
+ */
+export function cancelSellOrderTxs(
+  owner: PublicKey,
+  order: SellOrder,
+  rest: bigint,
+  stockDelegated: boolean,
+  decimals: number | null,
+): Transaction[] {
+  const close = new Transaction().add(
+    ixCancelSellOrder({ signer: owner, owner, nonce: order.nonce, payerIn: order.payerIn }),
+  )
+  if (!stockDelegated) return [close]
+  const txs = [new Transaction().add(ixRevoke(order.payerIn, owner, TOKEN_2022)), close]
+  if (rest > 0n && decimals !== null) {
+    txs.push(
+      new Transaction().add(
+        ixApproveChecked({
+          source: order.payerIn,
+          mint: order.mint,
+          delegate: authPda(owner),
+          owner,
+          amount: rest,
+          decimals,
+          tokenProgram: TOKEN_2022,
+        }),
+      ),
+    )
+  }
+  return txs
+}
+
 /** Orders closed per transaction by "revoke all": four accounts each, well inside the size limit. */
 const CLOSES_PER_TX = 6
 
@@ -264,19 +514,39 @@ const CLOSES_PER_TX = 6
  * Revoke all funding, then close every order: the emergency exit, offered
  * whenever the wallet has any approval to BELL outstanding — including one no
  * order explains, such as an approval whose order never landed.
+ *
+ * In this order, each step its own transaction or transactions:
+ * 1. the quote account's revoke, alone, exactly as before sells existed, so it
+ *    lands first and on its own whatever else fails;
+ * 2. a revoke on each stock account delegated to BELL, under Token-2022;
+ * 3. every buy and sell closed for its rent.
+ * Every revoke comes before any close, so by the time BELL's own instructions
+ * run nothing of the wallet's can move. `revokes` is how many transactions
+ * steps 1 and 2 take, so the caller can tell "the funding is gone" from "the
+ * rent is back". `quote` null leaves the quote account alone: it is missing, or
+ * its approval belongs to someone other than BELL.
  */
-export function revokeAllTxs(owner: PublicKey, payerIn: PublicKey, book: readonly BellOrder[]): Transaction[] {
-  const txs = [new Transaction().add(ixRevoke(payerIn, owner))]
-  for (let i = 0; i < book.length; i += CLOSES_PER_TX) {
-    txs.push(
-      new Transaction().add(
-        ...book
-          .slice(i, i + CLOSES_PER_TX)
-          .map((o) => ixCancelOrder({ signer: owner, owner, nonce: o.nonce, payerIn: o.payerIn })),
-      ),
-    )
+export function revokeAllTxs(
+  owner: PublicKey,
+  quote: PublicKey | null,
+  book: readonly BellOrder[],
+  stock: readonly PublicKey[] = [],
+  sells: readonly SellOrder[] = [],
+): { txs: Transaction[]; revokes: number } {
+  const txs = quote ? [new Transaction().add(ixRevoke(quote, owner))] : []
+  txs.push(...packTransactions(stock.map((s) => ixRevoke(s, owner, TOKEN_2022)), owner))
+  const revokes = txs.length
+  const closes = [
+    ...book.map((o) => ixCancelOrder({ signer: owner, owner, nonce: o.nonce, payerIn: o.payerIn })),
+    ...sells.map((o) => ixCancelSellOrder({ signer: owner, owner, nonce: o.nonce, payerIn: o.payerIn })),
+  ]
+  // Six to a transaction rather than as many as fit: a close that meets an
+  // order filled a moment ago fails its whole transaction, and a small batch
+  // keeps that from stranding many others.
+  for (let i = 0; i < closes.length; i += CLOSES_PER_TX) {
+    txs.push(new Transaction().add(...closes.slice(i, i + CLOSES_PER_TX)))
   }
-  return txs
+  return { txs, revokes }
 }
 
 /**
@@ -288,6 +558,13 @@ export function revokeAllTxs(owner: PublicKey, payerIn: PublicKey, book: readonl
  */
 /** Anchor's AccountNotInitialized, which is what closing an already-closed order meets. */
 const ANCHOR_ACCOUNT_NOT_INITIALIZED = 3012
+/**
+ * Anchor's InstructionFallbackNotFound: the deployed program has no handler
+ * for the instruction. The page can meet it only when it is newer than the
+ * program it talks to, as a page with sell orders is before the upgrade that
+ * adds them lands.
+ */
+const ANCHOR_INSTRUCTION_NOT_FOUND = 101
 
 export function refusalFrom(e: unknown): string | null {
   const text = [(e as Error)?.message ?? '', ...(((e as { logs?: string[] })?.logs) ?? [])].join('\n')
@@ -296,7 +573,9 @@ export function refusalFrom(e: unknown): string | null {
   const code = parseInt(m[1], 16)
   // Anchor's AccountNotInitialized: the order account is gone — filled, or
   // closed by someone tidying the book after its funding was revoked.
-  return code === ANCHOR_ACCOUNT_NOT_INITIALIZED ? 'AlreadyClosed' : errorName(code)
+  if (code === ANCHOR_ACCOUNT_NOT_INITIALIZED) return 'AlreadyClosed'
+  if (code === ANCHOR_INSTRUCTION_NOT_FOUND) return 'InstructionFallbackNotFound'
+  return errorName(code)
 }
 
 /**

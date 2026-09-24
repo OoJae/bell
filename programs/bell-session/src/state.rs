@@ -229,3 +229,69 @@ pub struct OrderFilled {
     /// Realised cost against the mark, in basis points.
     pub realized_bps: u16,
 }
+
+/// A standing intent to sell at the next open: the mirror image of `BellOrder`.
+///
+/// A separate account type rather than a direction flag on `BellOrder`, so that
+/// nothing about the buy side's layout, discriminator or handlers changes, and
+/// so that `fill_order` handed a sell order refuses it on the discriminator
+/// before any of its own checks run. The fields are the same, in the same
+/// order, with the two legs swapped: the user now pays in stock and is paid in
+/// quote. As with a buy, the stock never leaves the user's wallet until a fill
+/// pays for it, and the cancel is `spl_token::revoke` on the stock account.
+#[account]
+#[derive(InitSpace)]
+pub struct SellOrder {
+    pub owner: Pubkey,
+    pub symbol: [u8; SYMBOL_LEN],
+    /// Stock mint, copied from `SymbolState` at placement.
+    pub mint: Pubkey,
+    /// Pinned at placement so a later mark change cannot retarget the order.
+    pub quote_mint: Pubkey,
+    /// The user's stock account, which carries the delegation.
+    pub payer_in: Pubkey,
+    /// Where the quote is delivered. Pinned rather than derived on-chain.
+    pub payee_out: Pubkey,
+    /// In stock raw units. Bounded at placement by its quote value, not by its
+    /// raw size, because `MAX_ORDER_IN` is a quote amount.
+    pub amount_in: u64,
+    pub filled_in: u64,
+    /// Smallest acceptable partial fill, in stock raw units; equal to
+    /// `amount_in` means all-or-none.
+    pub min_fill_in: u64,
+    /// Snapshotted at placement. A rebase between placing and filling
+    /// invalidates the order rather than silently resizing it.
+    pub expected_multiplier_bits: u64,
+    /// The spread the user pays the filler. Every fill lands at the band edge,
+    /// so this is a maximum cost, not a tolerance.
+    pub max_slip_bps: u16,
+    pub max_conf_bps: u16,
+    /// The user's own worst acceptable price, quote raw per stock raw, Q64.64.
+    /// Zero means none — a pure market-on-open order.
+    pub floor_rate_q64: u128,
+    pub not_before: i64,
+    pub expires_at: i64,
+    pub nonce: u64,
+    pub created_at: i64,
+    pub bump: u8,
+    /// Bump for the per-owner delegate authority PDA, the same one a buy uses.
+    pub auth_bump: u8,
+}
+
+/// Emitted on every sell fill, with the same fields as `OrderFilled` so a
+/// reader decodes both with one layout and tells them apart by discriminator.
+/// `amount_in` is the stock taken and `amount_out` the quote delivered.
+#[event]
+pub struct SellOrderFilled {
+    pub symbol: [u8; SYMBOL_LEN],
+    pub owner: Pubkey,
+    pub filler: Pubkey,
+    pub amount_in: u64,
+    pub amount_out: u64,
+    pub px_num: u64,
+    pub px_expo: i32,
+    pub source: MarkSource,
+    pub mark_observed_at: i64,
+    /// Realised cost against the mark, in basis points.
+    pub realized_bps: u16,
+}

@@ -1,6 +1,8 @@
 /**
  * GET /api/tape — every BELL fill of the last thirty days, as JSON.
  * GET /api/tape?format=csv — the same rows as CSV.
+ * GET /api/tape?buyer=<wallet>&seller=<wallet> — one wallet's own purchases,
+ *   sales, or both, with its address on each row. Either parameter alone works.
  *
  * Read-only: it reads finalized transactions from the RPC and holds no key.
  * The rows are built in `lib/tape.ts`, which also bounds how often the chain is
@@ -56,10 +58,17 @@ export async function GET(request: Request) {
     'x-tape-generated-at': t.generatedAt,
   }
   const params = new URL(request.url).searchParams
-  // The public tape leaves buyers off. A request for one buyer's own fills
-  // gets exactly those rows, buyer included — how the page shows receipts.
+  // The public tape leaves buyers and sellers off. A request for one wallet's
+  // own fills gets exactly those rows, its own address included — how the page
+  // shows receipts. Purchases and sales are asked for separately (`buyer=`,
+  // `seller=`, or both), so a page that only knows about purchases is never
+  // handed a sale to render as one.
   const buyer = params.get('buyer')
-  const rows = buyer ? t.rows.filter((r) => r.buyer === buyer) : t.rows.map(({ buyer: _, ...r }) => r)
+  const seller = params.get('seller')
+  const rows =
+    buyer || seller
+      ? t.rows.filter((r) => (buyer && r.buyer === buyer) || (seller && r.seller === seller))
+      : t.rows.map(({ buyer: _b, seller: _s, ...r }) => r)
   const body = { ...t, rows }
   if (params.get('format') === 'csv') {
     return new Response(toCsv(rows), {

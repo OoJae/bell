@@ -287,7 +287,14 @@ export function encodePushMark(args: {
   ])
 }
 
-export function encodePlaceOrder(args: {
+/**
+ * The arguments `place_order` and `place_sell_order` share, in wire order.
+ *
+ * A sell takes the same nine arguments as a buy with its units swapped:
+ * `amountIn` and `minFillIn` count stock raw units, and `floorRateQ64` is quote
+ * raw per stock raw rather than stock per quote.
+ */
+export interface PlaceOrderArgs {
   symbol: Uint8Array
   nonce: bigint
   amountIn: bigint
@@ -297,9 +304,11 @@ export function encodePlaceOrder(args: {
   floorRateQ64: bigint
   notBefore: bigint
   expiresAt: bigint
-}): Buffer {
+}
+
+function encodePlace(name: 'place_order' | 'place_sell_order', args: PlaceOrderArgs): Buffer {
   return Buffer.concat([
-    discriminator('instructions', 'place_order'),
+    discriminator('instructions', name),
     new Writer()
       .bytes(args.symbol)
       .u64(args.nonce)
@@ -314,14 +323,33 @@ export function encodePlaceOrder(args: {
   ])
 }
 
+export const encodePlaceOrder = (args: PlaceOrderArgs): Buffer => encodePlace('place_order', args)
+
 export const encodeCancelOrder = () => discriminator('instructions', 'cancel_order')
 
-export function encodeFillOrder(args: { amountInLeg: bigint; amountOut: bigint }): Buffer {
+function encodeFill(name: 'fill_order' | 'fill_sell_order', args: { amountInLeg: bigint; amountOut: bigint }): Buffer {
   return Buffer.concat([
-    discriminator('instructions', 'fill_order'),
+    discriminator('instructions', name),
     new Writer().u64(args.amountInLeg).u64(args.amountOut).done(),
   ])
 }
+
+export const encodeFillOrder = (args: { amountInLeg: bigint; amountOut: bigint }): Buffer => encodeFill('fill_order', args)
+
+// ----------------------------------------------------------------- sell side
+//
+// The same three instructions with the legs swapped. Each is encoded by the
+// buy side's own writer, so the only bytes that can differ are the eight the
+// IDL names; a sell that drifted from its buy in argument order would have to
+// drift here first, where the tests compare them.
+
+export const encodePlaceSellOrder = (args: PlaceOrderArgs): Buffer => encodePlace('place_sell_order', args)
+
+/** `amountInLeg` is stock raw taken from the seller, `amountOut` quote raw paid to them. */
+export const encodeFillSellOrder = (args: { amountInLeg: bigint; amountOut: bigint }): Buffer =>
+  encodeFill('fill_sell_order', args)
+
+export const encodeCancelSellOrder = () => discriminator('instructions', 'cancel_sell_order')
 
 export interface SymbolMark {
   symbol: string
@@ -372,6 +400,33 @@ export interface BellOrder {
   createdAt: bigint
   bump: number
   authBump: number
+}
+
+/**
+ * A parked sell.
+ *
+ * The program declares `SellOrder` with the same fields as `BellOrder`, in the
+ * same order, so the two share a layout and a decoder. What the fields hold is
+ * swapped: `payerIn` is the seller's stock account, the one delegated to the
+ * auth PDA; `payeeOut` is their quote account; `amountIn`, `filledIn` and
+ * `minFillIn` count stock raw units; and `floorRateQ64` is quote raw per stock
+ * raw, Q64.64.
+ */
+export type SellOrder = BellOrder
+
+/**
+ * Decode a `SellOrder`, refusing any other account.
+ *
+ * `decodeBellOrder` does not check its discriminator because until sells there
+ * was nothing else it could be handed. Now there is, and past the first eight
+ * bytes a buy and a sell are indistinguishable, so this is the only check that
+ * stops a buy being priced as a sell: the one mistake that turns "never less
+ * than the band" into "never more than it".
+ */
+export function decodeSellOrder(data: Uint8Array): SellOrder {
+  const want = accountDiscriminator('SellOrder')
+  if (data.length < 8 || want.some((b, i) => data[i] !== b)) throw new Error('not a SellOrder account')
+  return decodeBellOrder(data)
 }
 
 export function decodeBellOrder(data: Uint8Array): BellOrder {
@@ -427,6 +482,121 @@ export function rateQ64(args: {
 /** `amountIn * rate >> 64` — the fair output the band is measured against. */
 export function fairOut(amountIn: bigint, rate: bigint): bigint {
   return (amountIn * rate) >> 64n
+}
+
+// ------------------------------------------------------------- sell pricing
+//
+// Mirrors of `fill_sell_order`'s arithmetic in sell.rs, step for step. A buy
+// multiplies by the mark's rate (stock per quote); a sell divides by it. Every
+// result below is a minimum the seller is owed, so every step rounds *up*, the
+// opposite of the buy side's `fairOut`. A filler that priced with the buy
+// side's rounding would deliver one unit short and be refused on chain with
+// PriceOutOfBand, so these are not approximations of the program's numbers but
+// the numbers themselves.
+
+const U128_MAX = (1n << 128n) - 1n
+const U64_MASK = (1n << 64n) - 1n
+
+/** The program's `checked_mul` on u128: refuse where the chain would, rather than carry on in unbounded BigInt. */
+function checkedU128(v: bigint): bigint {
+  if (v > U128_MAX) throw new RangeError('MathOverflow: the product does not fit in a u128')
+  return v
+}
+
+/**
+ * Quote raw units worth `a` stock raw units at `rate`, rounded up.
+ *
+ * Written as a quotient plus a remainder test, as sell.rs is, rather than
+ * `(num + rate - 1) / rate`: in the program's u128 that addition overflows once
+ * the rate passes 2^64, which happens whenever a raw unit of stock is worth
+ * less than a raw unit of quote (an 8-decimal stock under $100, for one).
+ * BigInt would not overflow, but a mirror written differently is one that can
+ * quietly start to disagree.
+ */
+export function stockToQuoteCeil(a: bigint, rate: bigint): bigint {
+  // A mark that has never been pushed carries a zero rate: no price to divide
+  // by, which the program reports as MarkStale.
+  if (rate <= 0n) throw new RangeError('MarkStale: the mark carries no rate')
+  const num = a << 64n
+  return num / rate + (num % rate !== 0n ? 1n : 0n)
+}
+
+/** `a * q >> 64`, rounded up. The ceiling counterpart of `fairOut`, for a sell's floor. */
+export function mulShr64Ceil(a: bigint, q: bigint): bigint {
+  const p = checkedU128(a * q)
+  return (p >> 64n) + ((p & U64_MASK) !== 0n ? 1n : 0n)
+}
+
+/**
+ * The least quote a fill of `leg` stock raw may pay under the band alone:
+ * the fair value less `slipBps`, with both the fair value and the band edge
+ * rounded up.
+ */
+export function sellBandOut(leg: bigint, rate: bigint, slipBps: number): bigint {
+  const t = checkedU128(stockToQuoteCeil(leg, rate) * BigInt(10_000 - slipBps))
+  return t / 10_000n + (t % 10_000n !== 0n ? 1n : 0n)
+}
+
+/** `fill_sell_order`'s `min_out`: the stricter of the band and the seller's floor. */
+export function sellMinOut(leg: bigint, rate: bigint, slipBps: number, floorRateQ64: bigint): bigint {
+  const band = sellBandOut(leg, rate, slipBps)
+  const floor = mulShr64Ceil(leg, floorRateQ64)
+  return floor > band ? floor : band
+}
+
+/**
+ * What `place_sell_order` caps, in quote raw: `(amountIn << 64) / rate`,
+ * rounded down as the program rounds it, so an order worth exactly the cap
+ * passes. The cap itself is `MAX_ORDER_IN`, a quote amount, because a sell's
+ * `amountIn` is stock and a raw count alone says nothing about value.
+ */
+export function sellOrderValue(amountIn: bigint, rate: bigint): bigint {
+  if (rate <= 0n) throw new RangeError('MarkStale: the mark carries no rate')
+  return (amountIn << 64n) / rate
+}
+
+/**
+ * A sell's loss floor: three quarters of the mark's price, as quote raw per
+ * stock raw in Q64.64.
+ *
+ * The mark's rate is stock per quote in Q64.64, so the price it stands for in
+ * the other direction is 2^128 / rate, and three quarters of that is
+ * `(3 << 128) / (4 × rate)`. The same three quarters as the buy side's
+ * `LOSS_FLOOR` in policy/order.ts (a test holds the two together), and for the
+ * same reason: a leaked attestor key could push a forged price, and a parked
+ * sell must not fill for a quarter of what the stock was worth when the user
+ * placed it. Zero, meaning no floor, when the mark carries no rate.
+ */
+export function sellLossFloor(rate: bigint): bigint {
+  return rate > 0n ? (3n << 128n) / (4n * rate) : 0n
+}
+
+/**
+ * `floor_rate_q64` for a seller's limit: "don't sell for less than `limitUsd`
+ * a share".
+ *
+ * The mark carries both its rate (stock raw per quote raw) and the per-share
+ * price that rate stands for (`num × 10^expo`, with the decimals and the
+ * scaled-UI multiplier already folded in). Quote per stock at the mark is
+ * 2^128 / rate; at the limit it is that scaled by limit / price. So the floor
+ * is `limit × 2^128 / (pxNum × rate)` with the limit in the mark's own units,
+ * which is exact integer arithmetic and needs no decimals of its own.
+ *
+ * Rounded up: a floor a hair above the exact limit asks for a hair more quote,
+ * which can only keep the price at or above the limit. Zero, meaning no floor,
+ * without a usable limit or mark. Throws for a limit so large its floor would
+ * not fit the instruction's u128, which the encoder would otherwise truncate
+ * into a smaller floor than the one asked for.
+ */
+export function sellLimitFloor(limitUsd: number, markPx: { num: bigint; expo: number }, rate: bigint): bigint {
+  if (!(limitUsd > 0) || rate <= 0n || markPx.num <= 0n) return 0n
+  const limit = BigInt(Math.round(limitUsd * 10 ** -markPx.expo))
+  if (limit <= 0n) return 0n
+  const num = limit << 128n
+  const den = markPx.num * rate
+  const floor = num / den + (num % den !== 0n ? 1n : 0n)
+  if (floor > U128_MAX) throw new RangeError('limit too large to express as a floor')
+  return floor
 }
 
 // ------------------------------------------------------------------- accounts
