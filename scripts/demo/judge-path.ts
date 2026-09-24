@@ -52,7 +52,9 @@ async function connect(page: Page) {
   step('connecting through the Wallet Standard')
   await page.getByRole('button', { name: /select wallet/i }).click()
   await page.getByRole('button', { name: new RegExp(WALLET_NAME, 'i') }).first().click()
-  await page.locator('.bal').waitFor({ timeout: 30_000 })
+  // The balances row. A wallet that already holds stock gets a second `.bal`
+  // row (holdings), so name the first rather than match both.
+  await page.locator('.bal').first().waitFor({ timeout: 30_000 })
 }
 
 /** The demo-USDC balance the page shows, or null for "no account yet". */
@@ -89,7 +91,10 @@ async function main() {
   let failed = false
 
   try {
-    await page.goto(URL, { waitUntil: 'networkidle' })
+    // Not 'networkidle': the page polls the chain every ten seconds, and with a
+    // slow RPC it may never sit quiet for long enough. The board's own text,
+    // awaited next, is the real signal that the page has loaded.
+    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
     await page.getByText(/tradeable ·/).waitFor({ timeout: 60_000 })
     step(`board: ${(await page.locator('.sub').nth(1).textContent())?.split('·')[0].trim()}`)
     await connect(page)
@@ -112,7 +117,9 @@ async function main() {
         if (state !== last) {
           const at = new Date().toISOString().slice(11, 19).replace(/:/g, '')
           step(`${at}Z  ${state}`)
-          await page.screenshot({ path: `${OUT}/watch-${at}Z.png` })
+          // Full page: the order row sits below the fold at 16:9, and the edit
+          // wants it beside the badge and the holding.
+          await page.screenshot({ path: `${OUT}/watch-${at}Z.png`, fullPage: true })
           last = state
         }
         if (orders === 0 && (await readOrders(conn, kp.publicKey)).length === 0) {
