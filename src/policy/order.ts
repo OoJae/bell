@@ -23,7 +23,91 @@ export function lossFloor(markRateQ64: bigint | null | undefined): bigint {
   return markRateQ64 && markRateQ64 > 0n ? (markRateQ64 * LOSS_FLOOR.num) / LOSS_FLOOR.den : 0n
 }
 
-/** The widest source disagreement an order accepts at fill time, when a listing sets none. */
+/** A mark's price as the program stores it: `num × 10^expo` quote units per share. */
+export interface MarkPrice {
+  num: bigint
+  expo: number
+}
+
+/**
+ * `floor_rate_q64` for a user's limit: "don't pay more than `limitUsd` a share".
+ *
+ * The program measures a floor as raw stock out per raw quote in (Q64.64), the
+ * same unit as the mark's rate, and the mark carries the per-share price that
+ * rate stands for. Price and rate are inverse, so a limit P against a mark at
+ * price M is the mark's rate scaled by M / P. No decimals or multiplier are
+ * needed: the mark has already folded both in.
+ *
+ * Rounded up. A floor a hair above the exact limit asks for a hair more stock,
+ * which can only keep the price at or under the limit.
+ */
+export function limitFloor(markRateQ64: bigint, markPx: MarkPrice, limitUsd: number): bigint {
+  if (!(limitUsd > 0) || markRateQ64 <= 0n || markPx.num <= 0n) return 0n
+  // The limit in the mark's own units, so the ratio is exact integer arithmetic.
+  const scale = 10 ** -markPx.expo
+  const limit = BigInt(Math.round(limitUsd * scale))
+  if (limit <= 0n) return 0n
+  return (markRateQ64 * markPx.num + limit - 1n) / limit
+}
+
+/**
+ * The floor an order is placed with: the stricter of the loss cap and the
+ * user's own limit. The user can only ever tighten the protection, never loosen
+ * it below the loss cap.
+ */
+export function orderFloor(
+  markRateQ64: bigint | null | undefined,
+  markPx: MarkPrice | null | undefined,
+  limitUsd: number | null | undefined,
+): bigint {
+  const loss = lossFloor(markRateQ64)
+  const limit = markRateQ64 && markPx && limitUsd ? limitFloor(markRateQ64, markPx, limitUsd) : 0n
+  return limit > loss ? limit : loss
+}
+
+/**
+ * The most an order can ever pay per share, whatever the price does before it
+ * fills: the user's limit, or the loss cap (the placement price ÷ 3/4),
+ * whichever is lower. This is the absolute promise; the band is relative to
+ * the price at the bell.
+ */
+export function maxPricePerShare(markPxUsd: number, limitUsd: number | null | undefined): number {
+  const byLoss = (markPxUsd * Number(LOSS_FLOOR.den)) / Number(LOSS_FLOOR.num)
+  return limitUsd && limitUsd > 0 ? Math.min(limitUsd, byLoss) : byLoss
+}
+
+/**
+ * The next `count` regular-session opens, as unix seconds, that an order placed
+ * `now` could still reach before the program's lifetime cap.
+ *
+ * A recurring buy is several ordinary bell orders, each one held back until its
+ * own open by `not_before`. The program limits how long an order may live, so
+ * only opens inside that horizon (less an hour, to leave it time to fill) are
+ * offered, and the calendar's own holidays and early closes decide which days
+ * count. Where the calendar has no opinion (outside the years it covers) it
+ * stops rather than guesses.
+ */
+export function upcomingOpens(
+  now: number,
+  count: number,
+  isOpenAt: (at: number) => boolean | null,
+  nextChangeAfter: (at: number) => number | null,
+  horizonSeconds: number,
+): number[] {
+  const opens: number[] = []
+  const limit = now + horizonSeconds - 3_600
+  let t = now
+  while (opens.length < count) {
+    const change = nextChangeAfter(t)
+    if (change === null || change > limit) break
+    // A change into an open session is an open; a change out of one is a close.
+    if (isOpenAt(change) === true) opens.push(change)
+    t = change
+  }
+  return opens
+}
+
+/** The widest mark uncertainty (the quote's price impact) an order accepts at fill time, when a listing sets none. */
 export const DEFAULT_CONF_BPS = 50
 
 export const confCap = (listing: Pick<Listing, 'maxConfBps'>): number => listing.maxConfBps ?? DEFAULT_CONF_BPS

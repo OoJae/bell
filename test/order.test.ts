@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { confCap, deadReason, DEFAULT_CONF_BPS, lossFloor, stillOwed } from '../src/policy/order.ts'
+import { confCap, deadReason, DEFAULT_CONF_BPS, limitFloor, lossFloor, maxPricePerShare, orderFloor, stillOwed } from '../src/policy/order.ts'
 import { MAINNET_LISTINGS } from '../src/listings.ts'
 
 const Q64 = 1n << 64n
@@ -61,4 +61,42 @@ test('the delegation covers every order that can still fill, and nothing else', 
   const bits = (sym: string) => (sym === 'SPYx' ? 2n : 7n)
   assert.equal(stillOwed(book, 1_000, bits), 100n + 150n)
   assert.equal(stillOwed([], 1_000, bits), 0n)
+})
+
+test('a limit price becomes the floor that keeps the fill at or under it', () => {
+  // A mark at $800.00 a share (micro-dollars) whose rate is R stock per quote.
+  const R = 1_250n * Q64
+  const px = { num: 800_000_000n, expo: -6 }
+  // Limit equal to the mark: the floor is exactly the mark's rate.
+  assert.equal(limitFloor(R, px, 800), R)
+  // A limit of $1,000 asks for 0.8 of the rate; of $640, for 1.25.
+  assert.equal(limitFloor(R, px, 1000), (R * 800n + 999n) / 1000n)
+  assert.equal(limitFloor(R, px, 640), (R * 800n + 639n) / 640n)
+  // The price the floor enforces never exceeds the limit (rounding goes the user's way).
+  for (const limit of [799.99, 812.34, 1_000, 3.21]) {
+    const f = limitFloor(R, px, limit)
+    const pricePaid = (800 * Number(R)) / Number(f)
+    assert.ok(pricePaid <= limit + 1e-9, `limit ${limit} -> ${pricePaid}`)
+  }
+  // No limit, or nonsense, means no limit floor.
+  assert.equal(limitFloor(R, px, 0), 0n)
+  assert.equal(limitFloor(R, px, Number.NaN), 0n)
+})
+
+test('the order floor is the stricter of the loss cap and the limit, never looser', () => {
+  const R = 1_000n * Q64
+  const px = { num: 500_000_000n, expo: -6 }
+  // A limit above the loss cap's price ($500 / 0.75 = $666.67) cannot loosen it.
+  assert.equal(orderFloor(R, px, 900), lossFloor(R))
+  // A limit below the mark tightens it.
+  assert.equal(orderFloor(R, px, 400), limitFloor(R, px, 400))
+  assert.ok(orderFloor(R, px, 400) > lossFloor(R))
+  // Without a mark there is nothing to convert against, and no floor.
+  assert.equal(orderFloor(null, null, 400), 0n)
+})
+
+test('the most you can pay per share is the lower of the limit and the loss cap', () => {
+  assert.ok(Math.abs(maxPricePerShare(600, null) - 800) < 1e-9)
+  assert.equal(maxPricePerShare(600, 650), 650)
+  assert.ok(Math.abs(maxPricePerShare(600, 900) - 800) < 1e-9)
 })

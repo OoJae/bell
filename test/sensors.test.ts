@@ -18,7 +18,7 @@ test('one malformed Pyth row is dropped, and said once rather than every tick', 
 
   const sessions = parseEquitySessions(body)
   assert.deepEqual([...sessions.keys()], ['SPY', 'AAPL'])
-  // Dropped reads as missing, and a US listing with no feed is closed.
+  // Dropped reads as missing; reconcile then lets the NYSE calendar stand in for it.
   assert.equal(sessions.has('QQQ'), false)
   assert.equal(warn.mock.callCount(), 1)
   assert.match(String(warn.mock.calls[0].arguments[0]), /dropped 1 of 3 .*Equity\.US\.QQQ\/USD/)

@@ -150,3 +150,27 @@ th { color: var(--dim); font-weight: 500; }
   /* the clock line wraps to two lines here, and it mounts after first paint */
   .clock { min-height: 40px; }
 }
+
+/* the optional limit: narrower than the amount, and plainly optional */
+.amt.lim input { width: 64px; }
+.amt.lim span:last-child { color: var(--dim); font-size: 12px; }
+
+/* what the user is agreeing to, in money, before the wallet opens */
+.worst {
+  margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.55;
+  color: var(--dim); background: rgba(88, 166, 255, .06); border: 1px solid rgba(88, 166, 255, .18);
+}
+.worst strong { color: var(--text); }
+.amt.rep select {
+  border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; padding: 10px 0;
+  /* the open list is drawn by the OS: without this it is light text on white */
+  color-scheme: dark;
+}
+.amt.rep option { background: var(--panel); color: var(--text); }
+
+/* receipts: laid out like order rows, but not `.order` — the judge-path script
+   counts `.order` rows to see a parked order disappear when it fills */
+.receipt { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.receipt .label { min-width: 96px; }
+.receipt .detail { flex: 1; color: var(--dim); }
+@media (max-width: 560px) { .receipt { flex-wrap: wrap; } }

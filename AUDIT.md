@@ -224,7 +224,10 @@ noted, the fix is in
 11. **A missing Pyth feed failed open.** For a US listing with no Pyth feed,
     reconciliation trusted Backed's 24/5 flag, which reads open all night, so a
     feed that dropped a ticker would have opened it overnight and let parked
-    orders fill. It now reads closed until the feed returns.
+    orders fill. It then read closed until the feed returned; since 24 Sep a
+    local NYSE calendar stands in for a missing feed, so such a listing is open
+    only during the regular session and while the issuer trades it, and closed
+    overnight exactly as before.
 12. **Cancel's revoke was not independent of BELL.** The page sent the SPL
     `revoke` in the same transaction as `cancel_order`, so any failure in BELL's
     instruction rolled the revoke back. Cancel now sends the revoke alone, then
@@ -274,8 +277,10 @@ Found since, while reviewing the new program tests on Wed 23 Sep, and not fixed:
 - **`register_symbol` stays permissionless, and first-come.** The listed tickers
   are registered at deploy. Squatting an unused ticker confers no authority over
   anything shared, and the allowlist is pinned by mint address rather than by
-  ticker, so a squatted symbol is not reachable by users. Clients do not verify a
-  symbol's attestor; all nine live records name the right one.
+  ticker, so a squatted symbol is not reachable by users. The page and the
+  filler do not verify a symbol's attestor (`guardInstructions` checks both
+  records against one an integrator pins); all nine live records name the
+  right one.
 - **Pushes are not monotonic.** `push_session` and `push_mark` accept a
   timestamp older than the one they replace.
 
@@ -286,4 +291,5 @@ the 43 program tests in `programs/bell-session/tests/` (`test_gates.rs` 23,
 `test_queue.rs` 20), which run under litesvm against the deployed binary; #5 and
 the enum check in #8 by `test/portability.test.ts`; #10, #11, #13 and #14 by
 `test/halts.test.ts`, `test/reconcile.test.ts`, `test/client.test.ts` and
-`test/order.test.ts`.
+`test/order.test.ts`, with the calendar that now stands in for #11 in
+`test/calendar.test.ts`.

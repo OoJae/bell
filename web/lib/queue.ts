@@ -9,16 +9,16 @@
  * which is what makes the fail-closed property observable: when our keeper is
  * down the page shows everything closed, because the *chain* says so.
  */
-import { PublicKey, Transaction, type Connection } from '@solana/web3.js'
+import { PublicKey, Transaction, type Connection, type TransactionInstruction } from '@solana/web3.js'
 import {
   authPda,
   ixCancelOrder,
   ixPlaceOrder,
   ixRefreshTokenRisk,
 } from '../../src/chain/client.ts'
-import { errorName } from '../../src/chain/codec.ts'
+import { errorName, LIMITS } from '../../src/chain/codec.ts'
 import { orderExpiry } from '../../src/policy/expiry.ts'
-import { committedOf, confCap, lossFloor } from '../../src/policy/order.ts'
+import { committedOf, confCap, orderFloor, type MarkPrice } from '../../src/policy/order.ts'
 import { ataFor, ixApproveChecked, ixCreateAtaIdempotent, ixRevoke, TOKEN_2022 } from '../../src/chain/spl.ts'
 import type { BellOrder } from '../../src/chain/codec.ts'
 import type { Listing } from '../../src/config.ts'
@@ -69,6 +69,10 @@ export interface PlaceArgs {
   nextOpen?: number | null
   /** The symbol's attested rate when the order is placed; sets the loss floor. */
   markRateQ64?: bigint | null
+  /** The price that rate stands for, so a limit in dollars can be converted to it. */
+  markPx?: MarkPrice | null
+  /** "Don't pay more than this a share" — tightens the floor, never loosens it. */
+  limitUsd?: number | null
 }
 
 /**
@@ -85,13 +89,41 @@ export function placeOrderTx(a: PlaceArgs): {
   amountIn: bigint
   approved: bigint
 } {
+  const { ixs, amountIn, approved } = placeInstructions(a, [
+    { nonce: a.nonce, notBefore: 0, expiresAt: orderExpiry(a.now, a.nextOpen ?? null) },
+  ])
+  return { tx: new Transaction().add(...ixs), amountIn, approved }
+}
+
+/** One order's schedule: when it may first fill, and when it lapses. */
+export interface OrderSlot {
+  nonce: bigint
+  /** Unix seconds; 0 means as soon as the gate allows. */
+  notBefore: number
+  expiresAt: number
+}
+
+/**
+ * The instructions for one approval and any number of orders of the same size.
+ * The approval comes first and covers the whole book plus every new order,
+ * because each `place_order` checks the delegation covers it.
+ */
+export function placeInstructions(
+  a: PlaceArgs,
+  slots: readonly OrderSlot[],
+): { ixs: TransactionInstruction[]; amountIn: bigint; approved: bigint } {
   const mint = new PublicKey(a.listing.mint)
   const amountIn = BigInt(Math.round(a.usd * 10 ** QUOTE_DECIMALS))
-  const approved = (a.committed ?? 0n) + amountIn
+  const approved = (a.committed ?? 0n) + amountIn * BigInt(slots.length)
   const payerIn = ataFor(a.owner, QUOTE_MINT)
   const payeeOut = ataFor(a.owner, mint, TOKEN_2022)
+  // Market-on-open by default: the price is the band against a fill-time mark,
+  // and the floor is only a loss cap at three quarters of what the mark says
+  // now, so a forged mark cannot fill this order for dust. A limit the user
+  // sets tightens that floor to their own price. See `orderFloor`.
+  const floorRateQ64 = orderFloor(a.markRateQ64, a.markPx, a.limitUsd)
 
-  const tx = new Transaction().add(
+  const ixs = [
     // Re-read the mint's extensions first, in the same transaction. The order
     // snapshots the scaled-UI multiplier it was built against, and a snapshot
     // taken from a stale record would make a perfectly good order refuse as
@@ -110,27 +142,72 @@ export function placeOrderTx(a: PlaceArgs): {
       amount: approved,
       decimals: QUOTE_DECIMALS,
     }),
-    ixPlaceOrder({
-      owner: a.owner,
-      symbol: a.listing.symbol,
-      mint,
-      nonce: a.nonce,
-      amountIn,
-      minFillIn: amountIn,
-      maxSlipBps: a.maxSlipBps ?? DEFAULT_SLIP_BPS,
-      maxConfBps: confCap(a.listing),
-      // Market-on-open: the price is the band against a fill-time mark. The
-      // floor is not a limit price — it is a loss cap at three quarters of
-      // what the mark says now, so a forged mark cannot fill this order for
-      // dust. See `lossFloor`.
-      floorRateQ64: lossFloor(a.markRateQ64),
-      notBefore: 0n,
-      expiresAt: BigInt(orderExpiry(a.now, a.nextOpen ?? null)),
-      payerIn,
-      payeeOut,
-    }),
-  )
-  return { tx, amountIn, approved }
+    ...slots.map((slot) =>
+      ixPlaceOrder({
+        owner: a.owner,
+        symbol: a.listing.symbol,
+        mint,
+        nonce: slot.nonce,
+        amountIn,
+        minFillIn: amountIn,
+        maxSlipBps: a.maxSlipBps ?? DEFAULT_SLIP_BPS,
+        maxConfBps: confCap(a.listing),
+        floorRateQ64,
+        notBefore: BigInt(slot.notBefore),
+        expiresAt: BigInt(slot.expiresAt),
+        payerIn,
+        payeeOut,
+      }),
+    ),
+  ]
+  return { ixs, amountIn, approved }
+}
+
+/**
+ * A recurring buy: one bell order per upcoming open, each held back by
+ * `not_before` until its own open and lapsing six hours after it, under one
+ * approval. An order that cannot fill on its day lapses rather than filling
+ * alongside the next day's, so a missed day is skipped, never doubled.
+ */
+export function recurringSlots(now: number, nonce: bigint, opens: readonly number[]): OrderSlot[] {
+  // An hour inside the program's lifetime cap, as `orderExpiry` does, so clock
+  // skew can never push an order over it and get it refused.
+  const ceiling = now + (LIMITS.MAX_ORDER_LIFETIME_SECONDS ?? 7 * 86_400) - 3_600
+  return opens.map((open, i) => ({
+    nonce: nonce + BigInt(i),
+    notBefore: open,
+    expiresAt: Math.min(open + 6 * 3_600, ceiling),
+  }))
+}
+
+/** A legacy transaction's hard size limit, in bytes. */
+const TX_LIMIT = 1_232
+
+/**
+ * Split instructions into as few transactions as fit, keeping their order.
+ * The first transaction always carries the leading setup instructions (the
+ * re-read, the account, the approval), so every order after it is funded.
+ */
+export function packTransactions(ixs: readonly TransactionInstruction[], payer: PublicKey): Transaction[] {
+  const size = (t: Transaction) => {
+    t.feePayer = payer
+    t.recentBlockhash = PublicKey.default.toBase58()
+    // Message plus one signature and its compact-array length byte.
+    return t.serializeMessage().length + 1 + 64
+  }
+  const txs: Transaction[] = []
+  let cur = new Transaction()
+  for (const ix of ixs) {
+    const trial = new Transaction().add(...cur.instructions, ix)
+    if (cur.instructions.length > 0 && size(trial) > TX_LIMIT) {
+      txs.push(cur)
+      cur = new Transaction().add(ix)
+    } else {
+      cur = trial
+    }
+  }
+  if (cur.instructions.length) txs.push(cur)
+  return txs
 }
 
 /**

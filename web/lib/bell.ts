@@ -32,7 +32,7 @@ import {
   type TokenRisk,
 } from '../../src/chain/codec.ts'
 import { ALLOWLIST, CLUSTER, type Issuer, type Listing } from '../../src/config.ts'
-import { confCap } from '../../src/policy/order.ts'
+import { confCap, type MarkPrice } from '../../src/policy/order.ts'
 import { HaltState } from '../../src/policy/reconcile.ts'
 
 export const RPC_URL = process.env.NEXT_PUBLIC_BELL_RPC ?? 'http://127.0.0.1:8899'
@@ -135,6 +135,8 @@ export interface SymbolView {
   halt: number
   /** The mark's raw-per-raw rate, for an order's loss floor; null without a mark. */
   markRateQ64: bigint | null
+  /** The per-share price that rate stands for, to convert a dollar limit into a floor. */
+  markPx: MarkPrice | null
   /** The multiplier in force, as the last mint read recorded it. */
   multiplierBits: bigint | null
   /** When a scheduled multiplier change lands, if one is still ahead; else 0. */
@@ -338,6 +340,7 @@ export async function loadSymbol(
       registered: false,
       halt: HaltState.None,
       markRateQ64: null,
+      markPx: null,
       multiplierBits: null,
       changeAt: 0,
     }
@@ -419,7 +422,7 @@ export async function loadSymbol(
       ok: state.openNow,
       detail: state.openNow
         ? 'primary market is trading'
-        : 'primary market is closed — queue it for the bell',
+        : 'the regular session is closed — queue it for the bell',
     },
     {
       // Informational: it gates a fill, not `assert_tradeable`. A new price
@@ -475,6 +478,7 @@ export async function loadSymbol(
       registered: true,
       halt: state.halt,
       markRateQ64: mark && mark.observedAt > 0n && mark.rateQ64 > 0n ? mark.rateQ64 : null,
+      markPx: mark && mark.observedAt > 0n && mark.pxNum > 0n ? { num: mark.pxNum, expo: mark.pxExpo } : null,
       multiplierBits: risk.multiplierBits,
       changeAt:
         risk.pendingMultiplierBits !== 0n && Number(risk.activatesAt) > now ? Number(risk.activatesAt) : 0,
@@ -531,11 +535,26 @@ const nyDate = new Intl.DateTimeFormat('en-US', { timeZone: NY, weekday: 'short'
  */
 export const nyClockOf = (d: Date) => `${nyClock.format(d)} ET`
 
-/** "9:30 AM" today, "Thu 9:30 AM" this week, "Mon, Oct 5 9:30 AM" beyond — all New York time. */
+/**
+ * "9:30 AM" today, "Thu 9:30 AM" within six days either way, "Mon, Oct 5 9:30
+ * AM" beyond — all New York time. Either way, because a receipt is in the past:
+ * a fill three weeks ago read as a bare "Wed" when only the future was measured.
+ */
 function nyWhen(at: number, now: number): string {
   const d = new Date(at * 1000)
   if (nyDay.format(d) === nyDay.format(new Date(now * 1000))) return nyTime.format(d)
-  return `${(at - now < 6 * 86_400 ? nyWeekday : nyDate).format(d)} ${nyTime.format(d)}`
+  return `${(Math.abs(at - now) < 6 * 86_400 ? nyWeekday : nyDate).format(d)} ${nyTime.format(d)}`
+}
+
+/**
+ * The New York day of an instant, for a list of opens: "today", "Fri" this
+ * week, "Thu Oct 1" beyond. Taking the time off `nyWhenOf` instead left an
+ * empty entry for today's open and a stray comma in "Thu, Oct 1".
+ */
+export function nyDayOf(at: number, now: number = Math.floor(Date.now() / 1000)): string {
+  const d = new Date(at * 1000)
+  if (nyDay.format(d) === nyDay.format(new Date(now * 1000))) return 'today'
+  return Math.abs(at - now) < 6 * 86_400 ? nyWeekday.format(d) : nyDate.format(d).replace(',', '')
 }
 
 /**
@@ -566,6 +585,8 @@ export interface MarketLine {
   state: 'open' | 'closed' | 'halted' | null
   /** When that changes, or why it is stopped; null when not known. */
   when: string | null
+  /** The instant of that change, so the page can also say it in the viewer's own zone. */
+  at: number | null
 }
 
 /**
@@ -594,7 +615,7 @@ const speaksForSession = (v: SymbolView) =>
  */
 export function marketLine(views: readonly SymbolView[], nowMs: number): MarketLine {
   const now = Math.floor(nowMs / 1000)
-  const line: MarketLine = { time: nyClock.format(new Date(nowMs)), state: null, when: null }
+  const line: MarketLine = { time: nyClock.format(new Date(nowMs)), state: null, when: null, at: null }
   const v = views.find(speaksForSession)
   if (!v) return line
   if (v.halt === HaltState.MarketWide) return { ...line, state: 'halted', when: 'market-wide circuit breaker' }
@@ -609,7 +630,25 @@ export function marketLine(views: readonly SymbolView[], nowMs: number): MarketL
   if (now >= next) {
     return { ...line, when: `the ${nyTime.format(new Date(next * 1000))} ${v.openNow ? 'close' : 'open'} is due; awaiting its attestation` }
   }
-  return { ...line, state, when: `${v.openNow ? 'closes' : 'opens'} ${nyWhen(next, now)}, in ${span(next - now)}` }
+  return { ...line, state, at: next, when: `${v.openNow ? 'closes' : 'opens'} ${nyWhen(next, now)}, in ${span(next - now)}` }
+}
+
+/**
+ * The same instant in the viewer's own time zone, when that is not New York:
+ * "2:30 PM your time" beside "9:30 AM" for someone in Lagos, with the weekday
+ * when the local date differs from New York's. Null in New York, or anywhere
+ * the clock reads the same, where it would only repeat itself. Browser only:
+ * the server's zone is not the viewer's.
+ */
+export function localWhenOf(at: number): string | null {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  if (!zone || zone === NY) return null
+  const d = new Date(at * 1000)
+  const local = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d)
+  if (local === nyTime.format(d)) return null
+  const localDay = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+  const day = localDay === nyDay.format(d) ? '' : `${new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d)} `
+  return `${day}${local} your time`
 }
 
 /**
@@ -724,7 +763,7 @@ export async function loadBoard(
 export function explainView(v: SymbolView): string {
   switch (v.status) {
     case 'closed':
-      return 'The primary market is closed. An order parks and fills at the opening bell.'
+      return 'The regular session is closed. An order parks and fills at the opening bell.'
     case 'halted':
       return `Halted on its primary exchange (${HALT_NAMES[v.halt] ?? 'halted'}). Nothing trades until it resumes.`
     case 'withdrawn':

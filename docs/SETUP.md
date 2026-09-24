@@ -129,10 +129,20 @@ All read-only and unauthenticated:
   refused other agents with 403, though it answered curl on 23 Sep.
 - `hermes.pyth.network/v2/price_feeds` — whether each US equity session is open
   (`market_hours`). BELL reads no Pyth price and needs no Pyth key; see
-  `docs/PYTH.md`.
+  `docs/PYTH.md`. It is no longer tick-fatal: a local NYSE calendar
+  (`src/policy/calendar.ts`, 2026 and 2027) checks it, and stands in when a
+  feed or the whole list is missing.
 - `www.nasdaqtrader.com` trade-halt RSS — exchange halts for any NMS security,
   whoever tokenized it.
 - `api.backpack.exchange/api/v1` — sessions, holidays, securities, assets.
   BELL calls no private endpoint, so there is no API-key or KYC dependency.
 - `lite-api.jup.ag` — depth and executable quotes. The keeper's marks are
   Jupiter quotes.
+- `api.nasdaq.com/api/quote` — the last US sale of each underlying, read by the
+  web server for `/api/reference` and shown beside the pool's price. Display
+  only; nothing on the trade path reads it.
+
+Optional: `BELL_TELEGRAM_BOT_TOKEN` and `BELL_TELEGRAM_CHAT_ID`, on the keeper
+and the crank, post halts, the open and close, rebase windows and fills to one
+Telegram channel (`src/notify.ts`). Without both, nothing is sent. As of 24
+Sep neither is set on the hosted services.

@@ -42,12 +42,14 @@ import {
   fairOut,
   MAX_MARK_AGE_SECONDS,
   MAX_STATE_AGE_SECONDS,
+  multiplierOf,
   type BellOrder,
   type SymbolMark,
 } from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { ataFor, decodeTokenAccount } from '../src/chain/spl.ts'
 import { CLUSTER } from '../src/config.ts'
+import { minutesAfterBell, notify, type NotifyEvent } from '../src/notify.ts'
 
 // A pass that is still running when the next cron tick arrives makes Railway
 // skip that tick, so a hung RPC call would silently stop filling altogether.
@@ -86,7 +88,30 @@ const fillerInFor = (quoteMint: PublicKey) =>
 
 const line = (o: BellOrder, what: string) => console.log(`  ${o.symbol.padEnd(7)} ${what}`)
 
-async function fillOne(o: BellOrder, deliver: bigint, remaining: bigint): Promise<void> {
+/**
+ * Notifications in flight. Sent as each fill lands rather than awaited there,
+ * so a slow Telegram never holds up the next order, and awaited once before the
+ * process exits so that `process.exit` does not cut them off. `notify` never
+ * rejects and gives up after a few seconds, which bounds that last wait.
+ */
+const notices: Promise<void>[] = []
+/**
+ * Takes the event as a function so that building it is inside the guard too.
+ * It runs after the transaction has landed, inside the order's try, and a throw
+ * there would print "error" beneath a fill that happened.
+ */
+function tell(build: () => NotifyEvent): void {
+  try {
+    notices.push(notify(build(), { cluster: CLUSTER }))
+  } catch (e) {
+    console.error(`  notify: skipped: ${(e as Error).message}`)
+  }
+}
+/** What the quote mint is called here; the devnet one is BELL's own token, not USDC. */
+const QUOTE = CLUSTER === 'mainnet' ? 'USDC' : 'demo-USDC'
+
+/** Returns the fill's signature, or null when it was refused or this is a dry run. */
+async function fillOne(o: BellOrder, deliver: bigint, remaining: bigint): Promise<string | null> {
   // Re-read the mint in the same transaction as the fill, so the gate judges a
   // multiplier, pause or hook as it stands at settlement — not as the last
   // refresh left it.
@@ -112,17 +137,18 @@ async function fillOne(o: BellOrder, deliver: bigint, remaining: bigint): Promis
     const e = sim.value.err as { InstructionError?: [number, { Custom?: number }] }
     const code = e.InstructionError?.[1]?.Custom
     line(o, `REFUSED  ${code !== undefined ? errorName(code) : JSON.stringify(sim.value.err)}`)
-    return
+    return null
   }
   if (!arm) {
     line(o, `would fill ${Number(remaining) / 1e6} quote -> ${deliver} raw (${o.maxSlipBps}bps band)`)
-    return
+    return null
   }
   // `send()` retries transient failures by re-signing. Safe for a fill: an order
   // can only be filled once — a second attempt meets OverFill or a closed
   // account and is rejected in preflight before it costs anything.
   const sig = await send(conn, ixs, [filler])
   line(o, `FILLED ${Number(remaining) / 1e6} quote -> ${deliver} raw  sig=${sig}`)
+  return sig
 }
 
 async function main() {
@@ -132,19 +158,26 @@ async function main() {
   if (orders.length === 0) return
 
   // Everything else in one round trip: each symbol in the book, each order's
-  // quote account, the filler's inventory, and the cluster's clock — time comes
-  // from the chain, because that is what the program will judge us by.
+  // quote account, the filler's inventory, the cluster's clock — time comes
+  // from the chain, because that is what the program will judge us by — and
+  // each symbol's mint, whose decimals turn a delivered amount into shares for
+  // the fill notice.
   const listings = [...new Map(orders.map((o) => [o.symbol, { symbol: o.symbol, mint: o.mint.toBase58() }])).values()]
   const extra = [
     SYSVAR_CLOCK_PUBKEY,
     ...orders.map((o) => o.payerIn),
     ...orders.map((o) => inventoryFor(o.mint)),
+    ...listings.map((l) => new PublicKey(l.mint)),
   ]
   const { symbols, extras } = await readBoard(conn, listings, extra)
   const clock = extras[0]
   const now = clock ? Number(new DataView(clock.data.buffer, clock.data.byteOffset).getBigInt64(32, true)) : Math.floor(Date.now() / 1000)
   const payers = extras.slice(1, 1 + orders.length)
-  const inventories = extras.slice(1 + orders.length)
+  const inventories = extras.slice(1 + orders.length, 1 + 2 * orders.length)
+  // Byte 44 of an SPL mint, Token-2022 included, is its decimals.
+  const decimalsOf = new Map(
+    listings.map((l, i) => [l.symbol, extras[1 + 2 * orders.length + i]?.data[44]] as const),
+  )
 
   // The pass can outlive a mark, so "now" advances with the wall clock from the
   // chain's reading rather than staying frozen at the start.
@@ -188,6 +221,7 @@ async function main() {
           [filler],
         )
         line(o, `CLOSED — ${why}; rent returned to owner  sig=${sig}`)
+        tell(() => ({ kind: 'closed', symbol: o.symbol, owner: o.owner.toBase58(), why, signature: sig }))
         continue
       }
       if (now < Number(o.notBefore)) {
@@ -254,10 +288,21 @@ async function main() {
         mark = fresh
       }
 
-      // Deliver exactly the band edge. Every fill lands here, which is why
-      // max_slip_bps is the user's maximum cost rather than a tolerance.
+      // Deliver the band edge, which is why max_slip_bps is the user's maximum
+      // cost rather than a tolerance — or the user's own floor, when their
+      // limit asks for more stock than the band does. The program takes the
+      // larger of the two as its minimum, computed exactly as here.
       const fair = fairOut(remaining, mark.rateQ64)
-      const deliver = (fair * BigInt(10_000 - o.maxSlipBps)) / 10_000n
+      const band = (fair * BigInt(10_000 - o.maxSlipBps)) / 10_000n
+      const floor = fairOut(remaining, o.floorRateQ64)
+      // A limit below the market asks for more stock than the price gives:
+      // filling it would sell below the mark, so it waits for the price to
+      // come down to it, as a limit order does.
+      if (floor > fair) {
+        line(o, `waiting — its limit is below the market (asks ${floor} raw; the price gives ${fair})`)
+        continue
+      }
+      const deliver = floor > band ? floor : band
 
       // A short filler is the filler's problem, and saying so matters: the
       // token program would report it as insufficient funds, which reads as
@@ -267,7 +312,26 @@ async function main() {
         continue
       }
 
-      await fillOne(o, deliver, remaining)
+      const sig = await fillOne(o, deliver, remaining)
+      if (sig) {
+        // Shares as the page counts them: raw ÷ 10^decimals × the scaled-UI
+        // multiplier. The order's own multiplier is exact here, because gate 5
+        // refuses any fill where the one in force differs from it.
+        const decimals = decimalsOf.get(o.symbol)
+        tell(() => ({
+          kind: 'fill',
+          symbol: o.symbol,
+          amountIn: Number(remaining) / 1e6,
+          quote: QUOTE,
+          shares:
+            decimals === undefined
+              ? null
+              : (Number(deliver) / 10 ** decimals) * multiplierOf(o.expectedMultiplierBits),
+          minutesAfterBell: minutesAfterBell(chainNow()),
+          owner: o.owner.toBase58(),
+          signature: sig,
+        }))
+      }
     } catch (e) {
       // One failure is one order's problem, not the whole pass's.
       line(o, `error — ${(e as Error).message.split('\n')[0]}`)
@@ -277,8 +341,10 @@ async function main() {
 
 try {
   await main()
+  await Promise.all(notices)
   process.exit(0)
 } catch (e) {
   console.error(`crank failed: ${(e as Error).message}`)
+  await Promise.all(notices)
   process.exit(1)
 }

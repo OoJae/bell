@@ -8,9 +8,11 @@
  * that writes to a chain should never do so because someone forgot a flag.
  */
 import { connect, readAllSymbols } from '../src/chain/client.ts'
-import { MarkSource } from '../src/chain/codec.ts'
+import { MarkSource, REBASE_GUARD_SECONDS } from '../src/chain/codec.ts'
 import { loadKeypair } from '../src/chain/keys.ts'
 import { tick } from '../src/chain/keeper.ts'
+import { CLUSTER } from '../src/config.ts'
+import { announced, keeperEvents, notify } from '../src/notify.ts'
 import { HaltState } from '../src/policy/reconcile.ts'
 import { Recorder, type TransitionRow } from '../src/record.ts'
 
@@ -52,6 +54,9 @@ const haltName = (h: number) =>
   Object.entries(HaltState).find(([, v]) => v === h)?.[0] ?? String(h)
 const sourceName = (s: number) =>
   Object.entries(MarkSource).find(([, v]) => v === s)?.[0] ?? String(s)
+
+/** What the channel has already been told: the day's open and close, and who is in a rebase window. */
+const told = announced()
 
 async function once() {
   const conn = connect()
@@ -160,6 +165,35 @@ async function once() {
         `${t.fromHalt !== t.toHalt ? `, halt ${haltName(t.fromHalt)} -> ${haltName(t.toHalt)}` : ''}` +
         `  (${t.detail})`,
     )
+  }
+
+  // Notifications, only when armed: a dry run's verdicts never reached the
+  // chain, and "attested open" would not be true of them. Halts, the open and
+  // the close come from the transitions the log just computed, so with no log
+  // there are none, which is quiet rather than wrong. Not awaited: `notify`
+  // never throws and gives up after a few seconds, and a slow Telegram must not
+  // stretch a tick toward the 120s attestation limit. The try is for a bug in
+  // deciding what to say: a tick that throws here counts against the watchdog,
+  // and a keeper restarted over a message would be the log-crash mistake again.
+  if (!result.dryRun) {
+    try {
+      const events = keeperEvents(told, {
+        at,
+        open: result.decisions.filter((d) => d.verdict.openNow).length,
+        total: result.decisions.length,
+        transitions,
+        windows: after
+          ? result.decisions.flatMap((d) => {
+              const risk = after.get(d.listing.symbol)?.risk
+              return risk ? [{ symbol: d.listing.symbol, activatesAt: Number(risk.activatesAt) }] : []
+            })
+          : null,
+        guardSeconds: REBASE_GUARD_SECONDS,
+      })
+      if (events.length > 0) void notify(events, { cluster: CLUSTER })
+    } catch (e) {
+      console.error(`  notify: skipped this tick: ${(e as Error).message}`)
+    }
   }
 }
 

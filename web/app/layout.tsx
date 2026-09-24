@@ -5,7 +5,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'BELL',
   description:
-    'BELL refuses trades in tokenized US stocks whenever the real market is closed or halted, or the token is not safe to trade — and parks your order to fill when it can.',
+    'The safe way to buy US stocks from your own wallet, at any hour. In the regular session BELL trades; when a stock is halted or a dividend is about to change the token, it refuses on-chain; while New York is shut, it holds your order for a real price.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

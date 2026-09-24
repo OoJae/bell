@@ -6,8 +6,8 @@
 closes; Solana doesn't — and while New York is shut, a Solana pool has nothing
 to check its price against. US exchanges trade about 32.5 of the week's 168
 hours ([RedStone's COO](https://crypto.news/tokenized-stocks-face-24-7-pricing-gap-redstone-coo/)).
-Over Labor Day weekend a tokenized AMC traded at $18.04 while the stock
-had closed at $2.54 ([crypto.news](https://crypto.news/robinhood-amc-tokens-expose-limits-of-short-squeezes/);
+Over Labor Day weekend a tokenized AMC traded at $18.04; the stock had
+closed at $2.54 on 3 September ([crypto.news](https://crypto.news/robinhood-amc-tokens-expose-limits-of-short-squeezes/);
 on Robinhood Chain, not Solana — the mechanism is the same).
 
 In the regular session, BELL trades. When the stock is halted, or a dividend is
@@ -30,23 +30,41 @@ and turns the refusal into an order.
    Testnet Mode → Solana Devnet.
 2. Open the site and connect. Press **Get demo funds**: 1,000 demo-USDC (a
    devnet token BELL issued — not USDC) and a little devnet SOL for rent.
-3. Pick a symbol and read the gate panel. While the market is closed — outside
-   09:30–16:00 ET on a trading day, to within one keeper tick — it refuses and
-   offers to **queue the order for the opening bell**; while it is open, it
-   takes it unless another gate refuses — a halt, a withdrawn token, a rebase.
+3. Pick a symbol and read the gate panel. While the regular session is closed —
+   outside 09:30–16:00 ET on a trading day, to within one keeper tick — it
+   refuses and offers to **queue the order for the opening bell**, optionally
+   with your own limit price or at each of the next few opens; while the session
+   is open, it takes it unless another gate refuses — a halt, a withdrawn token,
+   a rebase. The panel also shows the Solana pool's price beside the US
+   market's last trade.
 4. Sign once. Your demo-USDC stays in your wallet — the order is funded by a
    delegation — and a filler that runs every five minutes settles it after the
-   open. On 23 September it filled an overnight order at 09:35 ET.
+   open. On 23 September it filled an overnight order at 09:35 ET. (A
+   recurring buy is one approval and an order per open; when they do not fit
+   in one transaction the page sends several, which most wallets sign in one
+   prompt.)
 5. Cancel any time: the first thing a cancel sends is an SPL `revoke` from your
    own wallet, on its own.
+6. After a fill, **Your fills** shows the receipt: when it filled (and how long
+   after the bell), what you paid a share, and how far over the price it was
+   checked against. The site's tape route reads it back from the chain, and
+   each line links to its transaction, so you can check it without us.
+
+For builders: [`docs/INTEGRATE.md`](docs/INTEGRATE.md) shows how a wallet,
+router, lending market or vault puts the same gate in front of its own trades.
+For regulators and partners: [`NOTICE.md`](NOTICE.md) answers the SEC order's
+disclosure items as BELL would (an unofficial draft, not a filing), and
+`/api/tape` publishes every fill in the shape the order asks a venue to use.
 
 **Your orders never touch a server of ours.** The browser reads Solana RPC
-directly, your wallet signs, and your browser submits. There is exactly one
-server-side endpoint — a devnet faucet (`/api/faucet`) that funds a fresh
-wallet. It holds its own key, which owns a pool of demo-USDC and a little SOL;
-it cannot mint, cannot touch the program, and is not in the order, fill or cancel
-path. The keeper writes attestations and marks and re-reads the mints; a filler
-we run every five minutes (`scripts/crank.ts`, which anyone holding the stock
+directly, your wallet signs, and your browser submits. The server has three
+routes, and none is in the order, fill or cancel path: a devnet faucet
+(`/api/faucet`) that funds a fresh wallet — its own key owns a pool of
+demo-USDC and a little SOL, and it cannot mint or touch the program; the last
+US price of each underlying (`/api/reference`, from Nasdaq, shown beside the
+pool's price and read by nothing else); and the public tape (`/api/tape`,
+every fill read back from the chain). The keeper writes attestations and marks
+and re-reads the mints; a filler we run every five minutes (`scripts/crank.ts`, which anyone holding the stock
 can run too) settles due orders. **Stop the keeper and everything reads closed
 once its last attestation is two minutes old; stop the filler and orders simply
 wait** — and `revoke` still cancels them from your wallet. That is fail-closed
@@ -116,7 +134,11 @@ this a stated condition rather than a matter of taste. §II.H:
 > stoppage of trading in the underlying NMS stock on the primary listing
 > exchange, which includes a halt or a suspension."
 
-BELL is a non-custodial implementation of that sentence.
+BELL enforces that sentence on-chain, without holding anyone's funds, and goes
+further: it also holds orders while the regular session is closed, which the
+order does not require. (BELL is not a TSV — a TSV must be a US person,
+permissioned, and file a public notice — but the conditions are the ones a TSV
+would have to meet; `NOTICE.md` answers them as BELL would.)
 
 ---
 
@@ -178,6 +200,12 @@ This is the part that keeps "we refuse trades" from being a worse product.
 A refused order becomes a **bell order**: it parks and fills when the market
 opens. Funding is by SPL delegation — the user `approve`s a capped amount and
 **keeps their tokens**. Nothing is escrowed.
+
+An order can carry the buyer's own limit, "no more than this a share", which
+the program enforces as the order's floor; our filler leaves a limit below the
+market waiting until the price comes down to it. A recurring buy is one bell order per upcoming
+open, from the exchange calendar, each held back by the program until its own
+open and lapsing six hours after it, all under one approval.
 
 That choice has consequences worth stating:
 
@@ -293,10 +321,10 @@ against the deployed binary — the bytes on devnet hash to the tested build —
 parsing real mainnet mint bytes, including a dividend walked end to end on the
 real AAPLx mint's own scheduled step. No fixture is paused or hooked, so those
 two gates are tested on a real mint with one field changed. Every refusal is
-asserted by its exact error code, never a bare `is_err()`. 78 TypeScript tests
+asserted by its exact error code, never a bare `is_err()`. 164 TypeScript tests
 (`node --test test/*.test.ts`), including one file that removes Node's BigInt
 `Buffer` methods so browser-only failures surface under Node, and checks every
-enum the client mirrors against the program's IDL; 18 of the 78 cover
+enum the client mirrors against the program's IDL; 18 of the 164 cover
 `reference/session.ts`, a reference model of the gates that nothing runs. The
 judge path is scripted too: `scripts/demo/judge-path.ts` drives a real browser
 against the live site with a scripted Wallet Standard wallet.
@@ -336,8 +364,9 @@ But `fill_order` is permissionless, so a leaked attestor key can open a symbol,
 push a bad price and fill parked orders against it itself. What bounds that:
 
 - **A loss floor on the order**, three quarters of what the mark said the order
-  was worth at placement. The page and `scripts/queue.ts` set it; the program
-  accepts any floor, and an order placed when a symbol had no mark yet has none.
+  was worth at placement, or the buyer's own limit where that asks for more.
+  The page and `scripts/queue.ts` set it; the program accepts any floor, and an
+  order placed when a symbol had no mark yet has none.
   Where there is one, a leaked key pushing an inflated price cannot fill the
   order for dust.
 - **$1,000 per order** (`MAX_ORDER_IN`), enforced by the program.
@@ -401,7 +430,8 @@ issuer doing this, and BELL says so rather than implying otherwise.
 
 **Prices are not Pyth.** A free Pyth key returned 403 for every stock-related
 feed we tried, and 200 for `Crypto.SOL/USD`. Sessions come from Pyth's free, keyless
-`/v2/price_feeds` metadata, and marks from one executable Jupiter quote per
+`/v2/price_feeds` metadata, checked against a local NYSE calendar that also
+stands in when a feed is missing, and marks from one executable Jupiter quote per
 symbol; a mark's `conf_bps` is that quote's price impact, capped at 200, not a
 disagreement between sources. See `docs/PYTH.md`.
 
@@ -411,8 +441,9 @@ disagreement between sources. See `docs/PYTH.md`.
   the expiry, so if the owner has closed that account, only the owner can close
   the order and reclaim its rent. No funds are at risk; the fix is to check
   expiry first.
-- Registration is first-come, and clients do not verify a symbol's attestor.
-  All nine live records name the right one.
+- Registration is first-come, and the page and the filler do not verify a
+  symbol's attestor (`guardInstructions` checks one when an integrator pins
+  it). All nine live records name the right one.
 - Session and mark pushes do not require a newer timestamp than the one they
   replace.
 
@@ -508,15 +539,22 @@ sensors → policy/reconcile → keeper → [ bell-session program ] ← browser
 - **`src/sensor/`** — xStocks, Backpack, Pyth, Nasdaq UTP halts, Jupiter. All
   public and unauthenticated, so the demo does not depend on anyone's API key.
 - **`src/policy/reconcile.ts`** — merges the sources and closes a symbol when a
-  source it needs is missing, including a US listing whose Pyth feed is absent. Pyth knows the
-  session, the issuer knows its own token, and Nasdaq's feed knows exchange
-  halts. **When the session is open and the issuer will not trade a name, that
-  disagreement is the stop.**
+  source it needs is missing. Pyth knows the session, the issuer knows its own
+  token, and Nasdaq's feed knows exchange halts. A local NYSE calendar
+  (`src/policy/calendar.ts`) checks Pyth: if the two disagree about the
+  session, the symbol closes. If Pyth's feed is missing, the calendar stands in
+  rather than closing the venue for a vendor outage — a deliberate trade, and
+  the one place it loosens anything: such a listing opens only when the
+  calendar says the regular session is open *and* the issuer is trading, and
+  the verdict is logged as degraded. **When the session is open and the issuer
+  will not trade a name, that disagreement is the stop.**
 - **`scripts/crank.ts`** — the filler, run by us as a five-minute cron job and
-  by anyone else holding the stock (on devnet, only we can mint it). It re-runs the identical on-chain gate and re-reads
-  the mint in the same transaction as each fill.
+  by anyone else holding the stock (on devnet, only we can mint it). It re-runs
+  the identical on-chain gate and re-reads the mint in the same transaction as
+  each fill, and delivers the band edge or the buyer's floor, whichever is more.
 - **`web/`** — Next.js. Orders go browser → wallet → chain with no server of
-  ours in between; the one server route is the devnet faucet. The site keeps
+  ours in between; the server routes are the devnet faucet and two read-only
+  views (the US reference price and the tape). The site keeps
   working whether or not our keeper is up, and when the keeper is down it
   correctly shows everything closed.
 

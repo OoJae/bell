@@ -8,9 +8,11 @@ Recording notes for the voiceover: one take per section is fine; leave a
 second of silence between sections so the cut can breathe. Speak it to one
 person, not to a room.
 
-Lines marked **[if shipped]** depend on features being built on Thursday 24
-Sep; cut them if the feature is not live when you record. Lines marked
-**[fill]** get their number from Thursday's bell (09:57 ET check-in).
+The limit price, the recurring buy and the receipt ship in the push after
+10:00 ET on Thursday 24 Sep, so the page shows them only from then: film those
+shots after the push, not in the bell recording. Notifications are not in this
+script; they need a bot token that does not exist yet. Lines marked **[fill]**
+get their number from Thursday's bell (09:57 ET check-in).
 
 ---
 
@@ -61,7 +63,8 @@ swap". Then the SEC order, §II.H highlighted. Lower-third: "Order 34-106402,
 
 *On screen: an order queued at night with a limit price; the balance
 unchanged. Cut to the bell: the badge turns tradeable, the order line goes, the
-holding grows. Then the receipt **[if shipped]**, and the fill in the explorer.
+holding grows. Then the receipt under "Your fills" (filmed after the push), and
+the fill in the explorer.
 Lower-third: "devnet · the price is a live mainnet Jupiter quote; the filler
 delivers mirror SPYx for demo-USDC".*
 
@@ -70,10 +73,11 @@ delivers mirror SPYx for demo-USDC".*
 > is one standard instruction BELL plays no part in.
 >
 > This morning, **[fill]** minutes after the bell, our filler settled an order
-> placed the night before. Nobody was at a keyboard. **[if shipped]** The
-> receipt shows what it paid, next to what the pool wanted at night.
+> placed the night before. Nobody was at a keyboard. The receipt shows what
+> it paid a share, and how close that came to the price it was checked
+> against.
 >
-> **[if shipped]** Or have it buy at every open this week, from one approval.
+> Or have it buy at each of the next five opens, from one approval.
 
 ### 5 · The dividend (1:55–2:20)
 
@@ -100,8 +104,8 @@ real Apple dividend".*
 
 > What BELL can't fix: two issuer keys can take these stocks out of any
 > wallet. On our devnet mirrors, that key is ours. And the key that tells BELL
-> the market is open also sets its price, so your limit and a thousand-dollar
-> cap bound what it can do.
+> the market is open also sets its price, so a price floor on every order and
+> a thousand-dollar cap bound what it can do.
 >
 > Buying is live today. Selling at the bell, and the twenty-three-hour sessions
 > starting in December, are next.
@@ -112,8 +116,8 @@ real Apple dividend".*
 
 **Verified** (against the code, a committed file, or a primary source):
 
-- Tokenized AMC at $18.04 against a $2.54 close, Labor Day weekend 2026, on
-  Robinhood Chain — crypto.news, 8 Sep 2026
+- Tokenized AMC at $18.04, Labor Day weekend 2026, on Robinhood Chain, after
+  the stock closed at $2.54 on Thu 3 Sep (IOSG's figures) — crypto.news, 8 Sep 2026
   (https://crypto.news/robinhood-amc-tokens-expose-limits-of-short-squeezes/).
   It happened on another chain: the lower-third says so, and the voiceover does
   not call it Solana.
@@ -133,6 +137,18 @@ real Apple dividend".*
   — hence "and goes further".
 - The landed refusal — `2Ue1towjdeQoG1Eeo7xC1tvfUpJ8VcBNxR14gXk8MiYnDyicQ4F4mtkXi4TVxx6ritLjkKGE5RZtCSs2Fq9Cr1pH`:
   MarketClosed (custom 6000), fee 5,000 lamports, transfer absent.
+- The limit — "max $ /share" on the page; it becomes the order's floor, which
+  the program enforces (`orderFloor` in `src/policy/order.ts`), and the filler
+  waits while it is below the market (`scripts/crank.ts`).
+- The receipt — "Your fills": when it filled, minutes after the bell, the price
+  paid a share, and the bps over the mark it was checked against, with the
+  transaction linked. It shows the price at the fill, not the price at night.
+- Five opens, one approval — the "up to 5 opens" option (placed at night it
+  schedules five; placed during a session, four fit inside an order's
+  lifetime, and the page says four): one approval, then one
+  order per open from the exchange calendar, each held by `not_before` until
+  its open (`recurringSlots` in `web/lib/queue.ts`). Placed on a Thursday
+  night, the five run into the next week, so not "every open this week".
 - Cancel — an SPL `revoke` sent alone from the user's wallet, before BELL's
   close (`cancelOrderTxs` in `web/lib/queue.ts`).
 - Fifteen minutes either side — `REBASE_GUARD_SECONDS = 15 * 60`, matching
@@ -150,7 +166,10 @@ real Apple dividend".*
 
 - **[fill]** — Thursday's fill latency, from the bell recording and the fill
   transaction's block time.
-- **[if shipped]** — the receipt and recurring lines, only if those features
-  are live on the page.
+- The limit shot. The order queued at 20:40 ET on Wed 23 Sep was placed
+  before the limit field existed, so that footage shows no limit: either film
+  a new night queue with a limit after 16:00 ET on Thursday, or cut "Set your
+  limit," from section 4 and "with a limit price" from its shot list.
+- The receipt and the five-opens shots, on the live page after the push.
 - That the footage shows each on-screen item, including the Apple-mirror rebase
   (still to be filmed) and the keeper-stop sequence.

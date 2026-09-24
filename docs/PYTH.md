@@ -64,10 +64,14 @@ price:
 | 7. Strict mode only: session not open | `MarketClosed` | the attestation |
 
 Pyth sits upstream of gates 2 and 7: the keeper's session verdict combines
-Pyth's `market_hours` with the issuer's state and Nasdaq's halt feed, and a
-listing with no Pyth feed is closed. If `/v2/price_feeds` cannot be read, the
-tick sends nothing and every symbol refuses with `StateStale` within 120
-seconds. Nothing waits on a Pyth key.
+Pyth's `market_hours` with the issuer's state and Nasdaq's halt feed, checked
+against a local NYSE calendar (`src/policy/calendar.ts`). If Pyth and the
+calendar disagree, the symbol is closed. If a listing has no Pyth feed, or
+`/v2/price_feeds` cannot be read at all, the calendar stands in: the listing is
+open only during the regular session and while the issuer trades it, closed
+overnight, at weekends and on holidays as before, and its verdict is logged as
+degraded. The calendar's table covers 2026 and 2027; outside those years it has
+no opinion, and a listing with no feed is closed. Nothing waits on a Pyth key.
 
 On the trade path, the program checks a price only when a parked order fills.
 `fill_order` runs the same gate in strict mode, then requires the mark to be at most 60 seconds old

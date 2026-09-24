@@ -16,7 +16,8 @@ import { fetchEquitySessions, type PythSession } from '../sensor/pyth.ts'
 import { fetchHalts, isActive, type Halt } from '../sensor/halts.ts'
 import { fetchSessions, fetchHolidays, fetchSecurities } from '../sensor/backpack.ts'
 import { resolveSession, type SessionWindow, type HolidayWindow } from '../policy/sessions.ts'
-import { reconcile, HaltState, type Verdict } from '../policy/reconcile.ts'
+import { reconcile, HaltState, type CalendarView, type Verdict } from '../policy/reconcile.ts'
+import { isRegularOpen, nextChange } from '../policy/calendar.ts'
 import {
   ixPushMark,
   ixPushSession,
@@ -79,7 +80,14 @@ export interface PushedMark extends MarkReading {
 export interface Observation {
   at: Date
   xstocks: Map<string, XStock>
+  /** Empty when Pyth's feed list could not be read this tick; see `pythError`. */
   pyth: Map<string, PythSession>
+  /**
+   * Why Pyth's feed list could not be read, when it could not. Every US
+   * listing then reads as having no feed, and the NYSE calendar stands in.
+   * Optional so an observation built before the calendar existed still types.
+   */
+  pythError?: string | null
   halts: Map<string, Halt>
   /** Null when Backpack's lists could not be read in full this tick. */
   backpack: {
@@ -97,13 +105,29 @@ export async function sense(): Promise<Observation> {
   // thirteen pages, which keeps a tick well clear of the refresh threshold.
   const backedSymbols = ALLOWLIST.filter((l) => l.issuer === 'backed').map((l) => l.symbol)
   let backpackError: string | null = null
+  let pythError: string | null = null
   const [assets, pyth, halts, backpack] = await Promise.all([
     // Each asset on its own: one withdrawn token answering 404 used to fail
     // the whole tick, and a tick that pushes nothing closes all nine symbols
     // two minutes later. A missing reading closes only its own symbol —
     // `reconcile` treats an absent issuer as closed.
     Promise.all(backedSymbols.map((s) => fetchAsset(s).catch(() => null))),
-    fetchEquitySessions(),
+    // Pyth's free metadata used to be tick-fatal: without it every listing
+    // closed anyway, so failing the tick cost nothing. The NYSE calendar
+    // changed that. A missing feed list now reads as every ticker having no
+    // feed, and `reconcile` lets the calendar stand in: closed overnight, at
+    // weekends and on holidays exactly as before, open in the regular session
+    // on the calendar's word and the issuer's. Every verdict names the failure,
+    // and one the calendar decided is marked degraded.
+    //
+    // On one line, and short: the reason is appended to all nine details every
+    // tick, and a body that is not a list fails with zod's message, which is
+    // pretty-printed JSON. A newline in a detail breaks the keeper's one line
+    // per symbol and the evidence report's transition table.
+    fetchEquitySessions().catch((e: unknown) => {
+      pythError = String((e as Error)?.message ?? e).replace(/\s+/g, ' ').trim().slice(0, 200)
+      return new Map<string, PythSession>()
+    }),
     fetchHalts(),
     // Backpack's three lists stand or fall together, and only for Backpack's
     // own listings. Nothing a Backed token's verdict reads comes from them, yet
@@ -111,9 +135,8 @@ export async function sense(): Promise<Observation> {
     // whole tick and close all nine symbols. Without them a Backpack listing
     // has no issuer reading, which `reconcile` closes.
     //
-    // The halt feed and Pyth stay tick-fatal on purpose. A missing halt feed
-    // reads as "no halts", which is fail-open; and without Pyth every listing
-    // here closes anyway.
+    // The halt feed stays tick-fatal on purpose. A missing halt feed reads as
+    // "no halts", which is fail-open.
     Promise.all([fetchSessions(), fetchHolidays(), fetchSecurities()]).then(
       ([sessions, holidays, securities]) => ({
         sessions,
@@ -134,6 +157,7 @@ export async function sense(): Promise<Observation> {
       assets.filter((x): x is XStock => x !== null).map((x) => [x.mint, x]),
     ),
     pyth,
+    pythError,
     halts,
     backpack,
     backpackError,
@@ -165,6 +189,15 @@ export interface Decision {
  */
 export function decide(obs: Observation): Decision[] {
   const nowSeconds = Math.floor(obs.at.getTime() / 1000)
+
+  // The NYSE calendar at the instant of the observation, once for every
+  // listing: the regular session belongs to the market, not to a security.
+  // Its reading is not stored beside the other sources because it is a pure
+  // function of the tick's time, which is stored, and of `calendar.ts`; a
+  // disagreement with Pyth is also written into the verdict's detail.
+  const calendarOpen = isRegularOpen(obs.at)
+  const calendar: CalendarView | null =
+    calendarOpen === null ? null : { isOpen: calendarOpen, nextChangeAt: nextChange(obs.at) }
 
   return ALLOWLIST.map((listing) => {
     const feed = obs.pyth.get(listing.underlying)
@@ -199,15 +232,22 @@ export function decide(obs: Observation): Decision[] {
       }
     }
 
+    const verdict = reconcile({
+      pyth: feed
+        ? { isOpen: feed.isOpen, nextOpen: feed.nextOpen, nextClose: feed.nextClose }
+        : null,
+      issuer,
+      exchangeHalt,
+      calendar,
+    })
+    // A feed missing because the whole list could not be read is a different
+    // fault from one Pyth has stopped publishing, and the fix is different, so
+    // the verdict names it.
+    if (!feed && obs.pythError) verdict.detail += ` (Pyth feed list unread: ${obs.pythError})`
+
     return {
       listing,
-      verdict: reconcile({
-        pyth: feed
-          ? { isOpen: feed.isOpen, nextOpen: feed.nextOpen, nextClose: feed.nextClose }
-          : null,
-        issuer,
-        exchangeHalt,
-      }),
+      verdict,
       sources: {
         pythOpen: feed ? feed.isOpen : null,
         issuerOpen: issuer ? issuer.openNow : null,

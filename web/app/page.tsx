@@ -13,7 +13,9 @@ import {
   loadBoard,
   loadOrders,
   marketLine,
+  localWhenOf,
   nyClockOf,
+  nyDayOf,
   nyWhenOf,
   offline,
   PROGRAM,
@@ -28,7 +30,10 @@ import {
   cancelOrderTxs,
   MAX_ORDER_USD,
   orderExpiry,
+  packTransactions,
+  placeInstructions,
   placeOrderTx,
+  recurringSlots,
   QUOTE_DECIMALS,
   QUOTE_MINT,
   refusalFrom,
@@ -40,7 +45,11 @@ import { authPda } from '../../src/chain/client.ts'
 import type { BellOrder } from '../../src/chain/codec.ts'
 import { ataFor } from '../../src/chain/spl.ts'
 import { ALLOWLIST, CLUSTER } from '../../src/config.ts'
-import { deadReason, stillOwed } from '../../src/policy/order.ts'
+import { deadReason, maxPricePerShare, stillOwed, upcomingOpens } from '../../src/policy/order.ts'
+import { isRegularOpen, nextChange } from '../../src/policy/calendar.ts'
+import { LIMITS } from '../../src/chain/codec.ts'
+import type { Reference } from '../lib/reference.ts'
+import type { TapeRow } from '../lib/tape.ts'
 
 const POLL_MS = 10_000
 
@@ -51,6 +60,8 @@ const POLL_MS = 10_000
  * opens rather than after the token program refuses.
  */
 const MIN_SOL_FOR_ORDER = 0.0036
+/** Each further order in a recurring buy is another order account's rent, plus a fee's share. */
+const SOL_PER_EXTRA_ORDER = 0.00201
 
 /**
  * The badge says what kind of no it is. It used to be binary — "closed" for a
@@ -104,12 +115,45 @@ function Clock({ views }: { views: readonly SymbolView[] }) {
       {m.state && (
         <>
           {' · '}
-          <span className={`mkt ${m.state}`}>US market {m.state}</span>
+          <span className={`mkt ${m.state}`}>
+            {m.state === 'halted' ? 'US market halted' : `regular session ${m.state}`}
+          </span>
         </>
       )}
       {m.when && <> · {m.when}</>}
+      {m.at && localWhenOf(m.at) && <> ({localWhenOf(m.at)})</>}
     </>
   )
+}
+
+/**
+ * The next `n` regular-session opens from the exchange calendar that an order
+ * placed now can still reach. The calendar, not the attestation, because these
+ * are future sessions nobody has attested yet; the gate still decides each fill.
+ */
+const nextOpens = (now: number, n: number) =>
+  upcomingOpens(
+    now,
+    n,
+    (at) => isRegularOpen(new Date(at * 1000)),
+    (at) => nextChange(new Date(at * 1000)),
+    LIMITS.MAX_ORDER_LIFETIME_SECONDS ?? 7 * 86_400,
+  )
+
+/**
+ * Minutes between a fill and that day's opening bell, from the exchange
+ * calendar; null when the fill was not during a regular session.
+ */
+function minutesAfterOpen(at: number): number | null {
+  const [open] = upcomingOpens(
+    at - 8 * 3_600,
+    1,
+    (t) => isRegularOpen(new Date(t * 1000)),
+    (t) => nextChange(new Date(t * 1000)),
+    86_400 + 3_600,
+  )
+  if (open === undefined || at < open || at - open > 6.5 * 3_600) return null
+  return Math.round((at - open) / 60)
 }
 
 interface Notice {
@@ -145,12 +189,67 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [amount, setAmount] = useState('200')
+  // Optional: "don't pay more than this a share". Empty means market-on-open,
+  // protected only by the band and the loss cap.
+  const [limit, setLimit] = useState('')
+  // 1 for a single bell order; N for one at each of the next N opens.
+  const [repeat, setRepeat] = useState(1)
+  // The last US price of each underlying, for display beside the pool's price.
+  const [refs, setRefs] = useState<Record<string, Reference | null>>({})
+  // This wallet's fills, from the public tape's per-buyer view: the receipts.
+  const [fills, setFills] = useState<TapeRow[]>([])
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
   // The wallet button renders from browser-only state, so it must not be part
   // of the server-rendered markup.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  // Once a minute is plenty: the server caches it for that long anyway, and it
+  // is shown, never used. A failure leaves the last answer (or nothing) on screen.
+  useEffect(() => {
+    let stopped = false
+    const load = () =>
+      fetch('/api/reference')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!stopped && j) setRefs(j as Record<string, Reference | null>)
+        })
+        .catch(() => {})
+    void load()
+    const timer = setInterval(() => void load(), 60_000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  // Receipts: the tape already reads every fill from the chain (cached a minute
+  // on the server), so the page asks it for this wallet's rows rather than
+  // walking transaction history from the browser.
+  useEffect(() => {
+    if (!publicKey) {
+      setFills([])
+      return
+    }
+    let stopped = false
+    const load = () =>
+      fetch(`/api/tape?buyer=${publicKey.toBase58()}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (!stopped && j?.rows) setFills((j.rows as TapeRow[]).slice().sort((a, b) => b.time.localeCompare(a.time)))
+        })
+        .catch(() => {})
+    void load()
+    const timer = setInterval(() => void load(), 60_000)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [publicKey])
+
+  // A limit is a price for one security; it must not carry over to the next.
+  useEffect(() => setLimit(''), [selected])
 
   // One poll at a time. A slow or throttled read used to overlap the next
   // one, and each overlap was another request at an endpoint already saying no.
@@ -290,26 +389,54 @@ export default function Page() {
       // Everything checkable is checked before the wallet opens, so a problem
       // is explained in words instead of refused by a program in hex.
       if (!(usdAmount > 0)) throw new Error('Enter an amount.')
+      const limitUsd = limit.trim() ? Number(limit) : null
+      // A cent at least: below that the limit rounds to nothing in the mark's
+      // own units, the order would carry only the loss cap, and the box above
+      // would have promised a price the program never saw.
+      if (limitUsd !== null && !(limitUsd >= 0.01)) {
+        throw new Error('Enter a limit price per share, or leave it empty to buy at the price the bell sets.')
+      }
+      // A dollar limit becomes a floor by converting against the attested
+      // price; without one there is nothing to convert against.
+      if (limitUsd !== null && (!current.markPx || !current.markRateQ64)) {
+        throw new Error('There is no attested price for this symbol yet, so a limit cannot be set. Try again in a minute.')
+      }
       if (usdAmount > MAX_ORDER_USD) {
         throw new Error(`Orders are capped at $${MAX_ORDER_USD.toLocaleString()} while the program has an upgrade authority.`)
       }
       if (!wallet || wallet.quote === null) {
         throw new Error('This wallet has no demo-USDC yet — use "Get demo funds" first.')
       }
-      if (wallet.sol < MIN_SOL_FOR_ORDER) {
-        throw new Error('This wallet needs a little devnet SOL for account rent — use "Get demo funds".')
-      }
       if (current.status === 'withdrawn') {
         throw new Error('The issuer has withdrawn this token, so an order would wait on the issuer, not on a bell.')
       }
       const now = nowS()
       const nextOpen = current.openNow ? null : current.nextChangeAt || null
+      // A recurring buy is one bell order per upcoming open, from the exchange
+      // calendar, each held back until its own open.
+      const opens = repeat > 1 ? nextOpens(now, repeat) : []
+      if (repeat > 1 && opens.length === 0) {
+        throw new Error('The exchange calendar has no opens inside an order\'s lifetime from here, so a recurring buy cannot be scheduled.')
+      }
       // An order snapshots the multiplier it was built against, and the gate
       // refuses it for good once that moves. Parking one across a scheduled
       // change is parking an order that can never fill.
-      if (!current.allowed && current.changeAt > 0 && current.changeAt < orderExpiry(now, nextOpen)) {
+      const lastExpiry = repeat > 1 ? opens[opens.length - 1]! + 6 * 3_600 : orderExpiry(now, nextOpen)
+      if (current.changeAt > 0 && current.changeAt < lastExpiry && (!current.allowed || repeat > 1)) {
         throw new Error(
           `A corporate action is scheduled for ${nyWhenOf(current.changeAt)}, before this order could fill — it would be refused as resized. Place it after the change lands.`,
+        )
+      }
+
+      const count = repeat > 1 ? opens.length : 1
+      // Every order is its own account, and each one's rent is paid up front.
+      // Checked for all of them: five orders need three times the rent of one,
+      // and the system program's "insufficient lamports" says none of that.
+      if (wallet.sol < MIN_SOL_FOR_ORDER + (count - 1) * SOL_PER_EXTRA_ORDER) {
+        throw new Error(
+          count > 1
+            ? `This wallet needs about ${(MIN_SOL_FOR_ORDER + (count - 1) * SOL_PER_EXTRA_ORDER).toFixed(4)} devnet SOL for the rent on ${count} orders — use "Get demo funds", or schedule fewer opens.`
+            : 'This wallet needs a little devnet SOL for account rent — use "Get demo funds".',
         )
       }
 
@@ -329,14 +456,14 @@ export default function Page() {
       // Every order that can still fill, and only those: expired and resized
       // orders never settle, so funding them only ties up the quote.
       const committed = stillOwed(book, now, multiplierOf)
-      const wanted = committed + BigInt(Math.round(usdAmount * 10 ** QUOTE_DECIMALS))
+      const wanted = committed + BigInt(Math.round(usdAmount * 10 ** QUOTE_DECIMALS)) * BigInt(count)
       if (wallet.quote < wanted) {
         throw new Error(
           `That needs $${usd(wanted)} of demo-USDC across your orders; the wallet holds $${usd(wallet.quote)}.`,
         )
       }
 
-      const { tx } = placeOrderTx({
+      const args = {
         owner: publicKey,
         listing: current.listing,
         usd: usdAmount,
@@ -345,24 +472,53 @@ export default function Page() {
         committed,
         nextOpen,
         markRateQ64: current.markRateQ64,
-      })
-      const sig = await submit(conn, tx, publicKey, signTransaction)
-      setNotice({
-        ok: true,
-        sig,
-        text: current.allowed
-          ? `Placed $${usdAmount} of ${current.listing.symbol}. The filler settles it on its next pass, within about five minutes. Your funds stay in your wallet until then.`
-          : current.status === 'closed'
-            ? `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet.`
-            : `Parked $${usdAmount} of ${current.listing.symbol}; it fills when ${clearsWhen(current)}. Your funds never left your wallet.`,
-      })
+        markPx: current.markPx,
+        limitUsd,
+      }
+      let sig: string
+      if (repeat > 1) {
+        // One approval for all of them, then the orders, packed into as few
+        // transactions as fit; one prompt where the wallet signs a batch.
+        const { ixs } = placeInstructions(args, recurringSlots(now, args.nonce, opens))
+        const { sigs, error, failedAt } = await submitInOrder(
+          conn,
+          packTransactions(ixs, publicKey),
+          publicKey,
+          signTransaction,
+          signAllTransactions,
+        )
+        if (failedAt !== null) {
+          throw failedAt === 0
+            ? error
+            : new Error(
+                `Only part of the recurring buy was placed (${describe(error)}). The approval covers all of it: cancel what landed, or use "Revoke all funding", and try again.`,
+              )
+        }
+        sig = sigs[0]!
+      } else {
+        sig = await submit(conn, placeOrderTx(args).tx, publicKey, signTransaction)
+      }
+      const placed = repeat > 1
+        ? `Scheduled $${usdAmount} of ${current.listing.symbol} at each of the next ${opens.length} opens (${opens.map((o) => nyDayOf(o)).join(', ')}), from one approval. Your funds stay in your wallet until each fills.`
+        : current.allowed
+        ? `Placed $${usdAmount} of ${current.listing.symbol}. The filler settles it on its next pass, within about five minutes. Your funds stay in your wallet until then.`
+        : current.status === 'closed'
+          ? `Queued $${usdAmount} of ${current.listing.symbol} for the opening bell. Your funds never left your wallet.`
+          : `Parked $${usdAmount} of ${current.listing.symbol}; it fills when ${clearsWhen(current)}. Your funds never left your wallet.`
+      const limitNote =
+        limitUsd === null
+          ? ''
+          : current.priceUsd && limitUsd < current.priceUsd
+            ? ` Limit $${limitUsd.toFixed(2)} a share: below the pool's price now, so it fills only if the price comes down to it.`
+            : ` Limit $${limitUsd.toFixed(2)} a share.`
+      setNotice({ ok: true, sig, text: placed + limitNote })
       await refresh()
     } catch (e) {
       setNotice({ ok: false, text: describe(e) })
     } finally {
       setBusy(false)
     }
-  }, [amount, conn, current, known, multiplierOf, publicKey, refresh, signTransaction, wallet])
+  }, [amount, conn, current, known, limit, multiplierOf, publicKey, refresh, repeat, signAllTransactions, signTransaction, wallet])
 
   const cancel = useCallback(
     async (order: BellOrder) => {
@@ -505,8 +661,9 @@ export default function Page() {
             </div>
             {/* Not `.sub`: the demo script reads the second `.sub` as the board line. */}
             <p className="what">
-              BELL refuses trades in tokenized US stocks whenever the real market is closed or
-              halted, or the token is not safe to trade — and parks your order to fill when it can.
+              The safe way to buy US stocks from your own wallet, at any hour. In the regular session
+              BELL trades; when a stock is halted or a dividend is about to change the token, it refuses
+              on-chain; while New York is shut, it holds your order for a real price.
             </p>
           </div>
           {mounted && <WalletMultiButton />}
@@ -613,6 +770,28 @@ export default function Page() {
             )
           })}
 
+          {(() => {
+            // What the real market last said, next to what the pool would
+            // charge now. Display only: nothing on chain reads it.
+            const ref = refs[current.listing.underlying]
+            if (!ref || !current.priceUsd) return null
+            const bps = ((current.priceUsd - ref.last) / ref.last) * 10_000
+            const away =
+              Math.abs(bps) < 1 ? 'level with it' : `${Math.abs(bps).toFixed(0)}bps ${bps > 0 ? 'above' : 'below'} it`
+            return (
+              <div className="gate">
+                <span className="mark disclose">ⓘ</span>
+                <span className="label">pool vs US price</span>
+                <span className="detail">
+                  $200 buys at ${current.priceUsd.toFixed(2)} a share in the Solana pool;{' '}
+                  {current.listing.underlying} last traded at ${ref.last.toFixed(2)} (
+                  {ref.marketStatus.toLowerCase()}
+                  {ref.realTime ? '' : ', delayed'}, Nasdaq) — {away}
+                </span>
+              </div>
+            )
+          })()}
+
           {/* The note describes the real security. A devnet mirror is not it,
               and a note like "an entitlement to the real PFE share" would be
               false of the token actually on screen without saying so. */}
@@ -630,6 +809,24 @@ export default function Page() {
                 onChange={(e) => setAmount(e.target.value)}
                 aria-label="amount in dollars"
               />
+            </label>
+            <label className="amt lim" title="Leave empty to buy at the price the bell sets">
+              <span>max $</span>
+              <input
+                inputMode="decimal"
+                value={limit}
+                onChange={(e) => setLimit(e.target.value)}
+                placeholder="any"
+                aria-label="limit price per share"
+              />
+              <span>/share</span>
+            </label>
+            <label className="amt rep" title="One bell order, or one at each of the next few opens">
+              <select value={repeat} onChange={(e) => setRepeat(Number(e.target.value))} aria-label="repeat">
+                <option value={1}>once</option>
+                <option value={3}>next 3 opens</option>
+                <option value={5}>up to 5 opens</option>
+              </select>
             </label>
             <button
               className={`act ${current.allowed ? '' : 'secondary'}`}
@@ -656,6 +853,35 @@ export default function Page() {
             </button>
           </div>
 
+          {current.priceUsd && current.markRateQ64 && Number(amount) > 0 && canPlace && (() => {
+            // What the user is agreeing to, in money, before the wallet opens.
+            // The band is relative to the price at the bell; the cap is absolute.
+            const usdAmount = Number(amount)
+            const limitUsd = limit.trim() && Number(limit) >= 0.01 ? Number(limit) : null
+            const cap = maxPricePerShare(current.priceUsd, limitUsd)
+            const shares = usdAmount / current.priceUsd
+            const opens = repeat > 1 ? nextOpens(nowS(), repeat) : []
+            return (
+              <div className="worst">
+                {opens.length > 0 && (
+                  <>
+                    ${usdAmount.toLocaleString()} at each of the next {opens.length} opens (
+                    {opens.map((o) => nyDayOf(o)).join(', ')}): $
+                    {(usdAmount * opens.length).toLocaleString()} in all, approved once.{' '}
+                  </>
+                )}
+                At the pool's price now (${current.priceUsd.toFixed(2)}), ${usdAmount.toLocaleString()} buys about{' '}
+                {shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} {current.listing.symbol}. The fill uses
+                the price at that moment, plus at most 30bps — and whatever the price does before then, never more
+                than <strong>${cap.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} a share</strong>
+                {limitUsd && cap === limitUsd ? ' (your limit)' : ' (a third over the price now: the loss cap)'}.
+                {limitUsd && limitUsd < current.priceUsd
+                  ? ' Your limit is under the price now, so it fills only if the price comes down to it; if it does not, the order lapses and nothing is spent.'
+                  : ''}
+              </div>
+            )
+          })()}
+
           {notice && (
             <div className={`notice ${notice.ok ? 'ok' : 'bad'}`}>
               {notice.text}
@@ -677,6 +903,45 @@ export default function Page() {
         </div>
       )}
 
+      {publicKey && fills.length > 0 && (
+        <div className="panel">
+          <p className="verdict">Your fills</p>
+          {fills.map((f) => {
+            const at = Math.floor(Date.parse(f.time) / 1000)
+            const after = minutesAfterOpen(at)
+            // Over the checked price, as a price: the program's `realizedBps`
+            // is the stock short of fair, rounded down, so a fill at the edge
+            // of a 30bps band reads 31 beside a box that promised at most 30.
+            const over =
+              f.priceUsd !== null && f.markPriceUsd > 0
+                ? Math.round((f.priceUsd / f.markPriceUsd - 1) * 10_000)
+                : f.realizedBps
+            return (
+              <div className="receipt" key={`${f.signature}:${f.order}`}>
+                <span className="label">{f.symbol}</span>
+                <span className="detail">
+                  {nyWhenOf(at)}
+                  {after !== null ? ` · ${after} min after the bell` : ''} · ${f.notionalUsd.toFixed(2)} bought{' '}
+                  {f.shares !== null ? f.shares.toLocaleString(undefined, { maximumFractionDigits: 6 }) : f.stockRaw + ' raw'}{' '}
+                  {f.symbol}
+                  {f.priceUsd !== null ? ` at $${f.priceUsd.toFixed(2)} a share` : ''} ·{' '}
+                  {over < 0 ? `${-over}bps under` : `${over}bps over`} the price it was checked against (${f.markPriceUsd.toFixed(2)}, a {f.markSource} quote) ·{' '}
+                  <a href={f.explorer} target="_blank" rel="noreferrer">
+                    receipt on the explorer ↗
+                  </a>
+                </span>
+              </div>
+            )
+          })}
+          <div className="note">
+            Read back from the chain by this site&apos;s tape route: each line is a fill transaction and
+            the event the program emitted when it settled, and each links to that transaction, so none of
+            it rests on our word. The same record, for every buyer and without wallets, is the public tape
+            at <a href="/api/tape">/api/tape</a>.
+          </div>
+        </div>
+      )}
+
       {publicKey && orders && orders.length > 0 && (
         <div className="panel">
           <p className="verdict">Your bell orders</p>
@@ -689,18 +954,32 @@ export default function Page() {
                 <span className="detail">
                   ${usd(o.amountIn)}
                   {o.filledIn > 0n ? ` · $${usd(o.filledIn)} filled` : ''}
+                  {Number(o.notBefore) > nowS() ? ` · for the ${nyWhenOf(Number(o.notBefore))} open` : ''}
                   {dead === 'expired'
                     ? ' · expired — cancel to reclaim the rent'
                     : dead === 'resized'
                       ? ' · refused: a corporate action changed its size — cancel to reclaim the rent'
                       : !bookFunded
                         ? ' · not funded — the delegation no longer covers it, so it cannot fill'
-                        : view?.allowed
+                        : Number(o.notBefore) > nowS()
+                          ? // A later day of a recurring buy: the program holds it
+                            // back until its own open, whatever the session is now.
+                            ' · held until then'
+                          : view?.allowed
                           ? ' · the filler settles it on its next pass'
                           : !view || view.status === 'closed'
                             ? ' · waiting for the bell'
                             : ` · parked — fills when ${clearsWhen(view)}`}{' '}
-                  · slip ≤ {o.maxSlipBps}bps · until {nyWhenOf(Number(o.expiresAt))}
+                  {(() => {
+                    // The floor as a price: rate and price are inverse, so the
+                    // cap is today's price scaled by today's rate over the floor.
+                    // Only meaningful while the multiplier it was built on holds.
+                    if (!view?.markRateQ64 || !view.markPx || o.floorRateQ64 <= 0n || dead) return null
+                    const px = Number(view.markPx.num) * 10 ** view.markPx.expo
+                    const cap = (px * Number(view.markRateQ64)) / Number(o.floorRateQ64)
+                    return <> · never above ${cap.toFixed(2)}/share</>
+                  })()}
+                  {' '}· slip ≤ {o.maxSlipBps}bps · until {nyWhenOf(Number(o.expiresAt))}
                 </span>
                 <button className="mini" disabled={busy} onClick={() => void cancel(o)}>
                   cancel

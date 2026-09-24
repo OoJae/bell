@@ -83,8 +83,9 @@ let lastDropped = 0
  * Parsing the list as a whole meant one malformed row among 1,245 threw the
  * entire feed, and with it the keeper's tick; a tick that pushes nothing closes
  * all nine symbols 120 seconds later. A bad row now costs only its own ticker,
- * which reads as having no feed at all, and `reconcile` closes a US listing
- * with no feed. Fail-closed is unchanged; only its reach is.
+ * which reads as having no feed at all. `reconcile` then lets the NYSE calendar
+ * stand in for it: open only during the regular session, closed otherwise.
+ * Fail-closed is unchanged outside the session; only its reach is.
  *
  * A body that is not a list is still an error: that is a different API, not a
  * bad row, and there is nothing to salvage from it.
@@ -120,7 +121,7 @@ export function parseEquitySessions(body: unknown): Map<string, PythSession> {
       dropped === 0
         ? `pyth price_feeds: every row parses again (${lastDropped} were being dropped)`
         : `pyth price_feeds: dropped ${dropped} of ${rows.length} rows that did not parse, e.g. ${example}; ` +
-            'a dropped ticker reads as having no feed, and a US listing with no feed is closed',
+            'a dropped ticker reads as having no feed, and the NYSE calendar stands in for it',
     )
     lastDropped = dropped
   }
