@@ -1,6 +1,6 @@
-# BELL — film script (draft 2)
+# BELL — film script (draft 3)
 
-Three minutes, ~400 words at a natural pace. The beats are fixed, and every
+Three minutes, about 400 words at a natural pace. The beats are fixed, and every
 on-screen claim must be something the footage actually shows. Read it aloud once
 before recording — anywhere a line feels like a mouthful, it is wrong, not you.
 
@@ -8,151 +8,149 @@ Recording notes for the voiceover: one take per section is fine; leave a
 second of silence between sections so the cut can breathe. Speak it to one
 person, not to a room.
 
+Lines marked **[if shipped]** depend on features being built on Thursday 24
+Sep; cut them if the feature is not live when you record. Lines marked
+**[fill]** get their number from Thursday's bell (09:57 ET check-in).
+
 ---
 
-### 1 · The problem (0:00–0:30)
+### 1 · The problem (0:00–0:25)
 
-*On screen: the live board at night, every symbol closed. Then the numbers.
-Lower-third: "census of Sun 20 Sep 2026 · docs/census-2026-09-20T22-18Z.json".*
+*On screen: the live board at night, the New York clock reading closed. Then
+the AMC chart. Lower-third: "tokenized AMC, Robinhood Chain, Labor Day weekend
+2026 · crypto.news, 8 Sep".*
 
-> Say you live outside the US and buy tokenized US stocks from a wallet. On
-> Solana, a pool will sell you Lockheed while its exchange in New York is shut.
+> You live in Lagos. You hold dollars in your wallet, and you want the S&P
+> 500.
 >
-> On Sunday there were nine hundred and twenty-eight xStocks on Solana. Eight
-> hundred and eighty-three had under a thousand dollars of liquidity.
+> On Solana you can buy it at any hour. Wall Street closes; Solana doesn't.
+> But while New York is shut, the pool you're buying from has nothing to check
+> its price against. Over Labor Day weekend, a tokenized AMC traded at eighteen
+> dollars. The real stock had closed at two fifty-four.
 
-### 2 · The rule (0:30–0:45)
+### 2 · What BELL is (0:25–0:45)
 
-*On screen: the SEC order, §II.H, the sentence highlighted. Lower-third:
-"Order 34-106402, 17 Sep 2026 · applies to Tokenized NMS Stock; BELL applies it
-to all nine".*
+*On screen: the page — the line under the title, the clock, the board.*
 
-> On September 17th the SEC wrote it down: a venue must stop trading a
-> tokenized stock whenever the real one is halted on its home exchange.
+> BELL is the safe way to buy US stocks from your own wallet, at any hour.
 >
-> BELL puts that sentence in a Solana program.
+> In the regular session, it trades. When the stock is halted, or a dividend
+> is about to change the token under you, it refuses — on-chain. And while New
+> York is shut, it holds your order for a real price.
 
-### 3 · The refusal (0:45–1:20)
+### 3 · The refusal (0:45–1:15)
 
-*On screen: the gate panel on the page. Then the landed refusal in the
-explorer — devnet, block time Wed 23 Sep 16:26 ET, sig `2Ue1to…Cr1pH`:
-MarketClosed (custom 6000), "Market is closed or trading in this security is
-stopped", fee 5,000 lamports, no transfer. Lower-third: "devnet · a lamport
-transfer stands in for the swap; Jupiter is not on devnet".*
+*On screen: the gate panel lighting row by row. Then the landed refusal in the
+explorer — devnet, Wed 23 Sep 16:26 ET, sig `2Ue1to…Cr1pH`: MarketClosed
+(custom 6000), "Market is closed or trading in this security is stopped", fee
+paid, no transfer. Lower-third: "devnet · a lamport transfer stands in for the
+swap". Then the SEC order, §II.H highlighted. Lower-third: "Order 34-106402,
+17 Sep 2026".*
 
-> Every trade through BELL passes seven gates. Is the market open. Is the stock
-> halted. Has the issuer paused the token. Is a dividend or a split about to
-> land.
+> Every trade passes seven gates. The pause, the dividend and the hook are
+> read straight off the token: Token-2022 puts them on the mint, where a Solana
+> program can check them.
 >
-> The last two are read off the token itself. That's the Solana part:
-> Token-2022 puts the pause and the next multiplier change on the mint, where a
-> program can read them.
+> On September 17th the SEC wrote that a tokenized-stock venue must stop
+> trading whenever the real stock is halted. BELL does that, and goes further.
 >
-> When a gate fails, the transaction fails on-chain. Here's one we sent anyway:
-> the fee was paid, and the transfer never happened.
+> When a gate fails, the transaction fails. Here's one we sent anyway: fee
+> paid, nothing bought.
 
-### 4 · The bell (1:20–1:50)
+### 4 · The bell (1:15–1:55)
 
-*On screen: an order queued at night; the wallet balance unchanged. Then the
-fill in the explorer — devnet, block time Wed 23 Sep 09:35:24 ET, sig
-`5mj8qK…CFqt`: 200 demo-USDC for 25,661,713 raw SPYx, sent by the hosted
-crank. That fill was not filmed: show the explorer, never a staged fill in its
-place. Lower-third: "devnet · the price mark is a live mainnet Jupiter quote;
-the filler delivers mirror SPYx for demo-USDC".*
+*On screen: an order queued at night with a limit price; the balance
+unchanged. Cut to the bell: the badge turns tradeable, the order line goes, the
+holding grows. Then the receipt **[if shipped]**, and the fill in the explorer.
+Lower-third: "devnet · the price is a live mainnet Jupiter quote; the filler
+delivers mirror SPYx for demo-USDC".*
 
-> A refusal isn't the end. The order parks for the opening bell, and your money
-> stays in your wallet until it fills — it's a delegation, and one standard
-> token instruction from your own wallet takes it back, without BELL.
+> A refusal isn't the end. Set your limit, and your order waits for the
+> opening bell. Your money stays in your wallet until it fills, and cancelling
+> is one standard instruction BELL plays no part in.
 >
-> On Wednesday, just over five minutes after the bell, our crank filled an
-> order placed overnight — unattended, and checked against a price no more than
-> a minute old.
-
-### 5 · The dividend (1:50–2:20)
-
-*On screen: the live rebase on the Apple mirror — unclassified, pending, clear.
-Lower-third, on screen the whole time: "devnet mirror of AAPLx · dividend
-scheduled by us to show the gate; not a real Apple dividend".
-The narration must not imply this was a real Apple dividend.*
-
-> A dividend on an xStock steps a multiplier on the mint at a scheduled
-> second. A pool doesn't see it, so right after, it's still priced on the old
-> number.
+> This morning, **[fill]** minutes after the bell, our filler settled an order
+> placed the night before. Nobody was at a keyboard. **[if shipped]** The
+> receipt shows what it paid, next to what the pool wanted at night.
 >
-> BELL refuses fifteen minutes either side. An order built on the old number is
-> refused — it never fills at the wrong size — and you place it again. While a
-> stock is refused, the page won't park an order across a scheduled change.
+> **[if shipped]** Or have it buy at every open this week, from one approval.
 
-### 6 · Silence closes the venue (2:20–2:35)
+### 5 · The dividend (1:55–2:20)
 
-*On screen: the keeper stopped; the board's badges turning to stale.*
+*On screen: the live rebase on the Apple mirror — unclassified, pending, clear —
+and the page refusing to queue across it. Lower-third, on screen the whole
+time: "devnet mirror of AAPLx · dividend scheduled by us to show the gate; not a
+real Apple dividend".*
 
-> And if we disappear? Stop our keeper, and two minutes after its last word,
-> every trade is refused. An unreachable truth is not permission to trade.
+> A dividend on an xStock changes a number on the token at a scheduled second.
+> The exchange doesn't halt for an ordinary dividend, so BELL does: fifteen
+> minutes either side, exactly as the issuer advises. An order built on the old
+> number never fills at the wrong size.
 
-### 7 · What you still have to trust (2:35–3:00)
+### 6 · If we disappear (2:20–2:35)
 
-*On screen: the permanent-delegate row on the page; AUDIT.md; the README's
-trust section, which also covers BELL's own keys (attestor, upgrade authority);
-the repo.*
+*On screen: the keeper stopped; the badges turning to stale.*
 
-> What BELL can't fix: on mainnet, two issuer keys can take these stocks out of
-> any wallet — it's written on the tokens. On our devnet mirrors, the key is
-> ours.
+> Stop our keeper, and within two minutes every trade is refused. Your orders
+> just wait, and one tap in your own wallet cancels them.
+
+### 7 · What you still trust (2:35–3:00)
+
+*On screen: the permanent-delegate row; the README's trust section; the repo.*
+
+> What BELL can't fix: two issuer keys can take these stocks out of any
+> wallet. On our devnet mirrors, that key is ours. And the key that tells BELL
+> the market is open also sets its price, so your limit and a thousand-dollar
+> cap bound what it can do.
 >
-> An automated adversarial review — eighty-four AI agents, not a third-party
-> audit — confirmed five findings. We fixed them, and hardened a sixth anyway.
+> Buying is live today. Selling at the bell, and the twenty-three-hour sessions
+> starting in December, are next.
 >
 > BELL. The venue that knows what time it is.
 
 ---
 
-**Verified** (against the code, a committed file, or the chain):
+**Verified** (against the code, a committed file, or a primary source):
 
-- 928 xStocks, 883 under $1,000 of liquidity — `docs/census-2026-09-20T22-18Z.json`
-  (Sun 20 Sep). The universe has grown since (1,124 listings on 23 Sep), so the
-  narration keeps it dated.
-- Lockheed trades off-hours on Solana — the keeper prices LMT (Backpack's
-  token) from an executable mainnet Jupiter quote (`readMarks` in
-  `src/chain/keeper.ts`). At 16:41 ET Wed 23 Sep, after the close, Jupiter
-  quoted $200 of USDC into LMT through a Raydium CLMM pool, and the devnet LMT
-  mark was pushed at 16:44 ET.
-- The SEC sentence — Order 34-106402, §II.H, quoted in `assert_tradeable.rs`
-  gate 2. It names Tokenized NMS Stock, which excludes Backed's synthetic
-  certificates (`src/listings.ts`); hence the lower-third.
-- Seven gates — `check_tradeable`, numbered 1–7 (2b and 4b are sub-gates; the
-  page shows them as separate rows, `web/lib/bell.ts`). The pause, the
-  multiplier, the scheduled change and the hook are read from the mint
-  (`verify_token_risk.rs`), not from an oracle; whether a change is a split or
-  a dividend is attested (`classify_rebase`).
-- The landed refusal — `2Ue1towjdeQoG1Eeo7xC1tvfUpJ8VcBNxR14gXk8MiYnDyicQ4F4mtkXi4TVxx6ritLjkKGE5RZtCSs2Fq9Cr1pH`
-  (`scripts/guarded-swap.ts --land`): gate 7 (`assert_tradeable.rs:109`),
-  custom 6000 with the new message, fee 5,000 lamports, the transfer absent.
-  It landed after the message-only upgrade of 15:32 ET the same day.
-- The fill — `5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt`:
-  the user's account paid 200,000,000 raw demo-USDC (6 decimals) and received
-  25,661,713 raw SPYx (8 decimals). The explorer's block time is 09:35:24 ET;
-  the 5m27s measured on the day puts it at 09:35:27. "Just over five minutes"
-  is true of both. The crank runs every five minutes.
-- "No more than a minute old" — `MAX_MARK_AGE_SECONDS = 60`, checked in
-  `fill_order` against the mark in force at fill time.
+- Tokenized AMC at $18.04 against a $2.54 close, Labor Day weekend 2026, on
+  Robinhood Chain — crypto.news, 8 Sep 2026
+  (https://crypto.news/robinhood-amc-tokens-expose-limits-of-short-squeezes/).
+  It happened on another chain: the lower-third says so, and the voiceover does
+  not call it Solana.
+- "Wall Street closes; Solana doesn't" — the host's own framing (@solana,
+  September 2026). The line agrees with it rather than arguing.
+- "Nothing to check its price against" — an AMM prices off its own pool; US
+  exchanges trade about 32.5 of 168 hours a week (RedStone's COO, crypto.news,
+  18 Sep 2026). Weekday nights get exchange sessions from 6 Dec 2026 (Nasdaq
+  ETA 2026-46), which is why section 7 names them.
+- Seven gates — `check_tradeable`, numbered 1–7 (2b and 4b are sub-gates). The
+  pause, the scheduled multiplier change and the hook are read from the mint
+  (`verify_token_risk.rs`); whether a change is a split or a dividend is
+  attested (`classify_rebase`).
+- The SEC sentence — Order 34-106402, §II.H: stop "concurrently with any
+  stoppage of trading in the underlying NMS stock on the primary listing
+  exchange". It requires a stop on halts, not when the market is merely closed
+  — hence "and goes further".
+- The landed refusal — `2Ue1towjdeQoG1Eeo7xC1tvfUpJ8VcBNxR14gXk8MiYnDyicQ4F4mtkXi4TVxx6ritLjkKGE5RZtCSs2Fq9Cr1pH`:
+  MarketClosed (custom 6000), fee 5,000 lamports, transfer absent.
 - Cancel — an SPL `revoke` sent alone from the user's wallet, before BELL's
   close (`cancelOrderTxs` in `web/lib/queue.ts`).
-- Fifteen minutes either side — `REBASE_GUARD_SECONDS = 15 * 60`. The old-number
-  refusal is gate 5, `MultiplierMoved`. The page refuses to place an order
-  across a scheduled change while the stock is refused (`web/app/page.tsx`); an
-  order placed while it is allowed is not checked there, and gate 5 is what
-  stops it.
-- "Two minutes after its last word" — `MAX_STATE_AGE_SECONDS = 120`, measured
-  from the last attestation, not from when the keeper stops.
-- The two keys — Backed `5aMN…FvEq` (seven xStocks) and Backpack `2cVY…af4a`
-  (PFE, LMT) on mainnet; BELL's deploy key `Dqp6…Ziqs` on every devnet mirror
-  (`web/lib/bell.ts`, the disclosure row).
-- The review — `AUDIT.md`: 84 agents, 26 raised, five confirmed and fixed, #4
-  refuted but hardened anyway.
+- Fifteen minutes either side — `REBASE_GUARD_SECONDS = 15 * 60`, matching
+  Backed's own advice to pause "~15 minutes before and after each activation"
+  (docs.xstocks.fi/developers/multipliers). Nasdaq's corporate-action halt
+  covers dividends of 25% or more, not ordinary ones.
+- "Within two minutes" — `MAX_STATE_AGE_SECONDS = 120`, from the last
+  attestation.
+- The keys — Backed `5aMN…FvEq` and Backpack `2cVY…af4a` on mainnet; BELL's
+  deploy key `Dqp6…Ziqs` on every devnet mirror. The attestor sets both the
+  session and the mark; each order's floor and the $1,000 cap bound a wrong
+  price (README, "What you must trust").
 
-**Still not verified — check against the final cut before recording:**
+**Still to confirm before recording:**
 
-- That the footage shows each on-screen item: the night board, the gate panel,
-  the queued order with the balance unchanged, the Apple-mirror rebase walked
-  through its three states, and the keeper-stop sequence.
+- **[fill]** — Thursday's fill latency, from the bell recording and the fill
+  transaction's block time.
+- **[if shipped]** — the receipt and recurring lines, only if those features
+  are live on the page.
+- That the footage shows each on-screen item, including the Apple-mirror rebase
+  (still to be filmed) and the keeper-stop sequence.
