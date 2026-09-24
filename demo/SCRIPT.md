@@ -8,13 +8,12 @@ Recording notes for the voiceover: one take per section is fine; leave a
 second of silence between sections so the cut can breathe. Speak it to one
 person, not to a room.
 
-The limit price, the recurring buy and the receipt ship in the push after
-10:00 ET on Thursday 24 Sep, so the page shows them only from then: film those
-shots after the push, not in the bell recording. Selling needs a program
-upgrade as well as the push, so the sell shot in section 7 is filmed after
-both, once a sale has filled. Notifications are not in this script; they need a
-bot token that does not exist yet. Lines marked **[fill]** get their number
-from Thursday's bell (09:57 ET check-in).
+The limit price, the recurring buy and the receipt shipped in the push at
+09:43 ET on Thursday 24 Sep, after the bell recording, so film those shots on
+the live page, not from the bell recording. Selling went live with the program
+upgrade at 09:49 ET and the push at 10:08 ET; the sell shot in section 7 is
+filmed on the live page. Notifications (the Telegram channel @bellfills) are not
+in this script.
 
 ---
 
@@ -74,7 +73,7 @@ delivers mirror SPYx for demo-USDC".*
 > opening bell. Your money stays in your wallet until it fills, and cancelling
 > is one standard instruction BELL plays no part in.
 >
-> This morning, **[fill]** minutes after the bell, our filler settled an order
+> Thursday morning, five minutes after the bell, our filler settled an order
 > placed the night before. Nobody was at a keyboard. The receipt shows what
 > it paid a share, and how close that came to the price it was checked
 > against.
@@ -146,6 +145,10 @@ in the explorer.*
 - The limit — "max $ /share" on the page; it becomes the order's floor, which
   the program enforces (`orderFloor` in `src/policy/order.ts`), and the filler
   waits while it is below the market (`scripts/crank.ts`).
+- Five minutes after the bell — Wednesday's overnight fill landed at 09:35:24 ET
+  and Thursday's at 09:35:26 ET (`5311pZ8D6WRdRyBZzSHM5VDHds4BmwUXagx17VjHTCHH2iqasHtANaiD8gzmdLXmBDMUx2qsjLiLKWKTbcd9xGVv`),
+  the one the bell recording filmed. The hosted crank runs every five minutes;
+  neither fill needed anyone to act.
 - The receipt — "Your fills": when it filled, minutes after the bell, the price
   paid a share, and the bps over the mark it was checked against, with the
   transaction linked. It shows the price at the fill, not the price at night.
@@ -185,8 +188,6 @@ in the explorer.*
 
 **Still to confirm before recording:**
 
-- **[fill]** — Thursday's fill latency, from the bell recording and the fill
-  transaction's block time.
 - The limit shot. The order queued at 20:40 ET on Wed 23 Sep was placed
   before the limit field existed, so that footage shows no limit: either film
   a new night queue with a limit after 16:00 ET on Thursday, or cut "Set your

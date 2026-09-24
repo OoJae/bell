@@ -298,6 +298,12 @@ needs nothing from this program.
   demo-USDC for 25,661,713 raw SPYx
   ([transaction](https://explorer.solana.com/tx/5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt?cluster=devnet)).
   It was not filmed; the transaction is the record.
+- **The same, filmed.** On Thursday 24 September an overnight $200 SPYx order
+  from the same wallet filled in a block timestamped 09:35:26 ET, five minutes
+  after the bell: 200 demo-USDC for 25,915,945 raw SPYx
+  ([transaction](https://explorer.solana.com/tx/5311pZ8D6WRdRyBZzSHM5VDHds4BmwUXagx17VjHTCHH2iqasHtANaiD8gzmdLXmBDMUx2qsjLiLKWKTbcd9xGVv?cluster=devnet)).
+  The page was recorded from 09:25 ET, unattended, and the wallet signed
+  nothing while it ran.
 - **A sale.** 0.02 SPYx (1,988,635 raw) sold for 15.267831 demo-USDC, $763.39
   a share, 30 bps under the mark's $765.69, in a block timestamped 10:04:28 ET
   on Thu 24 Sep ([transaction](https://explorer.solana.com/tx/4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm?cluster=devnet)): the first sale on
