@@ -18,16 +18,22 @@
  *
  * - open_now: the calendar says open AND Nasdaq says regular session.
  *   Pre-market and after-hours are closed.
- * - ref_rate_q64: the underlying's last sale, converted with the symbol's
- *   on-chain TokenRisk multiplier and its mint's decimals into the mark's
- *   convention (stock raw per quote raw, Q64.64), so the program compares the
- *   two directly.
+ * - ref_rate_q64: the underlying's reference price, converted with the
+ *   symbol's on-chain TokenRisk multiplier and its mint's decimals into the
+ *   mark's convention (stock raw per quote raw, Q64.64), so the program
+ *   compares the two directly. In session the reference is the last sale;
+ *   outside it, the regular session's official close, never an
+ *   extended-hours print (src/sensor/nasdaq.ts says why).
  * - ref_px_num / ref_px_expo: the same price in dollars, for people.
- * - ref_at: when that sale printed. observed_at: when the checker looked, and
- *   never later than the cluster's clock, which the program judges it by.
+ * - ref_at: when that sale printed, or the instant the session closed.
+ *   observed_at: when the checker looked, and never later than the cluster's
+ *   clock, which the program judges it by.
  *
- * A symbol whose reading is missing, unparsed, stale in session, or has no
- * opinion about the session is pushed nothing that pass (`usableReading`).
+ * A symbol whose reading is missing, unparsed, stale in session, has no close
+ * outside it, or has no opinion about the session is pushed nothing that pass
+ * (`usableReading`). A close is pushed however old it is: the program prices
+ * night fills against it for twelve hours (MAX_NIGHT_REF_AGE_SECONDS) and
+ * refuses them after that, and the checker's closed verdict stays true.
  * Its check then ages out after MAX_CHECK_AGE_SECONDS and its fills stop,
  * which is the point: the checker never says what it cannot stand behind.
  *
@@ -38,7 +44,8 @@
  * - keeper: the on-chain SymbolState and its age. Older than
  *   MAX_STATE_AGE_SECONDS reads as `stale`, because the program treats it as
  *   closed.
- * - ref: the underlying's last sale, which source gave it, and its age.
+ * - ref: the reference, which source gave it, whether it is the last sale or
+ *   the close, and its age.
  * - mark: the on-chain SymbolMark price, its age and its confidence.
  * - |mark-ref|: the gap in basis points of the reference.
  *
@@ -126,12 +133,12 @@ export interface CheckPlan {
   push: PushArgs | null
   /** Why nothing is sent for this symbol this pass; null when it is sent. */
   skip: string | null
-  /** The last sale behind the push, for the log. */
+  /** The reference behind the push, for the log: a last sale in session, the close outside it. */
   quote: Quote | null
 }
 
 /**
- * `ref_rate_q64` for a last sale of `price` dollars a share: stock raw per
+ * `ref_rate_q64` for a reference of `price` dollars a share: stock raw per
  * quote raw in Q64.64, the multiplier folded in. The keeper's mark is built
  * with the same function (`markFromQuote`), which is what makes the program's
  * `|mark - ref|` a comparison of like with like.
@@ -171,10 +178,12 @@ export function planCheck(args: {
   if (args.stockDecimals === undefined) return none('the mint could not be read, so no decimals to convert with', q)
   if (!accounts.mark) return none('no mark, so no quote asset to price the reference in', q)
   if (args.quoteDecimals === undefined) return none('the quote mint could not be read, so no decimals to convert with', q)
-  // A sale dated after the observation is a clock read wrong somewhere, and
-  // the program refuses it (BadParameters), which would fail the batch with it.
+  // A reference dated after the observation is a clock read wrong somewhere,
+  // and the program refuses it (BadParameters), which would fail the batch with it.
   const refAt = Math.floor(q.lastAt / 1000)
-  if (refAt > args.observedAt) return none(`the last sale is dated ${refAt - args.observedAt}s after this observation`, q)
+  if (refAt > args.observedAt) {
+    return none(`the ${q.kind === 'close' ? 'close' : 'last sale'} is dated ${refAt - args.observedAt}s after this observation`, q)
+  }
   const refRateQ64 = referenceRate(q.last, multiplierOf(accounts.risk.multiplierBits), args.stockDecimals, args.quoteDecimals)
   const push: PushArgs = {
     symbol,
@@ -308,7 +317,7 @@ function row(
   // session, is recent but is a pre-market print. Nasdaq's time is the start
   // of the print's minute, so a 09:30 print still counts.
   const refInSession = q ? isRegularOpen(new Date(q.lastAt)) === true : false
-  cols.push(q ? `$${q.last.toFixed(4)} ${q.source} ${ageText(refAge!)}`.padEnd(26) : 'no reference'.padEnd(26))
+  cols.push(q ? `$${q.last.toFixed(4)} ${q.source} ${q.kind} ${ageText(refAge!)}`.padEnd(32) : 'no reference'.padEnd(32))
 
   const mark = accounts?.mark
   let markPx: number | null = null
@@ -359,9 +368,6 @@ function row(
   // Said so the gap beside it is not read as a price the keeper would fill at.
   if (markStale) notes.push('mark stale: no fill settles at it, gap left out of the band')
   if (reading?.openNow && q && !refInSession) notes.push('ref printed before the session, left out of the band')
-  // Said of when it was read, not of the print: outside the session Nasdaq's
-  // last sale can be an extended-hours trade, and Yahoo's is the close.
-  if (q && q.session && q.session !== 'regular') notes.push(`ref read outside the regular session (${q.session})`)
   if (reading?.errors.length) notes.push(reading.errors.join('; '))
 
   return {
@@ -443,7 +449,7 @@ async function once(key: Keypair | null) {
   if (pass.marketError) console.log(`  market-info failed: ${pass.marketError}`)
   if (!board.ok) console.log(`  chain UNREAD: ${board.error}`)
   console.log(
-    `  ${'symbol'.padEnd(6)} ${'checker'.padEnd(7)} ${'keeper'.padEnd(12)} ${'ref (source, age)'.padEnd(26)} ` +
+    `  ${'symbol'.padEnd(6)} ${'checker'.padEnd(7)} ${'keeper'.padEnd(12)} ${'ref (source, kind, age)'.padEnd(32)} ` +
       `${'mark (age, conf, source)'.padEnd(34)} |mark-ref|`,
   )
 
@@ -508,7 +514,10 @@ async function once(key: Keypair | null) {
     const p = plan.push
     if (p) {
       const px = Number(p.refPxNum) * 10 ** p.refPxExpo
-      cols.push(`${p.openNow ? 'open  ' : 'closed'} ref $${px.toFixed(4)} ${plan.quote?.source ?? ''} ${ageText(observedAt - Number(p.refAt))} old`)
+      cols.push(
+        `${p.openNow ? 'open  ' : 'closed'} ref $${px.toFixed(4)} ${plan.quote?.source ?? ''} ${plan.quote?.kind ?? ''} ` +
+          `${ageText(observedAt - Number(p.refAt))} old`,
+      )
       const mark = accounts?.mark
       const decimals = decimalsCache.get(listing.mint)
       const quoteDecimals = mark ? decimalsCache.get(mark.quoteMint.toBase58()) : undefined

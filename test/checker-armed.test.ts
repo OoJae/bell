@@ -8,6 +8,7 @@
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { gapCheck, planCheck, referenceRate, type PushArgs } from '../scripts/checker.ts'
@@ -25,7 +26,7 @@ import {
 import { TX_LIMIT, markFromQuote, packInstructions, txBytes } from '../src/chain/keeper.ts'
 import { LISTINGS } from '../src/listings.ts'
 import { symbolSeed } from '../src/config.ts'
-import { judge, type MarketInfo, type Quote } from '../src/sensor/nasdaq.ts'
+import { judge, parseMarketInfo, parseNasdaqQuote, type MarketInfo, type Quote, type Quotes } from '../src/sensor/nasdaq.ts'
 import { accountBytes, multiplierBits, symbolBytes } from './idl-bytes.ts'
 
 const CHECKER = Keypair.generate().publicKey
@@ -111,23 +112,33 @@ function accounts(over: { check?: Partial<Record<string, unknown>> | null; state
 }
 
 const REGULAR: MarketInfo = { session: 'regular', label: 'Market Open' }
-const quote = (last: number, ageS: number, source: Quote['source'] = 'nasdaq'): Quote => ({
+const quote = (last: number, ageS: number, source: Quote['source'] = 'nasdaq', kind: Quote['kind'] = 'last'): Quote => ({
   underlying: 'SPY',
   source,
+  kind,
   last,
   lastAt: AT.getTime() - ageS * 1000,
   session: 'regular',
   realTime: true,
 })
-const reading = (over: { calendarOpen?: boolean | null; market?: MarketInfo | null; q?: Quote | null; errors?: string[] } = {}) =>
-  judge({
+/** A source's answer holding just this price. */
+const answer = (q: Quote): Quotes => ({
+  source: q.source,
+  session: q.session,
+  last: q.kind === 'last' ? q : null,
+  close: q.kind === 'close' ? q : null,
+})
+const reading = (over: { calendarOpen?: boolean | null; market?: MarketInfo | null; q?: Quote | null; errors?: string[] } = {}) => {
+  const q = over.q === undefined ? quote(766.7494, 80) : over.q
+  return judge({
     underlying: 'SPY',
     calendarOpen: over.calendarOpen === undefined ? true : over.calendarOpen,
     market: over.market === undefined ? REGULAR : over.market,
-    nasdaq: over.q === undefined ? quote(766.7494, 80) : over.q,
+    nasdaq: q && answer(q),
     yahoo: null,
     errors: over.errors,
   })
+}
 
 const plan = (over: Partial<Parameters<typeof planCheck>[0]> = {}) =>
   planCheck({
@@ -207,14 +218,48 @@ test('out of session the checker says closed, with the close as its reference, h
   // After the close on a Friday evening, read on Saturday: the program, not
   // the checker, decides that a twenty-hour-old reference is too old for a
   // night fill (CheckStale at 12 hours).
-  const p = plan({ reading: reading({ calendarOpen: false, market: { session: 'closed', label: 'Market Closed' }, q: quote(766.7, 20 * 3600, 'yahoo') }) })
+  const p = plan({ reading: reading({ calendarOpen: false, market: { session: 'closed', label: 'Market Closed' }, q: quote(766.7, 20 * 3600, 'yahoo', 'close') }) })
   assert.equal(p.skip, null)
   assert.equal(p.push!.openNow, false)
   assert.equal(p.push!.refAt, BigInt(AT_S - 20 * 3600))
+  assert.equal(p.quote?.kind, 'close')
   // Calendar open while the market says pre-market is closed: the market's own word.
-  const pre = plan({ reading: reading({ market: { session: 'pre', label: 'Pre-Market' }, q: quote(766.7, 2 * 3600) }) })
+  const pre = plan({ reading: reading({ market: { session: 'pre', label: 'Pre-Market' }, q: quote(766.7, 2 * 3600, 'nasdaq', 'close') }) })
   assert.equal(pre.skip, null)
   assert.equal(pre.push!.openNow, false)
+  // A last sale outside the session is an extended-hours print, and is never pushed as the reference.
+  const print = plan({ reading: reading({ calendarOpen: false, market: { session: 'after', label: 'After Hours' }, q: quote(714.68, 60) }) })
+  assert.equal(print.push, null)
+  assert.match(print.skip!, /^no official close/)
+})
+
+test("after hours the push carries the day's official close from Nasdaq's real answer, dated at the close", () => {
+  const fixture = (name: string): unknown =>
+    JSON.parse(readFileSync(new URL(`./fixtures/${name}-after-hours-2026-09-24.json`, import.meta.url), 'utf8'))
+  // 17:58 New York, when the answers were captured; the close was 16:00:00, 20:00 UTC.
+  const at = new Date(Date.UTC(2026, 8, 24, 21, 58))
+  const observedAt = Math.floor(at.getTime() / 1000)
+  const r = judge({
+    underlying: 'SPY',
+    calendarOpen: false,
+    market: parseMarketInfo(fixture('nasdaq-market-info')),
+    nasdaq: parseNasdaqQuote('SPY', fixture('nasdaq-quote-SPY')),
+    yahoo: null,
+  })
+  const p = plan({ reading: r, at, observedAt })
+  assert.equal(p.skip, null)
+  assert.deepEqual(p.push, {
+    symbol: 'SPYon',
+    openNow: false,
+    refRateQ64: rateQ64({ pricePerShare: 767.27, multiplier: MULTIPLIER, quoteDecimals: 6, stockDecimals: DECIMALS }),
+    refPxNum: 767_270_000n,
+    refPxExpo: -6,
+    refAt: 1_790_280_000n,
+    observedAt: BigInt(observedAt),
+  })
+  // Not the extended-hours last sale beside it in the same answer, $766.5676 at 17:57.
+  assert.equal(p.quote?.kind, 'close')
+  assert.equal(p.quote?.source, 'nasdaq')
 })
 
 test('the chain decides whether this key may push: registered, opened, naming it, and not the attestor', () => {

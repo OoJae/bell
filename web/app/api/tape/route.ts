@@ -1,14 +1,16 @@
 /**
- * GET /api/tape — every BELL fill of the last thirty days, as JSON.
+ * GET /api/tape — every BELL fill and cross of the last thirty days, as JSON.
  * GET /api/tape?format=csv — the same rows as CSV.
  * GET /api/tape?buyer=<wallet>&seller=<wallet> — one wallet's own purchases,
  *   sales, or both, with its address on each row. Either parameter alone works.
+ *   A cross the wallet was a party to comes back with its own side only: the
+ *   counterparty's wallet is left off.
  *
  * Read-only: it reads finalized transactions from the RPC and holds no key.
  * The rows are built in `lib/tape.ts`, which also bounds how often the chain is
  * asked — at most once a minute, however many people read this.
  */
-import { createTape, quoteLabel, toCsv, type Tape } from '../../../lib/tape.ts'
+import { createTape, quoteLabel, rowsFor, toCsv, type Tape } from '../../../lib/tape.ts'
 import { ALLOWLIST, CLUSTER } from '../../../../src/config.ts'
 
 const RPC_URL = process.env.BELL_RPC_URL ?? process.env.NEXT_PUBLIC_BELL_RPC ?? 'https://api.devnet.solana.com'
@@ -62,13 +64,17 @@ export async function GET(request: Request) {
   // own fills gets exactly those rows, its own address included — how the page
   // shows receipts. Purchases and sales are asked for separately (`buyer=`,
   // `seller=`, or both), so a page that only knows about purchases is never
-  // handed a sale to render as one.
-  const buyer = params.get('buyer')
-  const seller = params.get('seller')
-  const rows =
-    buyer || seller
-      ? t.rows.filter((r) => (buyer && r.buyer === buyer) || (seller && r.seller === seller))
-      : t.rows.map(({ buyer: _b, seller: _s, ...r }) => r)
+  // handed a sale to render as one. A cross names both parties, and each
+  // party's request gets it with its own side only (`rowsFor`).
+  //
+  // A cross is permissionless to send, so a party can send its own, and then
+  // its wallet is also the row's `filler`, which `rowsFor` does not treat as a
+  // party field. Left there it would name that party on the public tape and to
+  // the other party, so it is taken off first, for every reader.
+  const unnamed = t.rows.map((r) =>
+    r.direction === 'cross' && (r.filler === r.buyer || r.filler === r.seller) ? { ...r, filler: '' } : r,
+  )
+  const rows = rowsFor(unnamed, { buyer: params.get('buyer'), seller: params.get('seller') })
   const body = { ...t, rows }
   if (params.get('format') === 'csv') {
     return new Response(toCsv(rows), {

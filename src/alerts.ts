@@ -1,6 +1,6 @@
 /**
  * Per-wallet alerts: a Telegram direct message when a wallet someone follows
- * has an order fill on BELL.
+ * has an order filled or crossed on BELL.
  *
  * The keeper runs this because it is the one BELL service that is always on
  * and keeps storage. The channel (`notify.ts`) tells everyone about every
@@ -20,12 +20,16 @@
  *
  * Finding fills. After each armed tick, the program's signatures since the last
  * one read are listed at finalized commitment. Each new transaction is read
- * once and its fills decoded by `chain/fills.ts`, the same reader the public
- * tape uses. The keeper knows its own attestations by signature and never
- * fetches them, so a quiet tick costs one or two requests. A wallet's fills
- * are the ones whose order it owns. A fill of a symbol BELL does not list, or
- * at a stock mint other than the one that listing is pinned to, is not a BELL
- * fill and gets no message, as on the tape.
+ * once and its fills and crosses decoded by `chain/fills.ts` (`tradesOf`), the
+ * same reader the public tape uses. The keeper knows its own attestations by
+ * signature and never fetches them, so a quiet tick costs one or two requests.
+ * A wallet's fills are the ones whose order it owns. A cross settles one
+ * wallet's buy order against another's sell order, so it is two messages: the
+ * buyer's followers are told the wallet bought, the seller's that it sold, and
+ * neither message carries the other party's wallet. A fill or cross of a
+ * symbol BELL does not list, or at a stock mint other than the one that
+ * listing is pinned to, is not a BELL trade and gets no message, as on the
+ * tape.
  *
  * Never part of the venue. The keeper starts a pass and does not wait for it.
  * Only one pass runs at a time, its reading stops after twenty seconds, and it
@@ -42,7 +46,7 @@
  */
 import { PublicKey } from '@solana/web3.js'
 import { multiplierOf, type TokenRisk } from './chain/codec.ts'
-import { PROGRAM_ADDRESS, fillsOf, type Fill, type RpcTransaction } from './chain/fills.ts'
+import { PROGRAM_ADDRESS, tradesOf, type Cross, type Fill, type RpcTransaction, type Trade } from './chain/fills.ts'
 import type { Listing } from './listings.ts'
 import {
   formatMessage,
@@ -141,7 +145,7 @@ export function reply(store: AlertStore, chatId: string, cmd: Command, now: numb
       store.follow(chatId, cmd.wallet, now)
       return [
         `Following ${cmd.wallet} on BELL (${cluster}).`,
-        'This chat gets a message when one of its orders fills, a buy or a sale.',
+        'This chat gets a message when one of its orders fills, a buy or a sale, including one crossed with another wallet’s order.',
         PUBLIC,
         'Send /stop to stop every message, or /stop followed by an address to stop one wallet.',
       ].join('\n\n')
@@ -316,43 +320,122 @@ export interface EventContext {
 }
 
 /**
+ * A trade's amounts as a message states them, or null when it is not a trade
+ * of a listed security. Throws when an amount cannot be stated: the quote
+ * mint's decimals missing from the transaction's own token balances.
+ */
+function stated(
+  t: { event: { symbol: string }; quoteMint: string; stockMint: string },
+  quoteRaw: bigint,
+  stockRaw: bigint,
+  tx: RpcTransaction,
+  ctx: EventContext,
+) {
+  const listing = ctx.listings.find((l) => l.symbol === t.event.symbol)
+  if (!listing || listing.mint !== t.stockMint) return null
+  const balances = [...(tx.meta?.preTokenBalances ?? []), ...(tx.meta?.postTokenBalances ?? [])]
+  const decimalsOf = (mint: string) => balances.find((b) => b.mint === mint)?.uiTokenAmount.decimals ?? null
+  const qd = decimalsOf(t.quoteMint)
+  if (qd === null) throw new Error(`decimals unknown for ${t.quoteMint}`)
+  const sd = decimalsOf(t.stockMint)
+  const at = tx.blockTime
+  const multiplier = at === null ? null : ctx.multiplier(listing.symbol, at)
+  return {
+    symbol: listing.symbol,
+    quoteAmount: Number(quoteRaw) / 10 ** qd,
+    quote: quoteName(t.quoteMint, ctx.cluster),
+    shares: sd === null || multiplier === null ? null : (Number(stockRaw) / 10 ** sd) * multiplier,
+    minutesAfterBell: at === null ? null : minutesAfterBell(at),
+    signature: tx.transaction.signatures[0],
+  }
+}
+
+/**
  * One fill as the channel's fill message would put it, or null when it is not
  * a fill of a listed security. Throws when an amount cannot be stated: the
  * quote mint's decimals missing from the transaction's own token balances.
  */
 export function alertEvent(f: Fill, tx: RpcTransaction, ctx: EventContext): NotifyEvent | null {
-  const listing = ctx.listings.find((l) => l.symbol === f.event.symbol)
-  if (!listing || listing.mint !== f.stockMint) return null
-  const balances = [...(tx.meta?.preTokenBalances ?? []), ...(tx.meta?.postTokenBalances ?? [])]
-  const decimalsOf = (mint: string) => balances.find((b) => b.mint === mint)?.uiTokenAmount.decimals ?? null
-  const qd = decimalsOf(f.quoteMint)
-  if (qd === null) throw new Error(`decimals unknown for ${f.quoteMint}`)
-  const sd = decimalsOf(f.stockMint)
   // Each event names its legs from the user's side (see `OrderFilled`), so
   // which one is stock depends on the side.
   const sell = f.side === 'sell'
-  const quoteRaw = sell ? f.event.amountOut : f.event.amountIn
-  const stockRaw = sell ? f.event.amountIn : f.event.amountOut
-  const at = tx.blockTime
-  const multiplier = at === null ? null : ctx.multiplier(listing.symbol, at)
+  const s = stated(f, sell ? f.event.amountOut : f.event.amountIn, sell ? f.event.amountIn : f.event.amountOut, tx, ctx)
+  if (!s) return null
   return {
     kind: 'fill',
     side: f.side,
-    symbol: listing.symbol,
-    amountIn: Number(quoteRaw) / 10 ** qd,
-    quote: quoteName(f.quoteMint, ctx.cluster),
-    shares: sd === null || multiplier === null ? null : (Number(stockRaw) / 10 ** sd) * multiplier,
-    minutesAfterBell: at === null ? null : minutesAfterBell(at),
+    symbol: s.symbol,
+    amountIn: s.quoteAmount,
+    quote: s.quote,
+    shares: s.shares,
+    minutesAfterBell: s.minutesAfterBell,
     owner: f.owner,
-    signature: tx.transaction.signatures[0],
+    signature: s.signature,
   }
 }
 
+/**
+ * One cross as the two messages its parties' followers get: the buyer's,
+ * told as a purchase, and the seller's, told as a sale. Null when it is not a
+ * cross of a listed security; throws as `alertEvent` does.
+ *
+ * Each message names only its own party. The other party's wallet is not in
+ * the event at all, rather than only left out of the wording: a follower of
+ * one wallet learns that it traded, at what price and in which transaction,
+ * and not whom with. (The transaction itself is public, and the link leads to
+ * it; the message does not do the looking up for anyone.) An empty string is
+ * that withheld wallet, and `formatEvent` never prints the side not asked
+ * for.
+ */
+export function crossAlertEvents(
+  c: Cross,
+  tx: RpcTransaction,
+  ctx: EventContext,
+): { buyer: NotifyEvent; seller: NotifyEvent } | null {
+  const s = stated(c, c.event.quote, c.event.stock, tx, ctx)
+  if (!s) return null
+  const told = {
+    kind: 'cross',
+    symbol: s.symbol,
+    amount: s.quoteAmount,
+    quote: s.quote,
+    shares: s.shares,
+    minutesAfterBell: s.minutesAfterBell,
+    signature: s.signature,
+  } as const
+  return {
+    buyer: { ...told, side: 'buy', buyer: c.buyer, seller: '' },
+    seller: { ...told, side: 'sell', buyer: '', seller: c.seller },
+  }
+}
+
+/**
+ * Every message one trade makes, with the wallet each is about: one for a
+ * fill, to its owner's followers; two for a cross, one to each party's.
+ */
+export function alertEvents(t: Trade, tx: RpcTransaction, ctx: EventContext): { owner: string; event: NotifyEvent }[] {
+  if (t.side !== 'cross') {
+    const event = alertEvent(t, tx, ctx)
+    return event ? [{ owner: t.owner, event }] : []
+  }
+  const both = crossAlertEvents(t, tx, ctx)
+  return both
+    ? [
+        { owner: t.buyer, event: both.buyer },
+        { owner: t.seller, event: both.seller },
+      ]
+    : []
+}
+
+/** The wallet a per-wallet message is about. */
+const ownerOf = (e: NotifyEvent): string | null =>
+  e.kind === 'fill' ? e.owner : e.kind === 'cross' ? (e.side === 'sell' ? e.seller : e.side === 'buy' ? e.buyer : null) : null
+
 const MAX_TEXT = 4096
 
-/** One chat's fills as one message: the channel's wording, and how to stop it. */
+/** One chat's fills and crosses as one message: the channel's wording, and how to stop it. */
 export function alertText(events: readonly NotifyEvent[], cluster: string): string {
-  const owners = new Set(events.map((e) => (e.kind === 'fill' ? e.owner : null)).filter(Boolean)).size
+  const owners = new Set(events.map(ownerOf).filter(Boolean)).size
   const footer = `\n\nSent because this chat follows ${owners > 1 ? 'the owners' : 'the owner'} above. /stop ends these messages.`
   const body = formatMessage(events, cluster)
   return body.length + footer.length > MAX_TEXT
@@ -406,7 +489,10 @@ export interface ScanOptions extends EventContext {
 export interface ScanReport {
   /** Transactions fetched and read. */
   read: number
-  /** Fills of followed wallets found. */
+  /**
+   * Fills of followed wallets found. A cross counts once for each of its
+   * parties that is followed.
+   */
   fills: number
   /** Messages Telegram accepted. */
   sent: number
@@ -418,7 +504,7 @@ export interface ScanReport {
 
 /**
  * One pass: read the program's transactions since the last pass, and message
- * each chat about the fills of the wallets it follows.
+ * each chat about the fills and crosses of the wallets it follows.
  *
  * The walk is oldest first and the cursor moves only past what was dealt
  * with, so a pass that stops early (the read cap, the deadline, a refused
@@ -500,29 +586,33 @@ export async function scanFills(o: ScanOptions): Promise<ScanReport> {
         break
       }
       report.read++
-      let fills: Fill[] = []
+      let trades: Trade[] = []
       try {
-        fills = fillsOf(tx)
+        trades = tradesOf(tx)
       } catch (e) {
         o.log(`alerts: ${s.signature} could not be read, so it gets no message: ${(e as Error).message}`)
       }
       last = s.signature
       if (!o.store.claim(s.signature, seconds())) continue
-      for (const f of fills) {
-        if (!followed.has(f.owner)) continue
-        let event: NotifyEvent | null
+      for (const t of trades) {
+        const parties = t.side === 'cross' ? [t.buyer, t.seller] : [t.owner]
+        if (!parties.some((p) => followed.has(p))) continue
+        let told: { owner: string; event: NotifyEvent }[]
         try {
-          event = alertEvent(f, tx, o)
+          told = alertEvents(t, tx, o)
         } catch (e) {
-          o.log(`alerts: a fill in ${s.signature} could not be stated, so it gets no message: ${(e as Error).message}`)
+          const what = t.side === 'cross' ? 'cross' : 'fill'
+          o.log(`alerts: a ${what} in ${s.signature} could not be stated, so it gets no message: ${(e as Error).message}`)
           continue
         }
-        if (!event) continue
-        report.fills++
-        for (const chat of o.store.followers(f.owner)) {
-          const list = byChat.get(chat) ?? []
-          list.push(event)
-          byChat.set(chat, list)
+        for (const { owner, event } of told) {
+          if (!followed.has(owner)) continue
+          report.fills++
+          for (const chat of o.store.followers(owner)) {
+            const list = byChat.get(chat) ?? []
+            list.push(event)
+            byChat.set(chat, list)
+          }
         }
       }
     }
@@ -637,7 +727,7 @@ export function createAlerts(o: {
       })
       if (report.fills > 0 || report.error) {
         log(
-          `alerts: read ${report.read} transaction(s), ${report.fills} fill(s) of followed wallets, ` +
+          `alerts: read ${report.read} transaction(s), ${report.fills} fill(s) or cross side(s) of followed wallets, ` +
             `${report.sent} message(s) sent${report.error ? `; stopped reading early: ${report.error}` : ''}`,
         )
       }

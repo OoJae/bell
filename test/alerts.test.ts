@@ -18,8 +18,10 @@ import {
   MAX_READS,
   PAGE,
   alertEvent,
+  alertEvents,
   alertText,
   createAlerts,
+  crossAlertEvents,
   multiplierFromRisk,
   parseCommand,
   pollCommands,
@@ -28,9 +30,10 @@ import {
   walletOf,
   type ScanOptions,
 } from '../src/alerts.ts'
-import { PROGRAM_ADDRESS, fillsOf, type RpcTransaction } from '../src/chain/fills.ts'
-import type { TelegramOutcome } from '../src/notify.ts'
+import { PROGRAM_ADDRESS, fillsOf, tradesOf, type Cross, type RpcTransaction } from '../src/chain/fills.ts'
+import { shortKey, type TelegramOutcome } from '../src/notify.ts'
 import { Recorder } from '../src/record.ts'
+import { CRANKER, CROSS_SIG, CROSS_TIME, SELLER, crossFill } from './fixtures/cross-fill.ts'
 import { BUY, BUY_SIG, OWNER, SELL_ORDER, SELL_SIG, SELL_TIME, sellFill } from './fixtures/sell-fill.ts'
 
 const SPYX_MIRROR = 'AFrGCsmPc3WeUAEM3jw8Ec3M6BrKrJGDQeX2g1Ctrrwx'
@@ -39,6 +42,8 @@ const MULTIPLIER = 1.005714560286254
 /** Another real wallet: the recorded fill's filler. */
 const OTHER = '4v5r4eSnB7kmnAmJ6ia9X1Mhu7tZKpznLb3x5PdMjtN2'
 const SELL = sellFill()
+/** The recorded buyer's order crossed against SELLER's, a minute after the sale. */
+const CROSS = crossFill()
 
 function tempDb(t: test.TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), 'bell-alerts-'))
@@ -284,7 +289,10 @@ const OLD_HEAD = '2he4d111111111111111111111111111111111111111111111111111111111
  * A stand-in RPC. `pages` answers each `getSignaturesForAddress` in turn;
  * `getTransaction` serves the recorded buy and the sell built from it.
  */
-function fakeRpc(pages: unknown[][], txs: Record<string, RpcTransaction | null> = { [BUY_SIG]: BUY, [SELL_SIG]: SELL }) {
+function fakeRpc(
+  pages: unknown[][],
+  txs: Record<string, RpcTransaction | null> = { [BUY_SIG]: BUY, [SELL_SIG]: SELL, [CROSS_SIG]: CROSS },
+) {
   const calls: { method: string; params: unknown[] }[] = []
   let page = 0
   const rpc = async (method: string, params: unknown[]) => {
@@ -696,4 +704,127 @@ test('an unserved transaction listed without a block time is not waited for fore
   await later.run()
   assert.equal(later.sent.length, 1, 'then skipped, and the sale behind it goes out')
   assert.equal(r.alertCursor('program_signature:devnet'), SELL_SIG)
+})
+
+// ------------------------------------------------------------------- crosses
+
+test('a cross is told to each party’s followers from its own side, and neither is told the other', async (t) => {
+  const r = store(t)
+  r.follow('555', OWNER, 1) // the buyer
+  r.follow('888', SELLER, 1) // the seller
+  r.follow('777', CRANKER, 1) // the crank that sent it, and no party to it
+  r.setAlertCursor('program_signature:devnet', OLD_HEAD)
+  const { rpc, reads } = fakeRpc([[sig(CROSS_SIG, CROSS_TIME)]])
+  const s = scanWith(r, rpc)
+  assert.deepEqual(await s.run(), { read: 1, fills: 2, sent: 2, behind: false })
+  assert.deepEqual(reads(), [CROSS_SIG])
+  assert.deepEqual(s.sent.map((m) => m.chat).sort(), ['555', '888'], 'nothing to the crank’s follower')
+
+  const link = new RegExp(`https://explorer\\.solana\\.com/tx/${CROSS_SIG}\\?cluster=devnet`)
+  const toBuyer = s.sent.find((m) => m.chat === '555')!.text
+  assert.match(
+    toBuyer,
+    /Crossed: bought 0\.258860 SPYx for 200\.00 demo-USDC, 772\.62 demo-USDC a share, at the pool's price, no filler spread, 7 min after the bell\./,
+  )
+  assert.match(toBuyer, /Owner 9wNe…beEJ/)
+  assert.match(toBuyer, link)
+  assert.match(toBuyer, /follows the owner above\. \/stop ends these messages\.$/)
+  assert.ok(!toBuyer.includes(SELLER) && !toBuyer.includes(shortKey(SELLER)), 'the buyer’s followers are not told who sold')
+
+  const toSeller = s.sent.find((m) => m.chat === '888')!.text
+  assert.match(toSeller, /Crossed: sold 0\.258860 SPYx for 200\.00 demo-USDC, 772\.62 demo-USDC a share/)
+  assert.match(toSeller, new RegExp(`Owner ${shortKey(SELLER)}`))
+  assert.match(toSeller, link)
+  assert.ok(!toSeller.includes(OWNER) && !toSeller.includes(shortKey(OWNER)), 'the seller’s followers are not told who bought')
+  assert.ok(!`${toBuyer}${toSeller}`.includes(shortKey(CRANKER)))
+})
+
+test('a chat following both parties gets both sides of the cross, each naming its own owner', async (t) => {
+  const r = store(t)
+  r.follow('555', OWNER, 1)
+  r.follow('555', SELLER, 1)
+  r.setAlertCursor('program_signature:devnet', OLD_HEAD)
+  const { rpc } = fakeRpc([[sig(CROSS_SIG, CROSS_TIME)]])
+  const s = scanWith(r, rpc)
+  assert.deepEqual(await s.run(), { read: 1, fills: 2, sent: 1, behind: false })
+  const text = s.sent[0]!.text
+  assert.match(text, /Crossed: bought [^\n]*\.\nOwner 9wNe…beEJ\n/)
+  assert.match(text, new RegExp(`Crossed: sold [^\\n]*\\.\\nOwner ${shortKey(SELLER)}\\n`))
+  assert.match(text, /follows the owners above\./)
+})
+
+test('fills and a cross of one wallet in one pass make one message, oldest first', async (t) => {
+  const r = store(t)
+  r.follow('555', OWNER, 1)
+  r.setAlertCursor('program_signature:devnet', OLD_HEAD)
+  const page = [sig(CROSS_SIG, CROSS_TIME), sig(SELL_SIG, SELL_TIME), sig(BUY_SIG, BUY.blockTime!)]
+  const { rpc, reads } = fakeRpc([page])
+  const s = scanWith(r, rpc)
+  // The wallet is the cross's buyer; its seller is not followed, so one side is told.
+  assert.deepEqual(await s.run(), { read: 3, fills: 3, sent: 1, behind: false })
+  assert.deepEqual(reads(), [BUY_SIG, SELL_SIG, CROSS_SIG])
+  const text = s.sent[0]!.text
+  const at = (x: string) => text.indexOf(x)
+  assert.ok(at('Filled:') > 0 && at('Filled:') < at('Sold:') && at('Sold:') < at('Crossed: bought'), text)
+  assert.doesNotMatch(text, /Crossed: sold/)
+  assert.ok(!text.includes(shortKey(SELLER)))
+  assert.equal(r.alertCursor('program_signature:devnet'), CROSS_SIG)
+})
+
+test('a cross’s two messages hold only their own party, and a cross BELL does not list makes none', () => {
+  const [c, ...rest] = tradesOf(CROSS)
+  assert.equal(rest.length, 0)
+  assert.equal(c!.side, 'cross')
+  const cross = c as Cross
+  const ctx = { cluster: 'devnet', listings: LISTINGS, multiplier: () => MULTIPLIER }
+  const both = crossAlertEvents(cross, CROSS, ctx)!
+  const told = {
+    kind: 'cross',
+    symbol: 'SPYx',
+    amount: 200,
+    quote: 'demo-USDC',
+    shares: (25_738_931 / 1e8) * MULTIPLIER,
+    minutesAfterBell: 7,
+    signature: CROSS_SIG,
+  }
+  assert.deepEqual(both.buyer, { ...told, side: 'buy', buyer: OWNER, seller: '' })
+  assert.deepEqual(both.seller, { ...told, side: 'sell', buyer: '', seller: SELLER })
+  // Not in the event at all, so no wording can let it slip.
+  assert.ok(!JSON.stringify(both.buyer).includes(SELLER))
+  assert.ok(!JSON.stringify(both.seller).includes(OWNER))
+  assert.deepEqual(alertEvents(cross, CROSS, ctx), [
+    { owner: OWNER, event: both.buyer },
+    { owner: SELLER, event: both.seller },
+  ])
+  // A fill is still one message, to its owner.
+  const [buy] = fillsOf(BUY)
+  assert.deepEqual(alertEvents(buy!, BUY, ctx), [{ owner: OWNER, event: alertEvent(buy!, BUY, ctx) }])
+
+  // The listing pinned to another mint: not a BELL cross, as on the tape.
+  const other = { ...ctx, listings: [{ symbol: 'SPYx', mint: CRANKER }] }
+  assert.equal(crossAlertEvents(cross, CROSS, other), null)
+  assert.deepEqual(alertEvents(cross, CROSS, other), [])
+  // With no multiplier, no share count rather than a wrong one.
+  const bare = crossAlertEvents(cross, CROSS, { ...ctx, multiplier: () => null })!
+  assert.equal(bare.buyer.kind === 'cross' && bare.buyer.shares, null)
+  assert.match(alertText([bare.seller], 'devnet'), /Crossed: sold SPYx for 200\.00 demo-USDC, at the pool's price/)
+  // Decimals it cannot find are said, not guessed.
+  const noBalances = structuredClone(CROSS)
+  noBalances.meta!.preTokenBalances = []
+  noBalances.meta!.postTokenBalances = []
+  assert.throws(() => crossAlertEvents(cross, noBalances, ctx), /decimals unknown/)
+})
+
+test('a cross that cannot be stated is logged, and its followers get nothing rather than a guess', async (t) => {
+  const r = store(t)
+  r.follow('888', SELLER, 1)
+  r.setAlertCursor('program_signature:devnet', OLD_HEAD)
+  const unstated = structuredClone(CROSS)
+  unstated.meta!.preTokenBalances = []
+  unstated.meta!.postTokenBalances = []
+  const { rpc } = fakeRpc([[sig(CROSS_SIG, CROSS_TIME)]], { [CROSS_SIG]: unstated })
+  const s = scanWith(r, rpc)
+  assert.deepEqual(await s.run(), { read: 1, fills: 0, sent: 0, behind: false })
+  assert.ok(s.lines.some((l) => l.startsWith(`alerts: a cross in ${CROSS_SIG} could not be stated`)))
+  assert.equal(r.seen(CROSS_SIG), true)
 })
