@@ -142,7 +142,9 @@ pub enum MarkSource {
 /// gate can only refuse, so a broken attestor fails closed. A mark sets a
 /// price, so a broken attestor fails *open*. Bounded by the order's own floor,
 /// by `Mode::Strict` (a wrong mark is arbitrageable against a live market we do
-/// not control), and by `MAX_MARK_AGE_SECONDS`.
+/// not control), and by `MAX_MARK_AGE_SECONDS`. Also bounded by how fast a push
+/// may move it (`MAX_MARK_STEP_BPS`) and, at every fill, by the band around a
+/// second signer's reference (`SymbolCheck`).
 #[account]
 #[derive(InitSpace)]
 pub struct SymbolMark {
@@ -163,10 +165,82 @@ pub struct SymbolMark {
     pub px_num: u64,
     pub px_expo: i32,
     /// The attestor's own uncertainty about this mark.
+    ///
+    /// `u16::MAX` means the mark is held: its last push stepped too far and
+    /// was not written. The attestor can never push that value itself, since a
+    /// push is capped at `MAX_CONF_BPS`, so the marker needs no field of its
+    /// own and the account's layout is unchanged.
     pub conf_bps: u16,
     pub source: MarkSource,
     pub observed_at: i64,
     pub bump: u8,
+}
+
+/// Emitted when a push moves the mark further than one step allows and the
+/// mark is held instead of written. Carries both rates and both times, so an
+/// operator can tell a genuine gap from a faulty attestor.
+#[event]
+pub struct MarkTripped {
+    pub symbol: [u8; SYMBOL_LEN],
+    pub held_rate_q64: u128,
+    pub pushed_rate_q64: u128,
+    pub held_observed_at: i64,
+    pub pushed_observed_at: i64,
+}
+
+/// A second signer's view of one symbol: is the market open, and what did the
+/// stock last trade at.
+///
+/// The mark is signed by the attestor alone, so on its own one key can price a
+/// fill. The check is signed by a different key, drawing on different data,
+/// and every fill requires the two to agree: on whether the market is open,
+/// and on a price within a band of this reference. Neither signer alone can
+/// then move value. The checker is named by the program's upgrade authority,
+/// not by the attestor, so compromising the attestor does not also choose who
+/// checks it.
+#[account]
+#[derive(InitSpace)]
+pub struct SymbolCheck {
+    pub symbol: [u8; SYMBOL_LEN],
+    /// Copied from `SymbolState` at `open_check`, and required to equal the
+    /// order's mint at every fill.
+    pub mint: Pubkey,
+    /// The only key permitted to push this check.
+    pub checker: Pubkey,
+    /// The checker's own view of whether the primary market is open now.
+    pub open_now: bool,
+    /// Stock raw per quote raw, Q64.64, with the scaled-UI multiplier folded
+    /// in: the same convention as `SymbolMark.rate_q64`, so the two compare
+    /// directly.
+    pub ref_rate_q64: u128,
+    /// Descriptive only, as on the mark.
+    pub ref_px_num: u64,
+    pub ref_px_expo: i32,
+    /// When the sale behind the reference happened. At night this is the
+    /// close, and its age is bounded separately from the push's.
+    pub ref_at: i64,
+    /// When this check was pushed. Zero until the first push, which every
+    /// freshness test reads as stale.
+    pub observed_at: i64,
+    pub bump: u8,
+    pub _reserved: [u8; 32],
+}
+
+/// An owner's standing consent to fills while the primary market is shut.
+///
+/// Its existence is the whole of its meaning: a fill reads only whether it is
+/// there, and whose it is. Only `opt_in_night` can create one, and it records
+/// the signer as `owner`, so a fill that finds its own discriminator on an
+/// account this program owns, naming the order's owner, has found that owner's
+/// consent and no one else's. It applies to every order the owner has,
+/// including those already placed.
+#[account]
+#[derive(InitSpace)]
+pub struct NightOptIn {
+    pub owner: Pubkey,
+    pub created_at: i64,
+    pub bump: u8,
+    pub _reserved: [u8; 16],
 }
 
 /// A standing intent to buy at the next open.
@@ -294,4 +368,23 @@ pub struct SellOrderFilled {
     pub mark_observed_at: i64,
     /// Realised cost against the mark, in basis points.
     pub realized_bps: u16,
+}
+
+/// Emitted once per cross, with both legs, so one event records the whole
+/// trade. `quote` is what the buyer paid and the seller was paid; `stock` is
+/// what the seller sold and the buyer bought. These are the amounts each
+/// order is charged against its remainder; what landed was measured to at
+/// least each side's minimum before this was emitted. The mark is echoed as
+/// on a fill, since it is the price both legs were settled at.
+#[event]
+pub struct OrdersCrossed {
+    pub symbol: [u8; SYMBOL_LEN],
+    pub buyer: Pubkey,
+    pub seller: Pubkey,
+    pub quote: u64,
+    pub stock: u64,
+    pub px_num: u64,
+    pub px_expo: i32,
+    pub source: MarkSource,
+    pub mark_observed_at: i64,
 }

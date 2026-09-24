@@ -12,21 +12,20 @@
 //! filler can never satisfy a minimum by a unit the arithmetic dropped.
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::{invoke, invoke_signed};
 
 use crate::{
     constants::{
-        is_token_program, AUTH_SEED, MARK_SEED, MAX_CONF_BPS, MAX_MARK_AGE_SECONDS,
-        MAX_ORDER_IN, MAX_ORDER_LIFETIME_SECONDS, MAX_SLIP_BPS, RISK_SEED, SELL_SEED, SYMBOL_LEN,
-        SYMBOL_SEED,
+        is_token_program, AUTH_SEED, CHECK_SEED, MARK_SEED, MAX_CONF_BPS, MAX_NIGHT_GAP_BPS,
+        MAX_ORDER_IN, MAX_ORDER_LIFETIME_SECONDS, MAX_SLIP_BPS, RISK_SEED, SELL_SEED,
+        SYMBOL_LEN, SYMBOL_SEED,
     },
     error::BellError,
     instructions::{
-        assert_tradeable::{check_tradeable, Mode},
-        fill::{mint_decimals, transfer_checked_ix},
+        admit::{admit, Terms},
+        fill::{mint_decimals, move_leg},
     },
-    state::{SellOrder, SellOrderFilled, SymbolMark, SymbolState, TokenRisk},
-    tokens::{balance_of, read_token_account_any},
+    state::{SellOrder, SellOrderFilled, SymbolCheck, SymbolMark, SymbolState, TokenRisk},
+    tokens::read_token_account_any,
 };
 
 /// Quote raw units worth `a` stock raw units at `rate`, rounded **up**.
@@ -37,7 +36,7 @@ use crate::{
 /// because `num` is already as wide as `u128` allows — `a << 64` — and adding
 /// `rate - 1` to it overflows whenever the rate exceeds 2^64, which a stock
 /// cheaper than its quote unit genuinely produces.
-fn stock_to_quote_ceil(a: u64, rate: u128) -> Result<u128> {
+pub(crate) fn stock_to_quote_ceil(a: u64, rate: u128) -> Result<u128> {
     // A mark that has never been pushed carries a zero rate; there is no price
     // to divide by, and that is what "stale" means.
     require!(rate > 0, BellError::MarkStale);
@@ -50,9 +49,35 @@ fn stock_to_quote_ceil(a: u64, rate: u128) -> Result<u128> {
 /// The ceiling counterpart of `fill::mul_shr64`, for the user's floor: the
 /// floor is the least the seller will accept, so a fractional unit of it is a
 /// whole unit owed.
-fn mul_shr64_ceil(a: u128, q64: u128) -> Result<u128> {
+pub(crate) fn mul_shr64_ceil(a: u128, q64: u128) -> Result<u128> {
     let p = a.checked_mul(q64).ok_or(BellError::MathOverflow)?;
     Ok((p >> 64) + u128::from(p as u64 != 0))
+}
+
+/// `fair` less `bps` basis points, rounded **up**: the least a seller will
+/// take when `fair` is what the stock is worth and `bps` is what they allow
+/// below it. The band and the night reference minimum are both this, over
+/// different rates and different allowances.
+pub(crate) fn less_bps_ceil(fair: u128, bps: u16) -> Result<u128> {
+    let t = fair
+        .checked_mul(10_000u128 - bps as u128)
+        .ok_or(BellError::MathOverflow)?;
+    Ok(t / 10_000u128 + u128::from(t % 10_000u128 != 0))
+}
+
+/// The least quote a sale of `leg` stock raw may be paid at `rate`, and the
+/// fair value it is measured from: `(fair, min_out)`.
+///
+/// The band below fair, or the owner's own floor, whichever is higher, each
+/// rounded up. The sell side's counterpart of `fill::buy_min_out`, shared for
+/// the same reason: a sell fill, a night fill's reference minimum and a cross
+/// must all hold a seller to the identical number.
+#[inline(never)]
+pub(crate) fn sell_min_out(leg: u64, rate: u128, slip_bps: u16, floor_q64: u128) -> Result<(u128, u128)> {
+    let fair = stock_to_quote_ceil(leg, rate)?;
+    let by_band = less_bps_ceil(fair, slip_bps)?;
+    let by_floor = mul_shr64_ceil(leg as u128, floor_q64)?;
+    Ok((fair, by_band.max(by_floor)))
 }
 
 /// Park an intent to sell at the next open.
@@ -196,8 +221,8 @@ pub fn handle_place_sell_order(
 
 /// Settle a due sell order.
 ///
-/// The same fifteen accounts as `fill_order`, with the same names in the same
-/// order, so a filler builds both from one template. What each leg holds is
+/// The same seventeen accounts as `fill_order`, with the same names in the
+/// same order, so a filler builds both from one template. What each leg holds is
 /// swapped: `payer_in` and `filler_in` hold stock, `payee_out` and
 /// `filler_out` hold quote.
 #[derive(Accounts)]
@@ -208,25 +233,25 @@ pub struct FillSellOrder<'info> {
         seeds = [SELL_SEED, order.owner.as_ref(), &order.nonce.to_le_bytes()],
         bump = order.bump,
     )]
-    pub order: Account<'info, SellOrder>,
+    pub order: Box<Account<'info, SellOrder>>,
     #[account(
         seeds = [SYMBOL_SEED, order.symbol.as_ref()],
         bump = symbol_state.bump,
         constraint = symbol_state.mint == order.mint @ BellError::MintMismatch,
     )]
-    pub symbol_state: Account<'info, SymbolState>,
+    pub symbol_state: Box<Account<'info, SymbolState>>,
     #[account(
         seeds = [RISK_SEED, order.mint.as_ref()],
         bump = risk.bump,
         constraint = risk.mint == order.mint @ BellError::MintMismatch,
     )]
-    pub risk: Account<'info, TokenRisk>,
+    pub risk: Box<Account<'info, TokenRisk>>,
     #[account(
         seeds = [MARK_SEED, order.symbol.as_ref()],
         bump = mark.bump,
         constraint = mark.mint == order.mint @ BellError::MintMismatch,
     )]
-    pub mark: Account<'info, SymbolMark>,
+    pub mark: Box<Account<'info, SymbolMark>>,
     /// CHECK: the per-owner delegate authority; never initialised, only signs.
     #[account(seeds = [AUTH_SEED, order.owner.as_ref()], bump = order.auth_bump)]
     pub auth: UncheckedAccount<'info>,
@@ -256,6 +281,21 @@ pub struct FillSellOrder<'info> {
     pub quote_token_program: UncheckedAccount<'info>,
     /// CHECK: the program the stock leg moves under.
     pub stock_token_program: UncheckedAccount<'info>,
+    /// The second signer's view of this symbol, appended as on `fill_order`.
+    #[account(
+        seeds = [CHECK_SEED, order.symbol.as_ref()],
+        bump = check.bump,
+        constraint = check.mint == order.mint @ BellError::MintMismatch,
+    )]
+    pub check: Box<Account<'info, SymbolCheck>>,
+    /// The owner's night opt-in. Clients pass `[NIGHT_SEED, order.owner]`
+    /// whether or not anything lives there. Read in `admit` by owning program,
+    /// discriminator and the owner it records, not by address: checking the
+    /// address would cost a bump search on every fill, priced by the owner's
+    /// key, and the recorded owner already rules out another owner's consent.
+    /// Any other account reads as no consent.
+    /// CHECK: verified in `admit` by `night::opted_in`, never written.
+    pub night: UncheckedAccount<'info>,
 }
 
 pub fn handle_fill_sell_order(
@@ -266,27 +306,26 @@ pub fn handle_fill_sell_order(
     let now = Clock::get()?.unix_timestamp;
     let o = &ctx.accounts.order;
 
-    require!(now >= o.not_before, BellError::NotYetDue);
-    require!(now < o.expires_at, BellError::OrderExpired);
-
-    // The identical gate, Strict, for the same reason as a buy: a sell fills
-    // only while the primary market is live, which is what keeps a wrong mark
-    // arbitrageable against a price nobody here controls.
-    check_tradeable(
+    // The same admission test as a buy, in the same order: due, the gate, the
+    // mark and the check. Strict for the same reason as a buy, unless the
+    // owner opted in to night fills and the market is shut. See `admit`.
+    let night = admit(
+        &Terms {
+            not_before: o.not_before,
+            expires_at: o.expires_at,
+            expected_multiplier_bits: o.expected_multiplier_bits,
+            quote_mint: o.quote_mint,
+            max_conf_bps: o.max_conf_bps,
+        },
         &ctx.accounts.symbol_state,
         &ctx.accounts.risk,
-        Mode::Strict,
-        o.expected_multiplier_bits,
+        &ctx.accounts.mark,
+        &ctx.accounts.check,
+        Some((ctx.accounts.night.as_ref(), &o.owner)),
         now,
     )?;
 
     let mark = &ctx.accounts.mark;
-    require!(mark.quote_mint == o.quote_mint, BellError::QuoteMintMismatch);
-    require!(
-        now.saturating_sub(mark.observed_at) <= MAX_MARK_AGE_SECONDS,
-        BellError::MarkStale
-    );
-    require!(mark.conf_bps <= o.max_conf_bps, BellError::MarkTooWide);
 
     let remaining = o.amount_in.saturating_sub(o.filled_in);
     require!(amount_in_leg <= remaining, BellError::OverFill);
@@ -301,13 +340,22 @@ pub fn handle_fill_sell_order(
     // a whole unit owed to the seller. A buy's band truncates instead, which
     // leaves that fraction of a raw stock unit with the filler; the sell side
     // deliberately does not repeat that.
-    let fair = stock_to_quote_ceil(amount_in_leg, mark.rate_q64)?;
-    let t = fair
-        .checked_mul(10_000u128 - o.max_slip_bps as u128)
-        .ok_or(BellError::MathOverflow)?;
-    let by_band = t / 10_000u128 + u128::from(t % 10_000u128 != 0);
-    let by_floor = mul_shr64_ceil(amount_in_leg as u128, o.floor_rate_q64)?;
-    let min_out = by_band.max(by_floor);
+    let (fair, mut min_out) =
+        sell_min_out(amount_in_leg, mark.rate_q64, o.max_slip_bps, o.floor_rate_q64)?;
+
+    // At night, a third minimum from the second signer's reference: the same
+    // rounded-up band, over the reference rate with the night gap. It binds
+    // when the order's own band is the more generous, so a night seller is
+    // never paid less than the checker's price allows, whatever the mark says.
+    // Both of its steps round up, so with the mark at the edge of the night
+    // gap it can sit one quote raw above fair value at the mark: a filler then
+    // pays that one unit more than a zero-spread fill would, and never less.
+    // The buy side truncates, so its reference minimum never passes fair.
+    if night {
+        let (_, by_ref) =
+            sell_min_out(amount_in_leg, ctx.accounts.check.ref_rate_q64, MAX_NIGHT_GAP_BPS, 0)?;
+        min_out = min_out.max(by_ref);
+    }
 
     // Both legs must move under a real token program, checked before either
     // leg's accounts are read or any program is called. Unconstrained, the
@@ -322,60 +370,33 @@ pub fn handle_fill_sell_order(
     let stock_decimals = mint_decimals(&ctx.accounts.stock_mint.to_account_info())?;
 
     // Deliver the quote first, then take the stock. If the payment is short,
-    // nothing is taken.
-    let out_before = balance_of(&ctx.accounts.payee_out.to_account_info(), quote_program)?;
-    let deliver = transfer_checked_ix(
-        quote_program,
-        &ctx.accounts.filler_out.key(),
-        &ctx.accounts.quote_mint.key(),
-        &ctx.accounts.payee_out.key(),
-        &ctx.accounts.filler.key(),
+    // nothing is taken. Measure what landed, never the stated amount.
+    let (_, delivered) = move_leg(
+        &ctx.accounts.quote_token_program,
+        &ctx.accounts.filler_out,
+        &ctx.accounts.quote_mint,
+        &ctx.accounts.payee_out,
+        &ctx.accounts.filler,
         amount_out,
         quote_decimals,
-    );
-    invoke(
-        &deliver,
-        &[
-            ctx.accounts.filler_out.to_account_info(),
-            ctx.accounts.quote_mint.to_account_info(),
-            ctx.accounts.payee_out.to_account_info(),
-            ctx.accounts.filler.to_account_info(),
-            ctx.accounts.quote_token_program.to_account_info(),
-        ],
+        &[],
     )?;
-
-    // Measure what landed, never the stated amount.
-    let delivered = balance_of(&ctx.accounts.payee_out.to_account_info(), quote_program)?
-        .saturating_sub(out_before);
     require!(delivered as u128 >= min_out, BellError::PriceOutOfBand);
 
-    let in_before = balance_of(&ctx.accounts.payer_in.to_account_info(), stock_program)?;
-    let owner = ctx.accounts.order.owner;
-    let auth_bump = ctx.accounts.order.auth_bump;
-    let take = transfer_checked_ix(
-        stock_program,
-        &ctx.accounts.payer_in.key(),
-        &ctx.accounts.stock_mint.key(),
-        &ctx.accounts.filler_in.key(),
-        &ctx.accounts.auth.key(),
-        amount_in_leg,
-        stock_decimals,
-    );
-    invoke_signed(
-        &take,
-        &[
-            ctx.accounts.payer_in.to_account_info(),
-            ctx.accounts.stock_mint.to_account_info(),
-            ctx.accounts.filler_in.to_account_info(),
-            ctx.accounts.auth.to_account_info(),
-            ctx.accounts.stock_token_program.to_account_info(),
-        ],
-        &[&[AUTH_SEED, owner.as_ref(), &[auth_bump]]],
-    )?;
     // The token program moves exactly what it is asked to, but the rule is
     // the same on both legs: the user's side is measured, not assumed.
-    let taken = in_before
-        .saturating_sub(balance_of(&ctx.accounts.payer_in.to_account_info(), stock_program)?);
+    let owner = ctx.accounts.order.owner;
+    let auth_bump = ctx.accounts.order.auth_bump;
+    let (taken, _) = move_leg(
+        &ctx.accounts.stock_token_program,
+        &ctx.accounts.payer_in,
+        &ctx.accounts.stock_mint,
+        &ctx.accounts.filler_in,
+        &ctx.accounts.auth,
+        amount_in_leg,
+        stock_decimals,
+        &[&[AUTH_SEED, owner.as_ref(), &[auth_bump]]],
+    )?;
     require!(taken <= amount_in_leg, BellError::OverFill);
 
     let realized_bps = if fair > 0 {

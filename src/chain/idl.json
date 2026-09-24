@@ -256,6 +256,254 @@
       ]
     },
     {
+      "name": "cross_orders",
+      "docs": [
+        "Settle a due buy against a due sell at the mark, with no filler spread.",
+        "Permissionless, and in session only."
+      ],
+      "discriminator": [
+        35,
+        191,
+        12,
+        115,
+        220,
+        155,
+        196,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "signer": true
+        },
+        {
+          "name": "buy",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.owner",
+                "account": "BellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "buy.nonce",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sell",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sell.owner",
+                "account": "SellOrder"
+              },
+              {
+                "kind": "account",
+                "path": "sell.nonce",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "risk",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  105,
+                  115,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.mint",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mark",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "check",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buy_auth",
+          "docs": [
+            "the quote leg."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "buy.owner",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sell_auth",
+          "docs": [
+            "the stock leg."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sell.owner",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buyer",
+          "docs": [
+            "owner so a cranker can never collect the user's rent."
+          ],
+          "writable": true
+        },
+        {
+          "name": "seller",
+          "writable": true
+        },
+        {
+          "name": "buyer_quote",
+          "writable": true
+        },
+        {
+          "name": "buyer_stock",
+          "writable": true
+        },
+        {
+          "name": "seller_stock",
+          "writable": true
+        },
+        {
+          "name": "seller_quote",
+          "writable": true
+        },
+        {
+          "name": "quote_mint"
+        },
+        {
+          "name": "stock_mint"
+        },
+        {
+          "name": "quote_token_program"
+        },
+        {
+          "name": "stock_token_program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "fill_order",
       "docs": [
         "Settle a due order. Permissionless; runs the same gate."
@@ -418,6 +666,44 @@
         },
         {
           "name": "stock_token_program"
+        },
+        {
+          "name": "check",
+          "docs": [
+            "The second signer's view of this symbol. Appended after every existing",
+            "account, so a filler built for the fifteen-account form fails for want",
+            "of an account before any handler code runs, rather than skipping it."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "BellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "night",
+          "docs": [
+            "The owner's night opt-in. Clients pass `[NIGHT_SEED, order.owner]`",
+            "whether or not anything lives there. Read in `admit` by owning program,",
+            "discriminator and the owner it records, not by address: checking the",
+            "address would cost a bump search on every fill, priced by the owner's",
+            "key, and the recorded owner already rules out another owner's consent.",
+            "Any other account reads as no consent."
+          ]
         }
       ],
       "args": [
@@ -595,6 +881,42 @@
         },
         {
           "name": "stock_token_program"
+        },
+        {
+          "name": "check",
+          "docs": [
+            "The second signer's view of this symbol, appended as on `fill_order`."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "order.symbol",
+                "account": "SellOrder"
+              }
+            ]
+          }
+        },
+        {
+          "name": "night",
+          "docs": [
+            "The owner's night opt-in. Clients pass `[NIGHT_SEED, order.owner]`",
+            "whether or not anything lives there. Read in `admit` by owning program,",
+            "discriminator and the owner it records, not by address: checking the",
+            "address would cost a bump search on every fill, priced by the owner's",
+            "key, and the recorded owner already rules out another owner's consent.",
+            "Any other account reads as no consent."
+          ]
         }
       ],
       "args": [
@@ -665,6 +987,100 @@
       "args": [
         {
           "name": "attestor",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "open_check",
+      "docs": [
+        "Create a symbol's check and name its checker. Upgrade authority only."
+      ],
+      "discriminator": [
+        83,
+        128,
+        85,
+        110,
+        214,
+        57,
+        173,
+        18
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        },
+        {
+          "name": "program_data",
+          "docs": [
+            "address, owner and contents rather than deserialized, which keeps the",
+            "loader's state type out of the binary."
+          ]
+        },
+        {
+          "name": "symbol_state",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  121,
+                  109
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "check",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "checker",
           "type": "pubkey"
         }
       ]
@@ -750,6 +1166,102 @@
           "type": "pubkey"
         }
       ]
+    },
+    {
+      "name": "opt_in_night",
+      "docs": [
+        "Consent to fills while the primary market is shut, for every order."
+      ],
+      "discriminator": [
+        44,
+        24,
+        0,
+        65,
+        236,
+        50,
+        201,
+        119
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "night",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  105,
+                  103,
+                  104,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "opt_out_night",
+      "docs": [
+        "Withdraw that consent and reclaim the rent. Applies to live orders too."
+      ],
+      "discriminator": [
+        82,
+        194,
+        63,
+        9,
+        233,
+        136,
+        157,
+        145
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "night",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  110,
+                  105,
+                  103,
+                  104,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
     },
     {
       "name": "place_order",
@@ -1079,6 +1591,85 @@
       ]
     },
     {
+      "name": "push_check",
+      "docs": [
+        "The checker's view: is the market open, and the last sale's price."
+      ],
+      "discriminator": [
+        202,
+        113,
+        242,
+        215,
+        178,
+        16,
+        56,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "checker",
+          "signer": true
+        },
+        {
+          "name": "check",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  101,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "symbol"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "symbol",
+          "type": {
+            "array": [
+              "u8",
+              12
+            ]
+          }
+        },
+        {
+          "name": "open_now",
+          "type": "bool"
+        },
+        {
+          "name": "ref_rate_q64",
+          "type": "u128"
+        },
+        {
+          "name": "ref_px_num",
+          "type": "u64"
+        },
+        {
+          "name": "ref_px_expo",
+          "type": "i32"
+        },
+        {
+          "name": "ref_at",
+          "type": "i64"
+        },
+        {
+          "name": "observed_at",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "push_mark",
       "docs": [
         "Attest a price. The one input that can move value rather than only stop it."
@@ -1394,6 +1985,19 @@
       ]
     },
     {
+      "name": "NightOptIn",
+      "discriminator": [
+        126,
+        117,
+        90,
+        76,
+        172,
+        79,
+        14,
+        180
+      ]
+    },
+    {
       "name": "SellOrder",
       "discriminator": [
         125,
@@ -1404,6 +2008,19 @@
         64,
         250,
         236
+      ]
+    },
+    {
+      "name": "SymbolCheck",
+      "discriminator": [
+        247,
+        114,
+        131,
+        251,
+        45,
+        67,
+        129,
+        208
       ]
     },
     {
@@ -1448,6 +2065,19 @@
   ],
   "events": [
     {
+      "name": "MarkTripped",
+      "discriminator": [
+        210,
+        24,
+        21,
+        127,
+        242,
+        167,
+        188,
+        26
+      ]
+    },
+    {
       "name": "OrderFilled",
       "discriminator": [
         120,
@@ -1458,6 +2088,19 @@
         116,
         174,
         30
+      ]
+    },
+    {
+      "name": "OrdersCrossed",
+      "discriminator": [
+        93,
+        152,
+        32,
+        154,
+        160,
+        205,
+        225,
+        42
       ]
     },
     {
@@ -1609,6 +2252,41 @@
       "code": 6026,
       "name": "RiskStale",
       "msg": "The issuer's mint state has not been read recently enough to trust"
+    },
+    {
+      "code": 6027,
+      "name": "MarkPaused",
+      "msg": "The price mark is held: its last push moved further than one step allows"
+    },
+    {
+      "code": 6028,
+      "name": "NotAuthority",
+      "msg": "Only the program's upgrade authority may do this"
+    },
+    {
+      "code": 6029,
+      "name": "NotChecker",
+      "msg": "Only the symbol's named checker may push its check"
+    },
+    {
+      "code": 6030,
+      "name": "CheckStale",
+      "msg": "The checker's view is missing or too old to rely on"
+    },
+    {
+      "code": 6031,
+      "name": "CheckerDisagrees",
+      "msg": "The checker disagrees about whether the market is open"
+    },
+    {
+      "code": 6032,
+      "name": "MarkOffReference",
+      "msg": "The mark is too far from the checker's reference price"
+    },
+    {
+      "code": 6033,
+      "name": "SelfCross",
+      "msg": "A buy and a sell of the same owner cannot cross"
     }
   ],
   "types": [
@@ -1821,6 +2499,44 @@
       }
     },
     {
+      "name": "MarkTripped",
+      "docs": [
+        "Emitted when a push moves the mark further than one step allows and the",
+        "mark is held instead of written. Carries both rates and both times, so an",
+        "operator can tell a genuine gap from a faulty attestor."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "held_rate_q64",
+            "type": "u128"
+          },
+          {
+            "name": "pushed_rate_q64",
+            "type": "u128"
+          },
+          {
+            "name": "held_observed_at",
+            "type": "i64"
+          },
+          {
+            "name": "pushed_observed_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
       "name": "Mode",
       "docs": [
         "How much off-hours risk the caller accepts."
@@ -1833,6 +2549,45 @@
           },
           {
             "name": "Guarded"
+          }
+        ]
+      }
+    },
+    {
+      "name": "NightOptIn",
+      "docs": [
+        "An owner's standing consent to fills while the primary market is shut.",
+        "",
+        "Its existence is the whole of its meaning: a fill reads only whether it is",
+        "there, and whose it is. Only `opt_in_night` can create one, and it records",
+        "the signer as `owner`, so a fill that finds its own discriminator on an",
+        "account this program owns, naming the order's owner, has found that owner's",
+        "consent and no one else's. It applies to every order the owner has,",
+        "including those already placed."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_reserved",
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
           }
         ]
       }
@@ -1897,6 +2652,67 @@
               "Realised cost against the mark, in basis points."
             ],
             "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OrdersCrossed",
+      "docs": [
+        "Emitted once per cross, with both legs, so one event records the whole",
+        "trade. `quote` is what the buyer paid and the seller was paid; `stock` is",
+        "what the seller sold and the buyer bought. These are the amounts each",
+        "order is charged against its remainder; what landed was measured to at",
+        "least each side's minimum before this was emitted. The mark is echoed as",
+        "on a fill, since it is the price both legs were settled at."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "quote",
+            "type": "u64"
+          },
+          {
+            "name": "stock",
+            "type": "u64"
+          },
+          {
+            "name": "px_num",
+            "type": "u64"
+          },
+          {
+            "name": "px_expo",
+            "type": "i32"
+          },
+          {
+            "name": "source",
+            "type": {
+              "defined": {
+                "name": "MarkSource"
+              }
+            }
+          },
+          {
+            "name": "mark_observed_at",
+            "type": "i64"
           }
         ]
       }
@@ -2130,6 +2946,106 @@
       }
     },
     {
+      "name": "SymbolCheck",
+      "docs": [
+        "A second signer's view of one symbol: is the market open, and what did the",
+        "stock last trade at.",
+        "",
+        "The mark is signed by the attestor alone, so on its own one key can price a",
+        "fill. The check is signed by a different key, drawing on different data,",
+        "and every fill requires the two to agree: on whether the market is open,",
+        "and on a price within a band of this reference. Neither signer alone can",
+        "then move value. The checker is named by the program's upgrade authority,",
+        "not by the attestor, so compromising the attestor does not also choose who",
+        "checks it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "symbol",
+            "type": {
+              "array": [
+                "u8",
+                12
+              ]
+            }
+          },
+          {
+            "name": "mint",
+            "docs": [
+              "Copied from `SymbolState` at `open_check`, and required to equal the",
+              "order's mint at every fill."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "checker",
+            "docs": [
+              "The only key permitted to push this check."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "open_now",
+            "docs": [
+              "The checker's own view of whether the primary market is open now."
+            ],
+            "type": "bool"
+          },
+          {
+            "name": "ref_rate_q64",
+            "docs": [
+              "Stock raw per quote raw, Q64.64, with the scaled-UI multiplier folded",
+              "in: the same convention as `SymbolMark.rate_q64`, so the two compare",
+              "directly."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "ref_px_num",
+            "docs": [
+              "Descriptive only, as on the mark."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "ref_px_expo",
+            "type": "i32"
+          },
+          {
+            "name": "ref_at",
+            "docs": [
+              "When the sale behind the reference happened. At night this is the",
+              "close, and its age is bounded separately from the push's."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "observed_at",
+            "docs": [
+              "When this check was pushed. Zero until the first push, which every",
+              "freshness test reads as stale."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_reserved",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "SymbolMark",
       "docs": [
         "An attested price for one symbol.",
@@ -2143,7 +3059,9 @@
         "gate can only refuse, so a broken attestor fails closed. A mark sets a",
         "price, so a broken attestor fails *open*. Bounded by the order's own floor,",
         "by `Mode::Strict` (a wrong mark is arbitrageable against a live market we do",
-        "not control), and by `MAX_MARK_AGE_SECONDS`."
+        "not control), and by `MAX_MARK_AGE_SECONDS`. Also bounded by how fast a push",
+        "may move it (`MAX_MARK_STEP_BPS`) and, at every fill, by the band around a",
+        "second signer's reference (`SymbolCheck`)."
       ],
       "type": {
         "kind": "struct",
@@ -2198,7 +3116,12 @@
           {
             "name": "conf_bps",
             "docs": [
-              "The attestor's own uncertainty about this mark."
+              "The attestor's own uncertainty about this mark.",
+              "",
+              "`u16::MAX` means the mark is held: its last push stepped too far and",
+              "was not written. The attestor can never push that value itself, since a",
+              "push is capped at `MAX_CONF_BPS`, so the marker needs no field of its",
+              "own and the account's layout is unchanged."
             ],
             "type": "u16"
           },
@@ -2424,9 +3347,26 @@
       "value": "[97, 117, 116, 104]"
     },
     {
+      "name": "CHECK_SEED",
+      "docs": [
+        "A second signer's view of the same symbol, from independent data."
+      ],
+      "type": "bytes",
+      "value": "[99, 104, 101, 99, 107]"
+    },
+    {
       "name": "MARK_SEED",
       "type": "bytes",
       "value": "[109, 97, 114, 107]"
+    },
+    {
+      "name": "MAX_CHECK_AGE_SECONDS",
+      "docs": [
+        "A check older than this is not a second opinion about now. The same bound",
+        "as a session, since it answers the same question from a different source."
+      ],
+      "type": "i64",
+      "value": "120"
     },
     {
       "name": "MAX_CONF_BPS",
@@ -2448,6 +3388,62 @@
       ],
       "type": "i64",
       "value": "60"
+    },
+    {
+      "name": "MAX_MARK_STEP_AGE_SECONDS",
+      "docs": [
+        "How recent the mark on record must be for the step limit to apply to it.",
+        "",
+        "A mark older than this is no longer evidence of where the price is, so the",
+        "next push is accepted at any rate. Without this, a real overnight move",
+        "larger than the step would hold the mark forever. At least",
+        "`MAX_MARK_AGE_SECONDS`, so a mark is never fresh enough to price a fill and",
+        "yet too old to anchor the next push."
+      ],
+      "type": "i64",
+      "value": "300"
+    },
+    {
+      "name": "MAX_MARK_STEP_BPS",
+      "docs": [
+        "The furthest a mark may move in `MAX_MARK_AGE_SECONDS` of observed time.",
+        "",
+        "A price is the one attested input that moves value, so a push that jumps",
+        "the rate further than any real stock moves that quickly is treated as a",
+        "fault in the attestor rather than as news. The limit is on the rate of",
+        "movement, not on each push: a push may move the mark by the share of this",
+        "step that the time since the observation on record has earned, so splitting",
+        "a jump into many pushes, in one transaction or one second, gains nothing.",
+        "The push is held rather than refused: a refusal would fail the keeper's",
+        "whole batch of marks, and would be bypassable by anyone who could make the",
+        "transaction fail differently. The held mark carries `conf_bps == u16::MAX`,",
+        "which every fill refuses.",
+        "",
+        "This catches a faulty push, and slows a compromised attestor to one step a",
+        "minute. It does not stop one: what stops a walked mark from pricing a fill",
+        "is the checker's reference, `MAX_SESSION_GAP_BPS` and `MAX_NIGHT_GAP_BPS`."
+      ],
+      "type": "u16",
+      "value": "500"
+    },
+    {
+      "name": "MAX_NIGHT_GAP_BPS",
+      "docs": [
+        "The same distance at night, when nothing can arbitrage a wrong mark back.",
+        "Also the discount on the reference that sets a night fill's third minimum."
+      ],
+      "type": "u16",
+      "value": "150"
+    },
+    {
+      "name": "MAX_NIGHT_REF_AGE_SECONDS",
+      "docs": [
+        "At night the reference is the last sale, which stops moving at the close.",
+        "Twelve hours covers a weeknight from the close to the next pre-market, and",
+        "refuses a Friday close on Sunday night or on Monday morning."
+      ],
+      "type": "i64",
+      "value": "43200"
     },
     {
       "name": "MAX_ORDER_LIFETIME_SECONDS",
@@ -2482,6 +3478,31 @@
       "value": "600"
     },
     {
+      "name": "MAX_SESSION_GAP_BPS",
+      "docs": [
+        "How far the mark may sit from the checker's reference while the market is",
+        "open. Wide enough for the spread between an executable ask and a last sale",
+        "in a moving market, narrow enough that one signer alone cannot price a fill."
+      ],
+      "type": "u16",
+      "value": "300"
+    },
+    {
+      "name": "MAX_SESSION_REF_AGE_SECONDS",
+      "docs": [
+        "In session the reference is the last sale, and a listed stock trades every",
+        "few seconds while the market is open, so a reference minutes old means the",
+        "checker's feed has stopped, not that the stock has. Without this bound a",
+        "checker that goes on pushing a fresh `observed_at` over a stuck feed would",
+        "keep agreeing with the attestor about a price from before the feed stopped.",
+        "At least `MAX_CHECK_AGE_SECONDS`, since a reference can be no newer than the",
+        "check that carries it, and no more than the night bound, since the session",
+        "is the regime with a live market to compare against."
+      ],
+      "type": "i64",
+      "value": "300"
+    },
+    {
       "name": "MAX_SLIP_BPS",
       "docs": [
         "Ceiling on the spread a client may authorise on the user's behalf."
@@ -2497,6 +3518,14 @@
       ],
       "type": "i64",
       "value": "120"
+    },
+    {
+      "name": "NIGHT_SEED",
+      "docs": [
+        "A per-owner opt-in to fills while the primary market is shut."
+      ],
+      "type": "bytes",
+      "value": "[110, 105, 103, 104, 116]"
     },
     {
       "name": "ORDER_SEED",

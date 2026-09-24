@@ -66,4 +66,29 @@ pub enum BellError {
     /// Appended last so every existing code keeps its number.
     #[msg("The issuer's mint state has not been read recently enough to trust")]
     RiskStale,
+
+    // --- the second opinion and night fills. Appended after RiskStale for the
+    // --- same reason as above: every code before this line keeps its number.
+    /// The last push moved the rate further than one step allows, so the mark
+    /// is held at the rate before it until a push lands back inside the step.
+    #[msg("The price mark is held: its last push moved further than one step allows")]
+    MarkPaused,
+    #[msg("Only the program's upgrade authority may do this")]
+    NotAuthority,
+    #[msg("Only the symbol's named checker may push its check")]
+    NotChecker,
+    #[msg("The checker's view is missing or too old to rely on")]
+    CheckStale,
+    #[msg("The checker disagrees about whether the market is open")]
+    CheckerDisagrees,
+    #[msg("The mark is too far from the checker's reference price")]
+    MarkOffReference,
+
+    // --- the opening cross. Appended after MarkOffReference for the same
+    // --- reason; no code is reserved between the two, so this is 6033.
+    /// A cross is a trade between two owners. An owner's buy crossed against
+    /// their own sell trades nothing, yet would use up both orders, so any
+    /// cranker could cancel a pair of one owner's orders by crossing them.
+    #[msg("A buy and a sell of the same owner cannot cross")]
+    SelfCross,
 }

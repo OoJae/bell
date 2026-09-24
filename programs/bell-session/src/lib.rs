@@ -176,4 +176,46 @@ pub mod bell_session {
     pub fn cancel_sell_order(ctx: Context<CancelSellOrder>) -> Result<()> {
         instructions::sell::handle_cancel_sell_order(ctx)
     }
+
+    /// Create a symbol's check and name its checker. Upgrade authority only.
+    pub fn open_check(
+        ctx: Context<OpenCheck>,
+        symbol: [u8; SYMBOL_LEN],
+        checker: Pubkey,
+    ) -> Result<()> {
+        instructions::check::handle_open_check(ctx, symbol, checker)
+    }
+
+    /// The checker's view: is the market open, and the last sale's price.
+    #[allow(clippy::too_many_arguments)]
+    pub fn push_check(
+        ctx: Context<PushCheck>,
+        symbol: [u8; SYMBOL_LEN],
+        open_now: bool,
+        ref_rate_q64: u128,
+        ref_px_num: u64,
+        ref_px_expo: i32,
+        ref_at: i64,
+        observed_at: i64,
+    ) -> Result<()> {
+        instructions::check::handle_push_check(
+            ctx, symbol, open_now, ref_rate_q64, ref_px_num, ref_px_expo, ref_at, observed_at,
+        )
+    }
+
+    /// Consent to fills while the primary market is shut, for every order.
+    pub fn opt_in_night(ctx: Context<OptInNight>) -> Result<()> {
+        instructions::night::handle_opt_in_night(ctx)
+    }
+
+    /// Withdraw that consent and reclaim the rent. Applies to live orders too.
+    pub fn opt_out_night(ctx: Context<OptOutNight>) -> Result<()> {
+        instructions::night::handle_opt_out_night(ctx)
+    }
+
+    /// Settle a due buy against a due sell at the mark, with no filler spread.
+    /// Permissionless, and in session only.
+    pub fn cross_orders(ctx: Context<CrossOrders>) -> Result<()> {
+        instructions::cross::handle_cross_orders(ctx)
+    }
 }

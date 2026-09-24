@@ -9,12 +9,12 @@
 use {
     anchor_lang::{
         prelude::Pubkey,
-        solana_program::{instruction::Instruction, system_program},
+        solana_program::{bpf_loader_upgradeable, instruction::Instruction, system_program},
         AccountDeserialize, InstructionData, ToAccountMetas,
     },
     anchor_lang::solana_program::clock::Clock,
     bell_session::{
-        constants::{AUTH_SEED, MARK_SEED, ORDER_SEED, RISK_SEED, SYMBOL_LEN, SYMBOL_SEED},
+        constants::{AUTH_SEED, CHECK_SEED, MARK_SEED, NIGHT_SEED, ORDER_SEED, RISK_SEED, SYMBOL_LEN, SYMBOL_SEED},
         error::BellError,
         state::{BellOrder, HaltState, HoursMode, MarkSource},
     },
@@ -77,6 +77,10 @@ struct Ctx {
     attestor: Keypair,
     user: Keypair,
     filler: Keypair,
+    /// The program's upgrade authority, as `Ctx::new` records it.
+    authority: Keypair,
+    /// The second signer named by the symbol's check.
+    checker: Keypair,
 }
 
 impl Ctx {
@@ -96,9 +100,20 @@ impl Ctx {
         let attestor = Keypair::new();
         let user = Keypair::new();
         let filler = Keypair::new();
-        for k in [&payer, &attestor, &user, &filler] {
+        let authority = Keypair::new();
+        let checker = Keypair::new();
+        for k in [&payer, &attestor, &user, &filler, &authority, &checker] {
             svm.airdrop(&k.pubkey(), 10_000_000_000).unwrap();
         }
+
+        // LiteSVM writes the ProgramData account with no upgrade authority.
+        // Record one, in the loader's own layout, so `open_check` has an
+        // authority to check against: option tag at byte 12, key at 13..45.
+        let pd = Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID).0;
+        let mut acc = svm.get_account(&pd).unwrap();
+        acc.data[12] = 1;
+        acc.data[13..45].copy_from_slice(authority.pubkey().as_ref());
+        svm.set_account(pd, acc).unwrap();
 
         // Quote leg: a plain 6-decimal mint, as USDC is.
         let quote_mint = Pubkey::new_unique();
@@ -122,7 +137,7 @@ impl Ctx {
         )
         .unwrap();
 
-        Self { svm, payer, program_id, quote_mint, stock_mint, attestor, user, filler }
+        Self { svm, payer, program_id, quote_mint, stock_mint, attestor, user, filler, authority, checker }
     }
 
     fn send(&mut self, ixs: &[Instruction], signers: &[&Keypair]) -> Result<(), String> {
@@ -160,6 +175,11 @@ impl Ctx {
     fn sym_pda(&self) -> Pubkey { self.pda(&[SYMBOL_SEED, &sym()]) }
     fn risk_pda(&self) -> Pubkey { self.pda(&[RISK_SEED, self.stock_mint.as_ref()]) }
     fn mark_pda(&self) -> Pubkey { self.pda(&[MARK_SEED, &sym()]) }
+    fn check_pda(&self) -> Pubkey { self.pda(&[CHECK_SEED, &sym()]) }
+    fn night_pda(&self) -> Pubkey { self.pda(&[NIGHT_SEED, self.user.pubkey().as_ref()]) }
+    fn program_data(&self) -> Pubkey {
+        Pubkey::find_program_address(&[self.program_id.as_ref()], &bpf_loader_upgradeable::ID).0
+    }
     fn auth_pda(&self) -> Pubkey { self.pda(&[AUTH_SEED, self.user.pubkey().as_ref()]) }
     fn order_pda(&self, nonce: u64) -> Pubkey {
         self.pda(&[ORDER_SEED, self.user.pubkey().as_ref(), &nonce.to_le_bytes()])
@@ -229,6 +249,13 @@ fn ready(ctx: &mut Ctx) {
         bell_session::accounts::OpenMark { payer: p, symbol_state: sp, mark: mp, system_program: system_program::ID }.to_account_metas(None),
     )], &[]).unwrap();
 
+    let (auth, cp, pd) = (ctx.authority.insecure_clone(), ctx.check_pda(), ctx.program_data());
+    ctx.send(&[Instruction::new_with_bytes(
+        ctx.program_id,
+        &bell_session::instruction::OpenCheck { symbol: sym(), checker: ctx.checker.pubkey() }.data(),
+        bell_session::accounts::OpenCheck { payer: p, authority: auth.pubkey(), program_data: pd, symbol_state: sp, check: cp, system_program: system_program::ID }.to_account_metas(None),
+    )], &[&auth]).unwrap();
+
     push_session(ctx, HaltState::None, true, NOW);
     push_mark(ctx, rate_q64(), NOW);
 }
@@ -244,15 +271,26 @@ fn push_session(ctx: &mut Ctx, halt: HaltState, open_now: bool, observed_at: i64
     )], &[&att]).unwrap();
 }
 
+/// Push the mark, and the checker's view alongside it: open, with the
+/// reference at the same rate, so the checker agrees with every mark a test
+/// pushes here.
 fn push_mark(ctx: &mut Ctx, rate_q64: u128, observed_at: i64) {
     let a = ctx.attestor.pubkey();
-    let (sp, mp) = (ctx.sym_pda(), ctx.mark_pda());
+    let (sp, mp, cp) = (ctx.sym_pda(), ctx.mark_pda(), ctx.check_pda());
     let att = ctx.attestor.insecure_clone();
-    ctx.send(&[Instruction::new_with_bytes(
-        ctx.program_id,
-        &bell_session::instruction::PushMark { symbol: sym(), rate_q64, px_num: 33_400_000, px_expo: -5, conf_bps: 10, source: MarkSource::Backpack, observed_at }.data(),
-        bell_session::accounts::PushMark { attestor: a, symbol_state: sp, mark: mp }.to_account_metas(None),
-    )], &[&att]).unwrap();
+    let chk = ctx.checker.insecure_clone();
+    ctx.send(&[
+        Instruction::new_with_bytes(
+            ctx.program_id,
+            &bell_session::instruction::PushMark { symbol: sym(), rate_q64, px_num: 33_400_000, px_expo: -5, conf_bps: 10, source: MarkSource::Backpack, observed_at }.data(),
+            bell_session::accounts::PushMark { attestor: a, symbol_state: sp, mark: mp }.to_account_metas(None),
+        ),
+        Instruction::new_with_bytes(
+            ctx.program_id,
+            &bell_session::instruction::PushCheck { symbol: sym(), open_now: true, ref_rate_q64: rate_q64, ref_px_num: 33_400_000, ref_px_expo: -5, ref_at: observed_at, observed_at }.data(),
+            bell_session::accounts::PushCheck { checker: chk.pubkey(), check: cp }.to_account_metas(None),
+        ),
+    ], &[&att, &chk]).unwrap();
 }
 
 /// 1 quote raw unit buys this many stock raw units, Q64.64.
@@ -292,6 +330,8 @@ fn accounts_for_fill(ctx: &Ctx, nonce: u64, legs: &Legs, quote_program: Pubkey, 
         stock_mint: ctx.stock_mint,
         quote_token_program: quote_program,
         stock_token_program: stock_program,
+        check: ctx.check_pda(),
+        night: ctx.night_pda(),
     }
     .to_account_metas(None)
 }
