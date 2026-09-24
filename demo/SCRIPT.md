@@ -106,7 +106,7 @@ real Apple dividend".*
 Under the sell line (to be filmed after the sell upgrade): the order box
 switched to Sell, a sale queued with a minimum price a share, the shares still
 in the wallet, then its line under "Your fills" — "sold … for …" — and the fill
-in the explorer ([sell-fill]).*
+in the explorer.*
 
 > What BELL can't fix: two issuer keys can take these stocks out of any
 > wallet. On our devnet mirrors, that key is ours. And the key that tells BELL
@@ -169,7 +169,8 @@ in the explorer ([sell-fill]).*
   whichever is higher (`sellOrderFloor` in `src/policy/order.ts`); each
   minimum rounds up (`stock_to_quote_ceil`, `mul_shr64_ceil`). Its cancel
   revokes the stock account alone, first (`cancelSellOrderTxs`). The first
-  devnet sale: [sell-fill].
+  devnet sale: `4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm`,
+  0.02 SPYx for 15.267831 demo-USDC, 10:04:28 ET on Thu 24 Sep.
 - Fifteen minutes either side — `REBASE_GUARD_SECONDS = 15 * 60`, matching
   Backed's own advice to pause "~15 minutes before and after each activation"
   (docs.xstocks.fi/developers/multipliers). Nasdaq's corporate-action halt
@@ -191,7 +192,8 @@ in the explorer ([sell-fill]).*
   a new night queue with a limit after 16:00 ET on Thursday, or cut "Set your
   limit," from section 4 and "with a limit price" from its shot list.
 - The receipt and the five-opens shots, on the live page after the push.
-- The sell shot in section 7: after the upgrade that adds sells to the devnet
-  program, once a sale has filled ([sell-fill], at [sell-fill-time]).
+- The sell shot in section 7. The devnet program has taken sales since the
+  upgrade at 09:49 ET on Thu 24 Sep, and the first filled at 10:04:28 ET; the
+  page offers them once the sell branch is deployed, so film it after that.
 - That the footage shows each on-screen item, including the Apple-mirror rebase
   (still to be filmed) and the keeper-stop sequence.

@@ -261,8 +261,8 @@ with sell orders in `64549f0`:
     `a_stranger_may_close_a_live_order_whose_quote_account_was_closed` and
     `a_stranger_may_close_an_expired_order_whose_quote_account_was_closed` in
     `test_queue.rs`, and `a_stranger_may_close_an_expired_or_defunded_sell` in
-    `test_sell.rs`. On devnet it ships in the same program upgrade as sell
-    orders.
+    `test_sell.rs`. On devnet it shipped in the same program upgrade as sell
+    orders (below).
 
 ---
 
@@ -274,6 +274,12 @@ gains `place_sell_order`, `fill_sell_order` and `cancel_sell_order`, and a
 or error changed; the one change to an existing instruction is #15. The 19
 tests in `test_sell.rs` run against the real mainnet AAPLx mint's bytes, and
 the six-decimal case against Backpack's PFE.
+
+Deployed to devnet on Thu 24 Sep at 09:49 ET, in
+[slot 503496372](https://explorer.solana.com/tx/2Mmp8hXoDEuFP5yYe8EtXxwanfamWW8nfVm9SNterqNMMfMr6daDYFUsiYukWanHboBpyje53mEMyoaj55vfeUzJ?cluster=devnet):
+the first 376,192 bytes of the program account hash to the tested build
+(sha256 `27645cd263805479…`) and the rest is zero padding. The first sale on
+devnet filled at 10:04:28 ET ([transaction](https://explorer.solana.com/tx/4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm?cluster=devnet)).
 
 **What holds, and where it is tested.**
 

@@ -455,8 +455,10 @@ hosted filler runs every five minutes. On 23 September 2026 it filled an
 overnight $200 SPYx order in a block timestamped 09:35:24 ET, five minutes
 after the bell
 ([transaction](https://explorer.solana.com/tx/5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt?cluster=devnet)).
-A sale waits and fills the same way. The first sale on devnet: [sell-fill], in
-a block timestamped [sell-fill-time].
+A sale waits and fills the same way. The first sale on devnet, 0.02 SPYx for
+15.267831 demo-USDC, is in a block timestamped 10:04:28 ET on Thu 24 Sep
+([transaction](https://explorer.solana.com/tx/4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm?cluster=devnet)); it was placed during the session, so
+it did not wait for a bell.
 
 This is stricter than §II.H requires. §II.H requires a TSV to stop when trading
 in the underlying stops on its primary listing exchange, "which includes a halt

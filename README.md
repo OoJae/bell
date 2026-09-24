@@ -46,8 +46,9 @@ and turns the refusal into an order.
 5. To sell shares you hold, switch the order box to **Sell**: a number of
    shares, and optionally a minimum price a share. The approval is on your
    stock account, not your demo-USDC, and the shares stay in your wallet until
-   a filler has paid for them. The first sale on devnet: [sell-fill], at
-   [sell-fill-time].
+   a filler has paid for them. The first sale on devnet sold 0.02 SPYx for
+   15.267831 demo-USDC at 10:04:28 ET on Thu 24 Sep
+   ([transaction](https://explorer.solana.com/tx/4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm?cluster=devnet)).
 6. Cancel any time: the first thing a cancel sends is an SPL `revoke` from your
    own wallet, on its own — on the demo-USDC account for a buy, on the stock
    account for a sale.
@@ -297,8 +298,13 @@ needs nothing from this program.
   demo-USDC for 25,661,713 raw SPYx
   ([transaction](https://explorer.solana.com/tx/5mj8qKbkZLz1M4e8i1cA8rJRuQGkwrzC1QEgfbTvMNcrXabGrT79U8SBVzLgtfEBTP9zURvZxVaaBeQE7EwMCFqt?cluster=devnet)).
   It was not filmed; the transaction is the record.
-- **A sale at the bell.** [sell-fill], in a block timestamped
-  [sell-fill-time]: the first sale on devnet.
+- **A sale.** 0.02 SPYx (1,988,635 raw) sold for 15.267831 demo-USDC, $763.39
+  a share, 30 bps under the mark's $765.69, in a block timestamped 10:04:28 ET
+  on Thu 24 Sep ([transaction](https://explorer.solana.com/tx/4trvXZHKDPrjqSjkwshjiiztct3uwPQUXdaTK8Td5i5v5yGGH6fZPmWsQd1gRf3L4eWCLGYNRon1qUYuWoEW9VDm?cluster=devnet)): the first sale on
+  devnet. It was placed during the session with `queue.ts sell SPYx 0.02 700`,
+  so it did not wait for a bell, and settled under a minute later by
+  `scripts/crank.ts` run by hand, before the hosted crank had its sell loop. It
+  was not filmed; the transaction is the record.
 - **A refusal that landed.** Every client simulates before sending, so a
   refusal normally never reaches the chain. `BELL_ARM=1 node
   scripts/guarded-swap.ts --land SPYx` sends a refused leg past preflight: at
