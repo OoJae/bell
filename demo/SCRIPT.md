@@ -98,11 +98,11 @@ the clock line "night band on: this wallet may fill within 150bps"; and the
 night fill in the explorer. Lower-third: "devnet · Thu 24 Sep 18:20 ET · a
 night fill: $5 of demo-USDC for 0.00647002 SPYx · sig dYzTs3…LqS".*
 
-*Then the cross: [cross-fill] in the explorer, one `cross_orders` instruction,
+*Then the cross: `5BdPhqpK…` in the explorer (https://explorer.solana.com/tx/5BdPhqpKaWdH5tS1nc4fD55J1Eksktt15uh6A4DwFYZeDnFNfmjBzU7ou7Es3FdKh2F4enFuXMaR8xkEVaqdiaeT?cluster=devnet), one `cross_orders` instruction,
 the stock going from the seller to the buyer and the demo-USDC from the buyer
 to the seller, with no filler account among them. Then its line under "Your
 fills", which reads "crossed with another user at the pool's price, no filler
-spread". Lower-third: "devnet · Fri 25 Sep [cross-fill-time] ET · a $10 SPYx
+spread". Lower-third: "devnet · Fri 25 Sep 09:30:45 ET · a $10 SPYx
 buy crossed against part of a 0.02 SPYx sale, two wallets · at the mark, a $200
 Jupiter quote".*
 
@@ -318,8 +318,9 @@ and 19:30 ET):
   from `53UAaRAEbpBLCJyb7Scof1mcwPfMhgjzRvaEob6PaU7P`. Both expire Mon 28 Sep
   18:28 ET. They are the only buy and the only sale on the devnet book, and
   neither wallet has night fills on. The voiceover describes the mechanism and
-  does not say a cross has happened. [cross-fill] at [cross-fill-time] ET goes
-  here once it lands.
+  does not say a cross has happened. It crossed at 09:30:45 ET on Fri 25 Sep,
+  slot 504010334: 10 demo-USDC for 1,293,995 raw SPYx at the mark ($768.41),
+  no filler account in the transaction (https://explorer.solana.com/tx/5BdPhqpKaWdH5tS1nc4fD55J1Eksktt15uh6A4DwFYZeDnFNfmjBzU7ou7Es3FdKh2F4enFuXMaR8xkEVaqdiaeT?cluster=devnet).
 - "Two issuer keys" — Backed `5aMN…FvEq` over the seven xStocks and Backpack
   `2cVY…af4a` over its two, as permanent delegates on mainnet; BELL's deploy
   key `Dqp6…Ziqs` on each of those nine devnet mirrors. Ondo's five have no
@@ -400,10 +401,10 @@ say a cross has happened, or call the cross price "fair".
 
 **Still to confirm before the cut:**
 
-- The cross. The buy and the sale are parked for Friday's open; film from
-  09:25 ET and fill in [cross-fill] and [cross-fill-time]. If no cross lands,
-  keep the line (it describes the mechanism), drop its lower-third and the
-  "Your fills" shot, and cover it with `cross.rs` or the cross tests instead.
+- The cross landed at 09:30:45 ET, but the 09:25 recording failed (this
+  machine lost its internet connection at 09:25). Cover it with the explorer
+  view of the transaction and the buyer's "Your fills" line, recorded after
+  the fact (`demo/recordings/`).
 - The keeper-stop sequence in section 6: not filmed yet. Stopping the hosted
   keeper also stops night fills and, in session, every fill, for as long as
   it is down.

@@ -535,8 +535,10 @@ tries crosses before fills. An order placed all-or-nothing, the page's
 default, crosses only if the other side can take all of it at once, so two
 such orders cross only when the buy's whole amount buys exactly the sale's
 whole amount, to the raw unit, which is rare. `scripts/queue.ts --partial`
-places orders that can fill in parts. The first cross on devnet was
-[cross-fill] at [cross-fill-time] ET on Fri 25 Sep.
+places orders that can fill in parts. The first cross on devnet was at
+09:30:45 ET on Fri 25 Sep, 45 seconds after the bell: 10 demo-USDC for
+1,293,995 raw SPYx at the mark ($768.41), no filler
+([transaction](https://explorer.solana.com/tx/5BdPhqpKaWdH5tS1nc4fD55J1Eksktt15uh6A4DwFYZeDnFNfmjBzU7ou7Es3FdKh2F4enFuXMaR8xkEVaqdiaeT?cluster=devnet)).
 
 ### q. Offchain Trading Procedures
 

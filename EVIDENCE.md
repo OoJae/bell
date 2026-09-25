@@ -3,23 +3,28 @@
 Generated from the hosted keeper's tick log on devnet (Railway service `keeper`, `/data/bell.db`) by `scripts/evidence.ts`. Every number below is
 counted from the tick log, not written by hand.
 
-**Observation window:** 2026-09-22 11:39:09 → 2026-09-24 14:19:57 UTC (50.7h, 3845 ticks, 34605 symbol-observations)
+**Observation window:** 2026-09-22 11:39:09 → 2026-09-25 15:05:31 UTC (75.4h, 5749 ticks, 59556 symbol-observations)
 
 ## Per symbol
 
 | symbol | issuer | ticks | tradeable | refused | session pushes |
 |---|---|---|---|---|---|
-| AAPLx | backed | 3845 | 1000 (26%) | 2845 | 3604 |
-| IWMx | backed | 3845 | 67 (2%) | 3778 | 3603 |
-| JPSTx | backed | 3845 | 0 (0%) | 3845 | 3603 |
-| LMT | backpack | 3845 | 1015 (26%) | 2830 | 3603 |
-| NVDAx | backed | 3845 | 1000 (26%) | 2845 | 3604 |
-| PFE | backpack | 3845 | 1015 (26%) | 2830 | 3603 |
-| QQQx | backed | 3845 | 1000 (26%) | 2845 | 3604 |
-| SPYx | backed | 3845 | 997 (26%) | 2848 | 3603 |
-| TSLAx | backed | 3845 | 1001 (26%) | 2844 | 3604 |
+| AAPLon | ondo | 1563 | 233 (15%) | 1330 | 1563 |
+| AAPLx | backed | 5749 | 1574 (27%) | 4175 | 5504 |
+| IWMx | backed | 5749 | 641 (11%) | 5108 | 5503 |
+| JPSTx | backed | 5749 | 0 (0%) | 5749 | 5503 |
+| LMT | backpack | 5749 | 1596 (28%) | 4153 | 5503 |
+| NVDAon | ondo | 1563 | 233 (15%) | 1330 | 1563 |
+| NVDAx | backed | 5749 | 1574 (27%) | 4175 | 5504 |
+| PFE | backpack | 5749 | 1596 (28%) | 4153 | 5503 |
+| QQQon | ondo | 1563 | 233 (15%) | 1330 | 1563 |
+| QQQx | backed | 5749 | 1574 (27%) | 4175 | 5504 |
+| SPYon | ondo | 1563 | 233 (15%) | 1330 | 1563 |
+| SPYx | backed | 5749 | 1571 (27%) | 4178 | 5503 |
+| TSLAon | ondo | 1563 | 233 (15%) | 1330 | 1563 |
+| TSLAx | backed | 5749 | 1575 (27%) | 4174 | 5504 |
 
-Across the window, **27510 of 34605** symbol-observations were not tradeable.
+Across the window, **46690 of 59556** symbol-observations were not tradeable.
 
 ## Confidence
 
@@ -29,9 +34,9 @@ confirm against and the log says so rather than implying agreement.
 
 | confidence | symbol-observations |
 |---|---|
-| confirmed | 20453 |
-| conflict | 13790 |
-| unavailable | 362 |
+| confirmed | 31065 |
+| conflict | 28094 |
+| unavailable | 397 |
 
 ## Source disagreement
 
@@ -49,13 +54,18 @@ in each direction.
 
 | symbol | market open, issuer not trading | market closed, issuer trading |
 |---|---|---|
-| JPSTx | 1010 | 0 |
-| IWMx | 945 | 59 |
-| TSLAx | 12 | 2735 |
-| AAPLx | 12 | 2734 |
-| NVDAx | 12 | 2734 |
-| QQQx | 12 | 2734 |
-| SPYx | 12 | 2734 |
+| JPSTx | 1591 | 0 |
+| IWMx | 952 | 1361 |
+| TSLAx | 19 | 4037 |
+| AAPLx | 19 | 4036 |
+| NVDAx | 19 | 4036 |
+| QQQx | 19 | 4036 |
+| SPYx | 19 | 4036 |
+| AAPLon | 6 | 1290 |
+| NVDAon | 6 | 1290 |
+| QQQon | 6 | 1290 |
+| SPYon | 6 | 1290 |
+| TSLAon | 6 | 1290 |
 
 ## Transitions
 
@@ -174,6 +184,143 @@ in each direction.
 | 2026-09-24 13:30:36 | IWMx | closed → open | session open, issuer trading |
 | 2026-09-24 13:30:36 | PFE | closed → open | session open, issuer trading |
 | 2026-09-24 13:30:36 | LMT | closed → open | session open, issuer trading |
+| 2026-09-24 18:36:27 | SPYon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-24 18:36:27 | QQQon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-24 18:36:27 | AAPLon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-24 18:36:27 | NVDAon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-24 18:36:27 | TSLAon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-24 19:55:12 | SPYx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 19:55:12 | NVDAx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 19:55:12 | QQQx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 19:55:12 | TSLAx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 19:55:12 | AAPLx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 19:55:12 | IWMx | open → closed, halt None → Unspecified | session is open but the issuer will not trade this security |
+| 2026-09-24 20:00:27 | SPYx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | NVDAx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | QQQx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | TSLAx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | AAPLx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | IWMx | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | PFE | open → closed | session closed |
+| 2026-09-24 20:00:27 | LMT | open → closed | session closed |
+| 2026-09-24 20:00:27 | SPYon | open → closed | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | QQQon | open → closed | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | AAPLon | open → closed | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | NVDAon | open → closed | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:00:27 | TSLAon | open → closed | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:01:11 | SPYon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-24 20:01:11 | QQQon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-24 20:01:11 | AAPLon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-24 20:01:11 | NVDAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-24 20:01:11 | TSLAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-24 20:06:26 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:06:26 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:06:26 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:06:26 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:06:26 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:21:45 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 20:21:45 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 20:21:45 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 20:21:45 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 20:21:45 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 20:22:31 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:22:31 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:22:31 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:22:31 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 20:22:31 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 21:57:52 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 21:57:52 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 21:57:52 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 21:57:52 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 21:57:52 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 21:58:36 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 21:58:36 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 21:58:36 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 21:58:36 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 21:58:36 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 22:40:47 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 22:40:47 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 22:40:47 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 22:40:47 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 22:40:47 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-24 22:41:32 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 22:41:32 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 22:41:32 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 22:41:32 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-24 22:41:32 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 00:01:03 | SPYon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 00:01:03 | QQQon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 00:01:03 | AAPLon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 00:01:03 | NVDAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 00:01:03 | TSLAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 00:10:48 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 00:10:48 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 00:10:48 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 00:10:48 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 00:10:48 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 08:01:04 | SPYon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 08:01:04 | QQQon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 08:01:04 | AAPLon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 08:01:04 | NVDAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 08:01:04 | TSLAon | closed → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 08:06:22 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 08:06:22 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 08:06:22 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 08:06:22 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 08:06:22 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:30:12 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:30:12 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:30:12 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:30:12 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:30:12 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:30:56 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:30:56 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:30:56 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:30:56 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:30:56 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:51:58 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:51:58 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:51:58 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:51:58 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:51:58 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 12:52:43 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:52:43 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:52:43 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:52:43 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 12:52:43 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:05:31 | SPYon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 13:05:31 | QQQon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 13:05:31 | AAPLon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 13:05:31 | NVDAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 13:05:31 | TSLAon | closed → closed, halt None → Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) |
+| 2026-09-25 13:06:16 | SPYon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:06:16 | QQQon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:06:16 | AAPLon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:06:16 | NVDAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:06:16 | TSLAon | closed → closed, halt Unspecified → None | issuer is open 24/5 but the primary market is closed |
+| 2026-09-25 13:30:17 | SPYx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | NVDAx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | QQQx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | TSLAx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | AAPLx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | IWMx | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | PFE | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | LMT | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | SPYon | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | QQQon | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | AAPLon | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | NVDAon | closed → open | session open, issuer trading |
+| 2026-09-25 13:30:17 | TSLAon | closed → open | session open, issuer trading |
+| 2026-09-25 13:31:01 | SPYon | open → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 13:31:01 | QQQon | open → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 13:31:01 | AAPLon | open → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 13:31:01 | NVDAon | open → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 13:31:01 | TSLAon | open → closed, halt None → Unspecified | Ondo has paused this token; the underlying is not exchange-halted |
+| 2026-09-25 13:35:31 | SPYon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-25 13:35:31 | QQQon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-25 13:35:31 | AAPLon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-25 13:35:31 | NVDAon | closed → open, halt Unspecified → None | session open, issuer trading |
+| 2026-09-25 13:35:31 | TSLAon | closed → open, halt Unspecified → None | session open, issuer trading |
 
 ## Stoppages
 
@@ -205,7 +352,7 @@ the page, which reads that attestation.
 | symbol | halt | reason | started (UTC) | ended (UTC) | lasted | how it ended | attested |
 |---|---|---|---|---|---|---|---|
 | IWMx | Unspecified | issuer has withdrawn this token; the underlying is not exchange-halted | in force at its first tick, 2026-09-22 11:39:09 | 2026-09-24 12:39:35 – 12:40:20 | at least 2d 1h | lifted with the market closed: issuer is open 24/5 but the primary market is closed | — → [4KQaHLV1…](https://explorer.solana.com/tx/4KQaHLV1MSz5kddVXueAg9e2nJJtEwxhbKUUCKRJ2oi1gmtGx9Q9RDxpPT5EBzexMqbwcAc7JNvWXDaPJ2jx6rNo?cluster=devnet) |
-| JPSTx | Unspecified | issuer has withdrawn this token; the underlying is not exchange-halted | in force at its first tick, 2026-09-22 11:39:09 | not in the log; still in force at 2026-09-24 14:19:57 | at least 2d 2h | — | — |
+| JPSTx | Unspecified | issuer has withdrawn this token; the underlying is not exchange-halted | in force at its first tick, 2026-09-22 11:39:09 | not in the log; still in force at 2026-09-25 15:05:31 | at least 3d 3h | — | — |
 | AAPLx | Unspecified | session is open but the issuer will not trade this security | 2026-09-22 19:54:26 – 19:55:24 | 2026-09-22 19:59:18 – 20:00:16 | 4m 52s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [124DLkJ3…](https://explorer.solana.com/tx/124DLkJ33ovSPeD1T49iJXDD4JMdBoNwNynJmXhovTchXE7eTYe4cSPkcN6rT1dw6NNq5vXNXiFmacNum7egR7VD?cluster=devnet) → [2Jg5s5C8…](https://explorer.solana.com/tx/2Jg5s5C8ahi3wk9Hxuy7adCJTyrk9QSiGctc9pBb6DoNTNGxFXX6bTBybazZywn5AvbysiNurimKxhGNT61rzPb3?cluster=devnet) |
 | NVDAx | Unspecified | session is open but the issuer will not trade this security | 2026-09-22 19:54:26 – 19:55:24 | 2026-09-22 19:59:18 – 20:00:16 | 4m 52s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [124DLkJ3…](https://explorer.solana.com/tx/124DLkJ33ovSPeD1T49iJXDD4JMdBoNwNynJmXhovTchXE7eTYe4cSPkcN6rT1dw6NNq5vXNXiFmacNum7egR7VD?cluster=devnet) → [2Jg5s5C8…](https://explorer.solana.com/tx/2Jg5s5C8ahi3wk9Hxuy7adCJTyrk9QSiGctc9pBb6DoNTNGxFXX6bTBybazZywn5AvbysiNurimKxhGNT61rzPb3?cluster=devnet) |
 | QQQx | Unspecified | session is open but the issuer will not trade this security | 2026-09-22 19:54:26 – 19:55:24 | 2026-09-22 19:59:18 – 20:00:16 | 4m 52s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [124DLkJ3…](https://explorer.solana.com/tx/124DLkJ33ovSPeD1T49iJXDD4JMdBoNwNynJmXhovTchXE7eTYe4cSPkcN6rT1dw6NNq5vXNXiFmacNum7egR7VD?cluster=devnet) → [2Jg5s5C8…](https://explorer.solana.com/tx/2Jg5s5C8ahi3wk9Hxuy7adCJTyrk9QSiGctc9pBb6DoNTNGxFXX6bTBybazZywn5AvbysiNurimKxhGNT61rzPb3?cluster=devnet) |
@@ -249,20 +396,86 @@ the page, which reads that attestation.
 | QQQx | Unspecified | no issuer reading; closed until one arrives | 2026-09-24 09:21:44 – 09:22:26 | 2026-09-24 09:25:36 – 09:26:21 | 3m 55s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [46tEx6Nc…](https://explorer.solana.com/tx/46tEx6NcwsgNSkNNw6ChF8gVx1XFm6oY3Yt6ujR2jFeor6q1xs3Ud4CJKhHxEAtqaaRyL8MTZe8uXSkRJR2cxNvj?cluster=devnet) → [jkNpAdse…](https://explorer.solana.com/tx/jkNpAdseduVCDZPdcDRiRHoxrUT2U8h9Wp91vNqSqsdxvQAncv7ayXSngTe2jyQ4adCzBGn1FWFirggQREFMQrL?cluster=devnet) |
 | SPYx | Unspecified | no issuer reading; closed until one arrives | 2026-09-24 09:21:44 – 09:22:26 | 2026-09-24 09:26:21 – 09:26:56 | 4m 30s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [46tEx6Nc…](https://explorer.solana.com/tx/46tEx6NcwsgNSkNNw6ChF8gVx1XFm6oY3Yt6ujR2jFeor6q1xs3Ud4CJKhHxEAtqaaRyL8MTZe8uXSkRJR2cxNvj?cluster=devnet) → [5vmoCzTC…](https://explorer.solana.com/tx/5vmoCzTCm8KUF8jqcJBZHkwtVQcWbLM9o69Jx3DWxUuWt5UaKSdTykifeuyQWgzuCt83697HhxnGETj8u8JwkAdY?cluster=devnet) |
 | TSLAx | Unspecified | no issuer reading; closed until one arrives | 2026-09-24 09:21:44 – 09:22:26 | 2026-09-24 09:26:21 – 09:26:56 | 4m 30s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [46tEx6Nc…](https://explorer.solana.com/tx/46tEx6NcwsgNSkNNw6ChF8gVx1XFm6oY3Yt6ujR2jFeor6q1xs3Ud4CJKhHxEAtqaaRyL8MTZe8uXSkRJR2cxNvj?cluster=devnet) → [5vmoCzTC…](https://explorer.solana.com/tx/5vmoCzTCm8KUF8jqcJBZHkwtVQcWbLM9o69Jx3DWxUuWt5UaKSdTykifeuyQWgzuCt83697HhxnGETj8u8JwkAdY?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | in force at its first tick, 2026-09-24 18:35:43 | 2026-09-24 18:35:43 – 18:36:27 | at least 44s | trading resumed: session open, issuer trading | [5JsBoprS…](https://explorer.solana.com/tx/5JsBoprSWNiMko6oeLZxLkRpB6yvqq8V8N1oZ6ou9xUmLxKuF6ajsiWGiiUWkbyE3YwcoqfVCXuZecsZ4oifW1Vn?cluster=devnet) → [2FtrngEU…](https://explorer.solana.com/tx/2FtrngEU3J2goEcT2zHP7dST7UWuoVgwHVpWWwpCkDeihLNB9dUZKAgJTXgRjhaS3FdaBc6iwRRZUUKbVgZbxkVk?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | in force at its first tick, 2026-09-24 18:35:43 | 2026-09-24 18:35:43 – 18:36:27 | at least 44s | trading resumed: session open, issuer trading | [5JsBoprS…](https://explorer.solana.com/tx/5JsBoprSWNiMko6oeLZxLkRpB6yvqq8V8N1oZ6ou9xUmLxKuF6ajsiWGiiUWkbyE3YwcoqfVCXuZecsZ4oifW1Vn?cluster=devnet) → [2FtrngEU…](https://explorer.solana.com/tx/2FtrngEU3J2goEcT2zHP7dST7UWuoVgwHVpWWwpCkDeihLNB9dUZKAgJTXgRjhaS3FdaBc6iwRRZUUKbVgZbxkVk?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | in force at its first tick, 2026-09-24 18:35:43 | 2026-09-24 18:35:43 – 18:36:27 | at least 44s | trading resumed: session open, issuer trading | [5JsBoprS…](https://explorer.solana.com/tx/5JsBoprSWNiMko6oeLZxLkRpB6yvqq8V8N1oZ6ou9xUmLxKuF6ajsiWGiiUWkbyE3YwcoqfVCXuZecsZ4oifW1Vn?cluster=devnet) → [2FtrngEU…](https://explorer.solana.com/tx/2FtrngEU3J2goEcT2zHP7dST7UWuoVgwHVpWWwpCkDeihLNB9dUZKAgJTXgRjhaS3FdaBc6iwRRZUUKbVgZbxkVk?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | in force at its first tick, 2026-09-24 18:35:43 | 2026-09-24 18:35:43 – 18:36:27 | at least 44s | trading resumed: session open, issuer trading | [5JsBoprS…](https://explorer.solana.com/tx/5JsBoprSWNiMko6oeLZxLkRpB6yvqq8V8N1oZ6ou9xUmLxKuF6ajsiWGiiUWkbyE3YwcoqfVCXuZecsZ4oifW1Vn?cluster=devnet) → [2FtrngEU…](https://explorer.solana.com/tx/2FtrngEU3J2goEcT2zHP7dST7UWuoVgwHVpWWwpCkDeihLNB9dUZKAgJTXgRjhaS3FdaBc6iwRRZUUKbVgZbxkVk?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | in force at its first tick, 2026-09-24 18:35:43 | 2026-09-24 18:35:43 – 18:36:27 | at least 44s | trading resumed: session open, issuer trading | [5JsBoprS…](https://explorer.solana.com/tx/5JsBoprSWNiMko6oeLZxLkRpB6yvqq8V8N1oZ6ou9xUmLxKuF6ajsiWGiiUWkbyE3YwcoqfVCXuZecsZ4oifW1Vn?cluster=devnet) → [2FtrngEU…](https://explorer.solana.com/tx/2FtrngEU3J2goEcT2zHP7dST7UWuoVgwHVpWWwpCkDeihLNB9dUZKAgJTXgRjhaS3FdaBc6iwRRZUUKbVgZbxkVk?cluster=devnet) |
+| AAPLx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| IWMx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| NVDAx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| QQQx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| SPYx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| TSLAx | Unspecified | session is open but the issuer will not trade this security | 2026-09-24 19:54:26 – 19:55:12 | 2026-09-24 19:59:42 – 20:00:27 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [3MJRBD6k…](https://explorer.solana.com/tx/3MJRBD6k7FsWZcxqu6v7iKrRLVHotqG3yX7MsArHUUVmHo2r8q3QKsGxtrcbVsBXMoh3PrXDjZ7Tb2ujTLEEayFf?cluster=devnet) → [3kB4WvCW…](https://explorer.solana.com/tx/3kB4WvCWgWwqszTRH5bJDZj8zVtfHAFVs3onBtfBNTm5qRC2hYo9opSmkqZvkzGt1283HGxdh4HW76Zm5yx3jws9?cluster=devnet) |
+| AAPLon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-24 20:00:27 – 20:01:11 | 2026-09-24 20:05:42 – 20:06:26 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2UVh4zHK…](https://explorer.solana.com/tx/2UVh4zHKFVwAREupCgGsuQ6Lkpn6Ahedzn4xRCJZd6UYVC5aoL1eurZmxQah1KaMG7rXigYaoxxTcEpPzyPha1KB?cluster=devnet) → [2LKNF41P…](https://explorer.solana.com/tx/2LKNF41Ps7d2pM7bJSKAazn6n3REL5ExjCBU6SEn2oERLEBGkJ2Fskp2L4kzWJJwasmPSZhaeLPqXr55G9DEDgg5?cluster=devnet) |
+| NVDAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-24 20:00:27 – 20:01:11 | 2026-09-24 20:05:42 – 20:06:26 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2UVh4zHK…](https://explorer.solana.com/tx/2UVh4zHKFVwAREupCgGsuQ6Lkpn6Ahedzn4xRCJZd6UYVC5aoL1eurZmxQah1KaMG7rXigYaoxxTcEpPzyPha1KB?cluster=devnet) → [2LKNF41P…](https://explorer.solana.com/tx/2LKNF41Ps7d2pM7bJSKAazn6n3REL5ExjCBU6SEn2oERLEBGkJ2Fskp2L4kzWJJwasmPSZhaeLPqXr55G9DEDgg5?cluster=devnet) |
+| QQQon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-24 20:00:27 – 20:01:11 | 2026-09-24 20:05:42 – 20:06:26 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2UVh4zHK…](https://explorer.solana.com/tx/2UVh4zHKFVwAREupCgGsuQ6Lkpn6Ahedzn4xRCJZd6UYVC5aoL1eurZmxQah1KaMG7rXigYaoxxTcEpPzyPha1KB?cluster=devnet) → [2LKNF41P…](https://explorer.solana.com/tx/2LKNF41Ps7d2pM7bJSKAazn6n3REL5ExjCBU6SEn2oERLEBGkJ2Fskp2L4kzWJJwasmPSZhaeLPqXr55G9DEDgg5?cluster=devnet) |
+| SPYon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-24 20:00:27 – 20:01:11 | 2026-09-24 20:05:42 – 20:06:26 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2UVh4zHK…](https://explorer.solana.com/tx/2UVh4zHKFVwAREupCgGsuQ6Lkpn6Ahedzn4xRCJZd6UYVC5aoL1eurZmxQah1KaMG7rXigYaoxxTcEpPzyPha1KB?cluster=devnet) → [2LKNF41P…](https://explorer.solana.com/tx/2LKNF41Ps7d2pM7bJSKAazn6n3REL5ExjCBU6SEn2oERLEBGkJ2Fskp2L4kzWJJwasmPSZhaeLPqXr55G9DEDgg5?cluster=devnet) |
+| TSLAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-24 20:00:27 – 20:01:11 | 2026-09-24 20:05:42 – 20:06:26 | 5m 15s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2UVh4zHK…](https://explorer.solana.com/tx/2UVh4zHKFVwAREupCgGsuQ6Lkpn6Ahedzn4xRCJZd6UYVC5aoL1eurZmxQah1KaMG7rXigYaoxxTcEpPzyPha1KB?cluster=devnet) → [2LKNF41P…](https://explorer.solana.com/tx/2LKNF41Ps7d2pM7bJSKAazn6n3REL5ExjCBU6SEn2oERLEBGkJ2Fskp2L4kzWJJwasmPSZhaeLPqXr55G9DEDgg5?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 20:21:28 – 20:21:45 | 2026-09-24 20:21:45 – 20:22:31 | 46s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2vzAwyEX…](https://explorer.solana.com/tx/2vzAwyEXwRm8nDHQTNZQsZnwBB11EmCHaTpzZ1mrRS3cFWA9uZBwvTBJT37Cdw8DHRHTwKoERmed8rvMKpci6rhb?cluster=devnet) → [2fbkD1TT…](https://explorer.solana.com/tx/2fbkD1TTzBX4PiRq6gKeeujgSLYPYVzeRXsJ4NcLWs8SqTrnLrFhyPyC8oDcJVpVL2GcWuKs6QdnEtcHy8Xj6NEw?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 20:21:28 – 20:21:45 | 2026-09-24 20:21:45 – 20:22:31 | 46s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2vzAwyEX…](https://explorer.solana.com/tx/2vzAwyEXwRm8nDHQTNZQsZnwBB11EmCHaTpzZ1mrRS3cFWA9uZBwvTBJT37Cdw8DHRHTwKoERmed8rvMKpci6rhb?cluster=devnet) → [2fbkD1TT…](https://explorer.solana.com/tx/2fbkD1TTzBX4PiRq6gKeeujgSLYPYVzeRXsJ4NcLWs8SqTrnLrFhyPyC8oDcJVpVL2GcWuKs6QdnEtcHy8Xj6NEw?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 20:21:28 – 20:21:45 | 2026-09-24 20:21:45 – 20:22:31 | 46s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2vzAwyEX…](https://explorer.solana.com/tx/2vzAwyEXwRm8nDHQTNZQsZnwBB11EmCHaTpzZ1mrRS3cFWA9uZBwvTBJT37Cdw8DHRHTwKoERmed8rvMKpci6rhb?cluster=devnet) → [2fbkD1TT…](https://explorer.solana.com/tx/2fbkD1TTzBX4PiRq6gKeeujgSLYPYVzeRXsJ4NcLWs8SqTrnLrFhyPyC8oDcJVpVL2GcWuKs6QdnEtcHy8Xj6NEw?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 20:21:28 – 20:21:45 | 2026-09-24 20:21:45 – 20:22:31 | 46s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2vzAwyEX…](https://explorer.solana.com/tx/2vzAwyEXwRm8nDHQTNZQsZnwBB11EmCHaTpzZ1mrRS3cFWA9uZBwvTBJT37Cdw8DHRHTwKoERmed8rvMKpci6rhb?cluster=devnet) → [2fbkD1TT…](https://explorer.solana.com/tx/2fbkD1TTzBX4PiRq6gKeeujgSLYPYVzeRXsJ4NcLWs8SqTrnLrFhyPyC8oDcJVpVL2GcWuKs6QdnEtcHy8Xj6NEw?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 20:21:28 – 20:21:45 | 2026-09-24 20:21:45 – 20:22:31 | 46s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2vzAwyEX…](https://explorer.solana.com/tx/2vzAwyEXwRm8nDHQTNZQsZnwBB11EmCHaTpzZ1mrRS3cFWA9uZBwvTBJT37Cdw8DHRHTwKoERmed8rvMKpci6rhb?cluster=devnet) → [2fbkD1TT…](https://explorer.solana.com/tx/2fbkD1TTzBX4PiRq6gKeeujgSLYPYVzeRXsJ4NcLWs8SqTrnLrFhyPyC8oDcJVpVL2GcWuKs6QdnEtcHy8Xj6NEw?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 21:57:00 – 21:57:52 | 2026-09-24 21:57:52 – 21:58:36 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2scg7jbJ…](https://explorer.solana.com/tx/2scg7jbJB2CakJiks9kFWHJtcczbGPJRTKFVxVmCGMYSThNLpojddw4LPe9XsGkLvYPcBbz97PuLzFoAP7Xen9Fd?cluster=devnet) → [5jzndLQ1…](https://explorer.solana.com/tx/5jzndLQ13dQusg8uDG1nnku4FBCb93tm9VzzxH377gRoUCZCFWDeYoyeVpAgd5DKuRJ6EcNWXMrVK99oBBWeqQ6x?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 21:57:00 – 21:57:52 | 2026-09-24 21:57:52 – 21:58:36 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2scg7jbJ…](https://explorer.solana.com/tx/2scg7jbJB2CakJiks9kFWHJtcczbGPJRTKFVxVmCGMYSThNLpojddw4LPe9XsGkLvYPcBbz97PuLzFoAP7Xen9Fd?cluster=devnet) → [5jzndLQ1…](https://explorer.solana.com/tx/5jzndLQ13dQusg8uDG1nnku4FBCb93tm9VzzxH377gRoUCZCFWDeYoyeVpAgd5DKuRJ6EcNWXMrVK99oBBWeqQ6x?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 21:57:00 – 21:57:52 | 2026-09-24 21:57:52 – 21:58:36 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2scg7jbJ…](https://explorer.solana.com/tx/2scg7jbJB2CakJiks9kFWHJtcczbGPJRTKFVxVmCGMYSThNLpojddw4LPe9XsGkLvYPcBbz97PuLzFoAP7Xen9Fd?cluster=devnet) → [5jzndLQ1…](https://explorer.solana.com/tx/5jzndLQ13dQusg8uDG1nnku4FBCb93tm9VzzxH377gRoUCZCFWDeYoyeVpAgd5DKuRJ6EcNWXMrVK99oBBWeqQ6x?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 21:57:00 – 21:57:52 | 2026-09-24 21:57:52 – 21:58:36 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2scg7jbJ…](https://explorer.solana.com/tx/2scg7jbJB2CakJiks9kFWHJtcczbGPJRTKFVxVmCGMYSThNLpojddw4LPe9XsGkLvYPcBbz97PuLzFoAP7Xen9Fd?cluster=devnet) → [5jzndLQ1…](https://explorer.solana.com/tx/5jzndLQ13dQusg8uDG1nnku4FBCb93tm9VzzxH377gRoUCZCFWDeYoyeVpAgd5DKuRJ6EcNWXMrVK99oBBWeqQ6x?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 21:57:00 – 21:57:52 | 2026-09-24 21:57:52 – 21:58:36 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2scg7jbJ…](https://explorer.solana.com/tx/2scg7jbJB2CakJiks9kFWHJtcczbGPJRTKFVxVmCGMYSThNLpojddw4LPe9XsGkLvYPcBbz97PuLzFoAP7Xen9Fd?cluster=devnet) → [5jzndLQ1…](https://explorer.solana.com/tx/5jzndLQ13dQusg8uDG1nnku4FBCb93tm9VzzxH377gRoUCZCFWDeYoyeVpAgd5DKuRJ6EcNWXMrVK99oBBWeqQ6x?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 22:39:51 – 22:40:47 | 2026-09-24 22:40:47 – 22:41:32 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2hyFaDJC…](https://explorer.solana.com/tx/2hyFaDJCjXCaT89F7BbmyAkWhfSGGcNa13sqWbqzRMiDtUH2PFPfkAhd5K7xF1fpzHdrcdgrnxnS4rmgXpWBM3cr?cluster=devnet) → [M1wg9c1M…](https://explorer.solana.com/tx/M1wg9c1MjuYyjmdTRCM8adcnXbxPjNoQejBQyUaephGCrkNTe2Xy2xkBppUtYysry6BgMHEgo8MongKNnBeg1WD?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 22:39:51 – 22:40:47 | 2026-09-24 22:40:47 – 22:41:32 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2hyFaDJC…](https://explorer.solana.com/tx/2hyFaDJCjXCaT89F7BbmyAkWhfSGGcNa13sqWbqzRMiDtUH2PFPfkAhd5K7xF1fpzHdrcdgrnxnS4rmgXpWBM3cr?cluster=devnet) → [M1wg9c1M…](https://explorer.solana.com/tx/M1wg9c1MjuYyjmdTRCM8adcnXbxPjNoQejBQyUaephGCrkNTe2Xy2xkBppUtYysry6BgMHEgo8MongKNnBeg1WD?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 22:39:51 – 22:40:47 | 2026-09-24 22:40:47 – 22:41:32 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2hyFaDJC…](https://explorer.solana.com/tx/2hyFaDJCjXCaT89F7BbmyAkWhfSGGcNa13sqWbqzRMiDtUH2PFPfkAhd5K7xF1fpzHdrcdgrnxnS4rmgXpWBM3cr?cluster=devnet) → [M1wg9c1M…](https://explorer.solana.com/tx/M1wg9c1MjuYyjmdTRCM8adcnXbxPjNoQejBQyUaephGCrkNTe2Xy2xkBppUtYysry6BgMHEgo8MongKNnBeg1WD?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 22:39:51 – 22:40:47 | 2026-09-24 22:40:47 – 22:41:32 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2hyFaDJC…](https://explorer.solana.com/tx/2hyFaDJCjXCaT89F7BbmyAkWhfSGGcNa13sqWbqzRMiDtUH2PFPfkAhd5K7xF1fpzHdrcdgrnxnS4rmgXpWBM3cr?cluster=devnet) → [M1wg9c1M…](https://explorer.solana.com/tx/M1wg9c1MjuYyjmdTRCM8adcnXbxPjNoQejBQyUaephGCrkNTe2Xy2xkBppUtYysry6BgMHEgo8MongKNnBeg1WD?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-24 22:39:51 – 22:40:47 | 2026-09-24 22:40:47 – 22:41:32 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2hyFaDJC…](https://explorer.solana.com/tx/2hyFaDJCjXCaT89F7BbmyAkWhfSGGcNa13sqWbqzRMiDtUH2PFPfkAhd5K7xF1fpzHdrcdgrnxnS4rmgXpWBM3cr?cluster=devnet) → [M1wg9c1M…](https://explorer.solana.com/tx/M1wg9c1MjuYyjmdTRCM8adcnXbxPjNoQejBQyUaephGCrkNTe2Xy2xkBppUtYysry6BgMHEgo8MongKNnBeg1WD?cluster=devnet) |
+| AAPLon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 00:00:18 – 00:01:03 | 2026-09-25 00:10:03 – 00:10:48 | 9m 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5hWTJbsV…](https://explorer.solana.com/tx/5hWTJbsVpngCG1WEQ961fwwj3UmcCRj94aHrBoiHPjf2UYo8mrgxxfbQfbwive5J1AbtLK4VcAyvzUxbL2vKfuN1?cluster=devnet) → [5PCsbdgg…](https://explorer.solana.com/tx/5PCsbdggm6FtPYukVHJLjJH53zus1Ejg4XKE2t77CsajRUPwwRogUdSAvqdmS4LPC8ZVzr5QXgAacPPtGkDCmRwY?cluster=devnet) |
+| NVDAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 00:00:18 – 00:01:03 | 2026-09-25 00:10:03 – 00:10:48 | 9m 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5hWTJbsV…](https://explorer.solana.com/tx/5hWTJbsVpngCG1WEQ961fwwj3UmcCRj94aHrBoiHPjf2UYo8mrgxxfbQfbwive5J1AbtLK4VcAyvzUxbL2vKfuN1?cluster=devnet) → [5PCsbdgg…](https://explorer.solana.com/tx/5PCsbdggm6FtPYukVHJLjJH53zus1Ejg4XKE2t77CsajRUPwwRogUdSAvqdmS4LPC8ZVzr5QXgAacPPtGkDCmRwY?cluster=devnet) |
+| QQQon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 00:00:18 – 00:01:03 | 2026-09-25 00:10:03 – 00:10:48 | 9m 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5hWTJbsV…](https://explorer.solana.com/tx/5hWTJbsVpngCG1WEQ961fwwj3UmcCRj94aHrBoiHPjf2UYo8mrgxxfbQfbwive5J1AbtLK4VcAyvzUxbL2vKfuN1?cluster=devnet) → [5PCsbdgg…](https://explorer.solana.com/tx/5PCsbdggm6FtPYukVHJLjJH53zus1Ejg4XKE2t77CsajRUPwwRogUdSAvqdmS4LPC8ZVzr5QXgAacPPtGkDCmRwY?cluster=devnet) |
+| SPYon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 00:00:18 – 00:01:03 | 2026-09-25 00:10:03 – 00:10:48 | 9m 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5hWTJbsV…](https://explorer.solana.com/tx/5hWTJbsVpngCG1WEQ961fwwj3UmcCRj94aHrBoiHPjf2UYo8mrgxxfbQfbwive5J1AbtLK4VcAyvzUxbL2vKfuN1?cluster=devnet) → [5PCsbdgg…](https://explorer.solana.com/tx/5PCsbdggm6FtPYukVHJLjJH53zus1Ejg4XKE2t77CsajRUPwwRogUdSAvqdmS4LPC8ZVzr5QXgAacPPtGkDCmRwY?cluster=devnet) |
+| TSLAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 00:00:18 – 00:01:03 | 2026-09-25 00:10:03 – 00:10:48 | 9m 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5hWTJbsV…](https://explorer.solana.com/tx/5hWTJbsVpngCG1WEQ961fwwj3UmcCRj94aHrBoiHPjf2UYo8mrgxxfbQfbwive5J1AbtLK4VcAyvzUxbL2vKfuN1?cluster=devnet) → [5PCsbdgg…](https://explorer.solana.com/tx/5PCsbdggm6FtPYukVHJLjJH53zus1Ejg4XKE2t77CsajRUPwwRogUdSAvqdmS4LPC8ZVzr5QXgAacPPtGkDCmRwY?cluster=devnet) |
+| AAPLon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 08:00:19 – 08:01:04 | 2026-09-25 08:05:33 – 08:06:22 | 5m 18s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [oTHw1wVY…](https://explorer.solana.com/tx/oTHw1wVYn2TYYcmvj1jKMeGX5F9DPERpbCbtT76hAoZaTSDLtpHCosJ1B1n1kSuKyeSzzCvy7fJHM8L8Z3f2QVk?cluster=devnet) → [2dcmtwG6…](https://explorer.solana.com/tx/2dcmtwG6NKSF7Y2W7HayPUqjH42YZXHduojgSzACGjinnSHjwq62tfTkaea6i51NknT778LvayECK6x8eV7zSWYp?cluster=devnet) |
+| NVDAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 08:00:19 – 08:01:04 | 2026-09-25 08:05:33 – 08:06:22 | 5m 18s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [oTHw1wVY…](https://explorer.solana.com/tx/oTHw1wVYn2TYYcmvj1jKMeGX5F9DPERpbCbtT76hAoZaTSDLtpHCosJ1B1n1kSuKyeSzzCvy7fJHM8L8Z3f2QVk?cluster=devnet) → [2dcmtwG6…](https://explorer.solana.com/tx/2dcmtwG6NKSF7Y2W7HayPUqjH42YZXHduojgSzACGjinnSHjwq62tfTkaea6i51NknT778LvayECK6x8eV7zSWYp?cluster=devnet) |
+| QQQon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 08:00:19 – 08:01:04 | 2026-09-25 08:05:33 – 08:06:22 | 5m 18s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [oTHw1wVY…](https://explorer.solana.com/tx/oTHw1wVYn2TYYcmvj1jKMeGX5F9DPERpbCbtT76hAoZaTSDLtpHCosJ1B1n1kSuKyeSzzCvy7fJHM8L8Z3f2QVk?cluster=devnet) → [2dcmtwG6…](https://explorer.solana.com/tx/2dcmtwG6NKSF7Y2W7HayPUqjH42YZXHduojgSzACGjinnSHjwq62tfTkaea6i51NknT778LvayECK6x8eV7zSWYp?cluster=devnet) |
+| SPYon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 08:00:19 – 08:01:04 | 2026-09-25 08:05:33 – 08:06:22 | 5m 18s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [oTHw1wVY…](https://explorer.solana.com/tx/oTHw1wVYn2TYYcmvj1jKMeGX5F9DPERpbCbtT76hAoZaTSDLtpHCosJ1B1n1kSuKyeSzzCvy7fJHM8L8Z3f2QVk?cluster=devnet) → [2dcmtwG6…](https://explorer.solana.com/tx/2dcmtwG6NKSF7Y2W7HayPUqjH42YZXHduojgSzACGjinnSHjwq62tfTkaea6i51NknT778LvayECK6x8eV7zSWYp?cluster=devnet) |
+| TSLAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 08:00:19 – 08:01:04 | 2026-09-25 08:05:33 – 08:06:22 | 5m 18s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [oTHw1wVY…](https://explorer.solana.com/tx/oTHw1wVYn2TYYcmvj1jKMeGX5F9DPERpbCbtT76hAoZaTSDLtpHCosJ1B1n1kSuKyeSzzCvy7fJHM8L8Z3f2QVk?cluster=devnet) → [2dcmtwG6…](https://explorer.solana.com/tx/2dcmtwG6NKSF7Y2W7HayPUqjH42YZXHduojgSzACGjinnSHjwq62tfTkaea6i51NknT778LvayECK6x8eV7zSWYp?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:16:04 – 12:30:12 | 2026-09-25 12:30:12 – 12:30:56 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2RRiUL5z…](https://explorer.solana.com/tx/2RRiUL5ze5gGs6vXNF7YBHVJM39W6fDamkshfJkvuq5iGFsGiJN6N5rkRQZDUcTTr3MRK4y31tjeYyxAWbF3esBT?cluster=devnet) → [4QSkteVC…](https://explorer.solana.com/tx/4QSkteVCbyaYjEu2FDPzaPixnoLph9JZshcfKjAFeoA4p9ca798mBwemfHwNAzacj1UuR4UecJWg8L2adB2eszHj?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:16:04 – 12:30:12 | 2026-09-25 12:30:12 – 12:30:56 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2RRiUL5z…](https://explorer.solana.com/tx/2RRiUL5ze5gGs6vXNF7YBHVJM39W6fDamkshfJkvuq5iGFsGiJN6N5rkRQZDUcTTr3MRK4y31tjeYyxAWbF3esBT?cluster=devnet) → [4QSkteVC…](https://explorer.solana.com/tx/4QSkteVCbyaYjEu2FDPzaPixnoLph9JZshcfKjAFeoA4p9ca798mBwemfHwNAzacj1UuR4UecJWg8L2adB2eszHj?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:16:04 – 12:30:12 | 2026-09-25 12:30:12 – 12:30:56 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2RRiUL5z…](https://explorer.solana.com/tx/2RRiUL5ze5gGs6vXNF7YBHVJM39W6fDamkshfJkvuq5iGFsGiJN6N5rkRQZDUcTTr3MRK4y31tjeYyxAWbF3esBT?cluster=devnet) → [4QSkteVC…](https://explorer.solana.com/tx/4QSkteVCbyaYjEu2FDPzaPixnoLph9JZshcfKjAFeoA4p9ca798mBwemfHwNAzacj1UuR4UecJWg8L2adB2eszHj?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:16:04 – 12:30:12 | 2026-09-25 12:30:12 – 12:30:56 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2RRiUL5z…](https://explorer.solana.com/tx/2RRiUL5ze5gGs6vXNF7YBHVJM39W6fDamkshfJkvuq5iGFsGiJN6N5rkRQZDUcTTr3MRK4y31tjeYyxAWbF3esBT?cluster=devnet) → [4QSkteVC…](https://explorer.solana.com/tx/4QSkteVCbyaYjEu2FDPzaPixnoLph9JZshcfKjAFeoA4p9ca798mBwemfHwNAzacj1UuR4UecJWg8L2adB2eszHj?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:16:04 – 12:30:12 | 2026-09-25 12:30:12 – 12:30:56 | 44s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2RRiUL5z…](https://explorer.solana.com/tx/2RRiUL5ze5gGs6vXNF7YBHVJM39W6fDamkshfJkvuq5iGFsGiJN6N5rkRQZDUcTTr3MRK4y31tjeYyxAWbF3esBT?cluster=devnet) → [4QSkteVC…](https://explorer.solana.com/tx/4QSkteVCbyaYjEu2FDPzaPixnoLph9JZshcfKjAFeoA4p9ca798mBwemfHwNAzacj1UuR4UecJWg8L2adB2eszHj?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:46:40 – 12:51:58 | 2026-09-25 12:51:58 – 12:52:43 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5EyfKFjo…](https://explorer.solana.com/tx/5EyfKFjo65kuAPHg4R9iJVBzT1AHTvVxWYwZrDFTLBp4J5npoiLHSVgMrznWyxNpT6NoL62sw26vmEj3WEkyg8DT?cluster=devnet) → [4jEieWLj…](https://explorer.solana.com/tx/4jEieWLjPdxfw5W6cTZSe1rjtzm8QEXHytQyjh9VAJw8MC3ebkXtNBiERtc9TTePUPAaRuiBXH4T1seGZMfVBGNS?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:46:40 – 12:51:58 | 2026-09-25 12:51:58 – 12:52:43 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5EyfKFjo…](https://explorer.solana.com/tx/5EyfKFjo65kuAPHg4R9iJVBzT1AHTvVxWYwZrDFTLBp4J5npoiLHSVgMrznWyxNpT6NoL62sw26vmEj3WEkyg8DT?cluster=devnet) → [4jEieWLj…](https://explorer.solana.com/tx/4jEieWLjPdxfw5W6cTZSe1rjtzm8QEXHytQyjh9VAJw8MC3ebkXtNBiERtc9TTePUPAaRuiBXH4T1seGZMfVBGNS?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:46:40 – 12:51:58 | 2026-09-25 12:51:58 – 12:52:43 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5EyfKFjo…](https://explorer.solana.com/tx/5EyfKFjo65kuAPHg4R9iJVBzT1AHTvVxWYwZrDFTLBp4J5npoiLHSVgMrznWyxNpT6NoL62sw26vmEj3WEkyg8DT?cluster=devnet) → [4jEieWLj…](https://explorer.solana.com/tx/4jEieWLjPdxfw5W6cTZSe1rjtzm8QEXHytQyjh9VAJw8MC3ebkXtNBiERtc9TTePUPAaRuiBXH4T1seGZMfVBGNS?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:46:40 – 12:51:58 | 2026-09-25 12:51:58 – 12:52:43 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5EyfKFjo…](https://explorer.solana.com/tx/5EyfKFjo65kuAPHg4R9iJVBzT1AHTvVxWYwZrDFTLBp4J5npoiLHSVgMrznWyxNpT6NoL62sw26vmEj3WEkyg8DT?cluster=devnet) → [4jEieWLj…](https://explorer.solana.com/tx/4jEieWLjPdxfw5W6cTZSe1rjtzm8QEXHytQyjh9VAJw8MC3ebkXtNBiERtc9TTePUPAaRuiBXH4T1seGZMfVBGNS?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:46:40 – 12:51:58 | 2026-09-25 12:51:58 – 12:52:43 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [5EyfKFjo…](https://explorer.solana.com/tx/5EyfKFjo65kuAPHg4R9iJVBzT1AHTvVxWYwZrDFTLBp4J5npoiLHSVgMrznWyxNpT6NoL62sw26vmEj3WEkyg8DT?cluster=devnet) → [4jEieWLj…](https://explorer.solana.com/tx/4jEieWLjPdxfw5W6cTZSe1rjtzm8QEXHytQyjh9VAJw8MC3ebkXtNBiERtc9TTePUPAaRuiBXH4T1seGZMfVBGNS?cluster=devnet) |
+| AAPLon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:58:43 – 13:05:31 | 2026-09-25 13:05:31 – 13:06:16 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2Sx5t7NM…](https://explorer.solana.com/tx/2Sx5t7NMkdQ4C4JQf4pYu7q7BfY92auq35SZ1p49tYL3rqxsqrmBB4ZddY1L7T3rhSfc9u8RJwXfrn1BHFWd3J7Y?cluster=devnet) → [24QKE6p5…](https://explorer.solana.com/tx/24QKE6p5YmtKY7RSmvS1CW67i5DzhosgMSsyBd2PDD2hQyuRvxrfaTm1xSCFmZLjJapij7PazkyPyeziMsrRkVjy?cluster=devnet) |
+| NVDAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:58:43 – 13:05:31 | 2026-09-25 13:05:31 – 13:06:16 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2Sx5t7NM…](https://explorer.solana.com/tx/2Sx5t7NMkdQ4C4JQf4pYu7q7BfY92auq35SZ1p49tYL3rqxsqrmBB4ZddY1L7T3rhSfc9u8RJwXfrn1BHFWd3J7Y?cluster=devnet) → [24QKE6p5…](https://explorer.solana.com/tx/24QKE6p5YmtKY7RSmvS1CW67i5DzhosgMSsyBd2PDD2hQyuRvxrfaTm1xSCFmZLjJapij7PazkyPyeziMsrRkVjy?cluster=devnet) |
+| QQQon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:58:43 – 13:05:31 | 2026-09-25 13:05:31 – 13:06:16 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2Sx5t7NM…](https://explorer.solana.com/tx/2Sx5t7NMkdQ4C4JQf4pYu7q7BfY92auq35SZ1p49tYL3rqxsqrmBB4ZddY1L7T3rhSfc9u8RJwXfrn1BHFWd3J7Y?cluster=devnet) → [24QKE6p5…](https://explorer.solana.com/tx/24QKE6p5YmtKY7RSmvS1CW67i5DzhosgMSsyBd2PDD2hQyuRvxrfaTm1xSCFmZLjJapij7PazkyPyeziMsrRkVjy?cluster=devnet) |
+| SPYon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:58:43 – 13:05:31 | 2026-09-25 13:05:31 – 13:06:16 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2Sx5t7NM…](https://explorer.solana.com/tx/2Sx5t7NMkdQ4C4JQf4pYu7q7BfY92auq35SZ1p49tYL3rqxsqrmBB4ZddY1L7T3rhSfc9u8RJwXfrn1BHFWd3J7Y?cluster=devnet) → [24QKE6p5…](https://explorer.solana.com/tx/24QKE6p5YmtKY7RSmvS1CW67i5DzhosgMSsyBd2PDD2hQyuRvxrfaTm1xSCFmZLjJapij7PazkyPyeziMsrRkVjy?cluster=devnet) |
+| TSLAon | Unspecified | no issuer reading; closed until one arrives (Ondo status unread: no reading yet) | 2026-09-25 12:58:43 – 13:05:31 | 2026-09-25 13:05:31 – 13:06:16 | 45s | lifted with the market closed: issuer is open 24/5 but the primary market is closed | [2Sx5t7NM…](https://explorer.solana.com/tx/2Sx5t7NMkdQ4C4JQf4pYu7q7BfY92auq35SZ1p49tYL3rqxsqrmBB4ZddY1L7T3rhSfc9u8RJwXfrn1BHFWd3J7Y?cluster=devnet) → [24QKE6p5…](https://explorer.solana.com/tx/24QKE6p5YmtKY7RSmvS1CW67i5DzhosgMSsyBd2PDD2hQyuRvxrfaTm1xSCFmZLjJapij7PazkyPyeziMsrRkVjy?cluster=devnet) |
+| AAPLon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 13:30:17 – 13:31:01 | 2026-09-25 13:34:48 – 13:35:31 | 4m 30s | trading resumed: session open, issuer trading | [2NujjXwT…](https://explorer.solana.com/tx/2NujjXwTKw6uwqifUVdj9vXcsN1aVrA9Gw2hWDCBUz4HcyR2VzRq86cw3dw3kbhMWydTc6z3eNCeyJA923YZuyH6?cluster=devnet) → [3oVbkiaq…](https://explorer.solana.com/tx/3oVbkiaqkCo2ugdjgPyFWDPxp1igmVa9XvSoVP2DS7JwZm1ejJ4v2FE2grtKUUdYAG9PAHp4yNy6GcQSR94NRMnF?cluster=devnet) |
+| NVDAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 13:30:17 – 13:31:01 | 2026-09-25 13:34:48 – 13:35:31 | 4m 30s | trading resumed: session open, issuer trading | [2NujjXwT…](https://explorer.solana.com/tx/2NujjXwTKw6uwqifUVdj9vXcsN1aVrA9Gw2hWDCBUz4HcyR2VzRq86cw3dw3kbhMWydTc6z3eNCeyJA923YZuyH6?cluster=devnet) → [3oVbkiaq…](https://explorer.solana.com/tx/3oVbkiaqkCo2ugdjgPyFWDPxp1igmVa9XvSoVP2DS7JwZm1ejJ4v2FE2grtKUUdYAG9PAHp4yNy6GcQSR94NRMnF?cluster=devnet) |
+| QQQon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 13:30:17 – 13:31:01 | 2026-09-25 13:34:48 – 13:35:31 | 4m 30s | trading resumed: session open, issuer trading | [2NujjXwT…](https://explorer.solana.com/tx/2NujjXwTKw6uwqifUVdj9vXcsN1aVrA9Gw2hWDCBUz4HcyR2VzRq86cw3dw3kbhMWydTc6z3eNCeyJA923YZuyH6?cluster=devnet) → [3oVbkiaq…](https://explorer.solana.com/tx/3oVbkiaqkCo2ugdjgPyFWDPxp1igmVa9XvSoVP2DS7JwZm1ejJ4v2FE2grtKUUdYAG9PAHp4yNy6GcQSR94NRMnF?cluster=devnet) |
+| SPYon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 13:30:17 – 13:31:01 | 2026-09-25 13:34:48 – 13:35:31 | 4m 30s | trading resumed: session open, issuer trading | [2NujjXwT…](https://explorer.solana.com/tx/2NujjXwTKw6uwqifUVdj9vXcsN1aVrA9Gw2hWDCBUz4HcyR2VzRq86cw3dw3kbhMWydTc6z3eNCeyJA923YZuyH6?cluster=devnet) → [3oVbkiaq…](https://explorer.solana.com/tx/3oVbkiaqkCo2ugdjgPyFWDPxp1igmVa9XvSoVP2DS7JwZm1ejJ4v2FE2grtKUUdYAG9PAHp4yNy6GcQSR94NRMnF?cluster=devnet) |
+| TSLAon | Unspecified | Ondo has paused this token; the underlying is not exchange-halted | 2026-09-25 13:30:17 – 13:31:01 | 2026-09-25 13:34:48 – 13:35:31 | 4m 30s | trading resumed: session open, issuer trading | [2NujjXwT…](https://explorer.solana.com/tx/2NujjXwTKw6uwqifUVdj9vXcsN1aVrA9Gw2hWDCBUz4HcyR2VzRq86cw3dw3kbhMWydTc6z3eNCeyJA923YZuyH6?cluster=devnet) → [3oVbkiaq…](https://explorer.solana.com/tx/3oVbkiaqkCo2ugdjgPyFWDPxp1igmVa9XvSoVP2DS7JwZm1ejJ4v2FE2grtKUUdYAG9PAHp4yNy6GcQSR94NRMnF?cluster=devnet) |
 
 Per symbol, with the ordinary closes kept apart:
 
 | symbol | stoppages | time stopped | ordinary closes, not stoppages |
 |---|---|---|---|
-| AAPLx | 8 | 47m 52s | 0 |
-| IWMx | 1 | at least 2d 1h | 0 |
-| JPSTx | 1 | at least 2d 2h | 0 |
-| LMT | 0 | — | 2 |
-| NVDAx | 10 | 47m 41s | 0 |
-| PFE | 0 | — | 2 |
-| QQQx | 7 | 48m 09s | 0 |
-| SPYx | 10 | 49m 41s | 0 |
-| TSLAx | 8 | 46m 30s | 0 |
+| AAPLon | 11 | at least 30m 01s | 1 |
+| AAPLx | 9 | 53m 07s | 0 |
+| IWMx | 2 | at least 2d 1h | 0 |
+| JPSTx | 1 | at least 3d 3h | 0 |
+| LMT | 0 | — | 3 |
+| NVDAon | 11 | at least 30m 01s | 1 |
+| NVDAx | 11 | 52m 56s | 0 |
+| PFE | 0 | — | 3 |
+| QQQon | 11 | at least 30m 01s | 1 |
+| QQQx | 8 | 53m 24s | 0 |
+| SPYon | 11 | at least 30m 01s | 1 |
+| SPYx | 11 | 54m 56s | 0 |
+| TSLAon | 11 | at least 30m 01s | 1 |
+| TSLAx | 9 | 51m 45s | 0 |
 
 ## What a night buyer would have paid
 
@@ -291,8 +504,19 @@ during the regular session before it, and one from 09:35 to 10:00 ET the next
 trading morning. A weekday counts as a holiday only when some tick between
 09:35 and 15:30 ET that day saw the session closed and none saw it open.
 
-No complete overnight window in the log yet, so there is no number to print:
-the 9792 marks recorded so far do not cover any night at both ends.
+1 night, ending at the opens of 2026-09-25 (ET).
 
-9323 overnight marks left out because the log did not cover that night at both ends.
+| symbol | nights | samples | median | worst | direction |
+|---|---|---|---|---|---|
+| AAPLx | 1 | 1323 | +25.1 bps | +47.4 bps | dearer at night (1310 of 1323) |
+| LMT | 1 | 1323 | -12.1 bps | -35.9 bps | cheaper at night (1032 of 1323) |
+| NVDAon | 1 | 116 | +20.3 bps | +92447699.8 bps | dearer at night (64 of 116) |
+| NVDAx | 1 | 1323 | -79.1 bps | -123.3 bps | cheaper at night (1316 of 1323) |
+| PFE | 1 | 1323 | +17.3 bps | +78.8 bps | dearer at night (1278 of 1323) |
+| QQQx | 1 | 1323 | -26.1 bps | -61.3 bps | cheaper at night (871 of 1323) |
+| SPYon | 1 | 1323 | -34.6 bps | -49.0 bps | cheaper at night (1172 of 1323) |
+| SPYx | 1 | 1323 | -33.1 bps | -46.3 bps | cheaper at night (1123 of 1323) |
+| TSLAx | 1 | 1323 | +178.5 bps | +298.6 bps | dearer at night (1323 of 1323) |
+
+9419 overnight marks left out because the log did not cover that night at both ends.
 

@@ -541,9 +541,12 @@ needs nothing from this program.
 - **The first per-wallet message.** The keeper sent a Telegram message to a
   chat following the wallet whose order filled at 15:00:06 ET
   ([transaction](https://explorer.solana.com/tx/bEJXacdtQZtqcmag7Ak7JDDTQkRMoNBd82ht1xx9zeA92r3gTQwMkmd8TRJePVPrNqcYBQ22APZWCALwYaq17uA?cluster=devnet)).
-- **The first cross.** [cross-fill] at [cross-fill-time] ET, Fri 25 Sep: the $10
-  SPYx buy and the partial 0.02 SPYx sale parked for the open, from two
-  wallets, crossed at the mark with no filler.
+- **The first cross.** 09:30:45 ET, Fri 25 Sep, 45 seconds after the bell: the
+  $10 SPYx buy and the partial 0.02 SPYx sale parked overnight, from two
+  wallets, crossed at the mark ($768.41) with no filler. The buyer received
+  exactly 1,293,995 raw SPYx and the seller exactly 10 demo-USDC; the hosted
+  crank then filled the rest of the sale
+  ([transaction](https://explorer.solana.com/tx/5BdPhqpKaWdH5tS1nc4fD55J1Eksktt15uh6A4DwFYZeDnFNfmjBzU7ou7Es3FdKh2F4enFuXMaR8xkEVaqdiaeT?cluster=devnet)).
 
 **The close, and the thing we did not expect.** At the 16:00 ET bell on Monday
 21 September, the keeper's tick log recorded the two sources never agreeing on

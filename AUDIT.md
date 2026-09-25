@@ -576,7 +576,7 @@ setting that would have saved more cost a fifth more compute on every fill
 | `open_check` for eight symbols | 18:05:49 | 503675935 | [`5ibXsi1E…`](https://explorer.solana.com/tx/5ibXsi1E8m2EVjy6vumWYnD1Ah2Pv97jiFEEDpEPGbN6vSc7K8qPE1sG1HkLFLRxF9QLvjuh6SpDDKyDGXetrvCe?cluster=devnet) |
 | `open_check` for the other six | 18:05:52 | 503675953 | [`3tmQBQx2…`](https://explorer.solana.com/tx/3tmQBQx2iFWNu5QY1wV3XZnJtS6LXALN9SAhqxs4LuvXRPumnN4Kge8DbQtNJ9dRNKB5zC31pbARbpH7xTX4n1EW?cluster=devnet) |
 | The first night fill: $5 of demo-USDC for 647,002 raw SPYx | 18:20:28 | 503681235 | [`dYzTs3Sa…`](https://explorer.solana.com/tx/dYzTs3SaS8Tmmmo3iDi3trWBiLAhzVZVqjDpZYV9svt5guocoBbL5nYrexZ4W2QSwANPj967dVrfXLi3BAYYqLS?cluster=devnet) |
-| The first cross | [cross-fill-time], Fri 25 Sep | | [cross-fill] |
+| The first cross: 10 demo-USDC for 1,293,995 raw SPYx, buyer to seller and back, at the mark ($768.41), no filler | 09:30:45, Fri 25 Sep | 504010334 | [`5BdPhqpK…`](https://explorer.solana.com/tx/5BdPhqpKaWdH5tS1nc4fD55J1Eksktt15uh6A4DwFYZeDnFNfmjBzU7ou7Es3FdKh2F4enFuXMaR8xkEVaqdiaeT?cluster=devnet) |
 
 The first 462,456 bytes of the program account hash to the tested build,
 sha256 `51d509e3f7521484831260882113d9251bedcb3b98bc726298168360d931b4cc`, and
