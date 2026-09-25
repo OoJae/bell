@@ -12,11 +12,14 @@ transaction.
 
 > **Status: devnet only.** The program is deployed on devnet at
 > [`56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx`](https://explorer.solana.com/address/56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx?cluster=devnet).
-> It covers nine symbols, and on devnet each one is a *mirror* of the real
+> It covers fourteen symbols, and on devnet each one is a *mirror* of the real
 > mainnet mint, not the mint itself (see the README, "What that costs in
 > honesty"). BELL has no mainnet deployment, so nothing here can guard a
 > mainnet trade today. Everything below works against devnet now and would
-> work the same way against a mainnet deployment.
+> work the same way against a mainnet deployment. The upgrade of 24 September
+> did not change `assert_tradeable`: its accounts, arguments and refusals are
+> as before. It changed BELL's own fills, which now take 17 accounts ("BELL's
+> own queue", below).
 
 ---
 
@@ -66,7 +69,10 @@ compensate for the absence of arbitrage", which puts pricing off-hours on you.
 Measured on devnet on the evening of 23 September (ET), SPYx refused in
 `Strict` (`MarketClosed`, market shut) and passed in `Guarded`. IWMx refused in
 both, because its issuer has withdrawn it, so its attested halt state is not
-`None`.
+`None`. BELL's own night fills use `Guarded` too, for wallets that opted in,
+and then add bounds of their own that the gate does not: the checker must
+agree the market is closed, and the price must sit within 150 bps of the
+official close. A `Guarded` caller of `assert_tradeable` gets none of that.
 
 `MarketClosed` covers both a shut session and a stopped security. To tell them
 apart, read `SymbolState.halt` (layout below): `0` means the market is simply
@@ -435,9 +441,76 @@ holds no key and sends nothing. At about 23:20 ET on 23 September it printed
   session is therefore no sharper than the keeper's 45 s tick.
 - **Not fail-closed against a leaked attestor key.** Whoever holds it can
   attest a symbol open when it should be shut, and a swap you guarded with
-  `assert_tradeable` then passes. Your swap gets neither of the bounds BELL's
-  own orders have (the loss floor and the $1,000 cap). It is limited only by
-  your own slippage. The README's "What you must trust" covers this in full.
+  `assert_tradeable` then passes. Since 24 September BELL's own fills also
+  need a second key, the checker, to agree; the gate does not read the check,
+  so your swap does not get that. Nor does it get the other bounds BELL's own
+  orders have (the loss floor and the $1,000 cap). It is limited only by your
+  own slippage. The README's "What you must trust" covers this in full.
+
+---
+
+## BELL's own queue: fills, crosses and night opt-in
+
+This part matters only if you fill BELL's orders, cross them, or build a
+client that places them. A wallet that only prepends the gate can skip it.
+`src/chain/client.ts` builds every one of these (`ixFillOrder`,
+`ixFillSellOrder`, `ixCrossOrders`, `ixOptInNight`, `ixOptOutNight`).
+`scripts/crank.ts` uses the fill and cross builders; `scripts/queue.ts` and
+the page (`web/lib/queue.ts`) use the opt-in ones.
+
+**Fills take 17 accounts.** `fill_order` and `fill_sell_order` keep their
+first 15 accounts, their arguments and their discriminators. Two are appended:
+
+| # | account | what to pass |
+|---|---|---|
+| 16 | `check` | the symbol's `SymbolCheck`, at `["check", symbol]` (the 12-byte padded ticker) |
+| 17 | `night` | the order owner's opt-in address, `["night", owner]`, **whether or not an account exists there** |
+
+A filler still sending 15 accounts fails with Anchor's 3005 before any handler
+code runs, so an old filler cannot skip the check. The program reads `night`
+without checking its address: it counts as consent only if this program owns
+it, it carries the `NightOptIn` discriminator, and it records the order's
+owner (`night::opted_in`). So the IDL carries no PDA for it, and a client
+derives it. Anything else, a stranger's opt-in included, reads as no consent,
+and at night the fill then refuses `MarketClosed`.
+
+**Every fill and cross runs one admission test** (`admit.rs`), in this order:
+the order is due and not expired; the gate, `Strict`, or `Guarded` for an
+owner who opted in while the session is shut; the mark is the right quote
+asset, under 60 s old, not held by the breaker (6027) and within the order's
+uncertainty; then the check (6030–6032). A night fill must also deliver at
+least the checker's reference less 150 bps: rounded down for a buy's stock,
+rounded up for a sale's quote, as each side's other minimums are.
+
+**`cross_orders` takes no arguments and 19 accounts**, in this order: the
+cranker (signer); the buy order and the sell order (both writable, at `["ord",
+owner, nonce]` and `["sell", owner, nonce]`); the symbol's `SymbolState`,
+`TokenRisk`, `SymbolMark` and `SymbolCheck`, all found from the buy; the
+buyer's and the seller's delegate authorities (`["auth", owner]`); the buyer
+and the seller themselves (writable, for the rent of a completed order); the
+buyer's quote and stock accounts and the seller's stock and quote accounts
+(writable, each the one its order pins); the quote mint and the stock mint;
+and the quote and stock token programs. It computes the amounts itself. The
+buyer receives exactly `fill_order`'s fair amount for the quote that moves;
+the seller at least what `fill_sell_order` would owe; each order's floor,
+limit and minimum fill must hold. It runs only in session, since both orders
+are admitted `Strict` and the checker must say open, and refuses one owner's
+pair (`SelfCross`, 6033). A cranker chooses only which two orders meet. An
+order placed all-or-nothing crosses only if the other side can take all of it
+at once, so two such orders almost never cross; `scripts/queue.ts --partial`
+places one with a minimum fill of about a dollar.
+
+**Night opt-in.** `opt_in_night` takes the owner (signer, writable), the
+opt-in at `["night", owner]` (writable) and the system program, and no
+arguments. It covers every order the owner has or will place, including live
+ones, so say so before the owner signs. `opt_out_night` takes the owner and
+the opt-in, closes it and returns the rent (980,440 lamports on devnet). The
+page's switch and `scripts/queue.ts night on|off` build exactly these.
+
+**Rollout, for anyone running their own deployment.** A symbol's fills refuse
+until its check is opened (3012) and its checker has pushed (6030), and only
+the program's upgrade authority can open a check. `docs/SETUP.md`, "Rolling
+out an upgrade that adds checks", gives the order.
 
 ---
 
@@ -462,9 +535,9 @@ stock account, and both raise 6008 for accounts that name the wrong mint):
 | 6005 | 0x1775 | `MultiplierMoved` | The multiplier changed after this order was built | Re-quote: the denomination moved since you read it. |
 | 6006 | 0x1776 | `HookArmed` | A transfer hook is armed on this mint | Settlement semantics changed. |
 | 6026 | 0x178a | `RiskStale` | The issuer's mint state has not been read recently enough to trust | Put `refresh_token_risk` in front, or wait for the keeper. |
-| 6008 | 0x1778 | `MintMismatch` | Symbol does not match the mint recorded for it | Declared on the gate's `risk` account. A wrong account fails the seeds check (2006) first, as measured. Also raised by `push_mark`, `place_order` and `fill_order`. |
+| 6008 | 0x1778 | `MintMismatch` | Symbol does not match the mint recorded for it | Declared on the gate's `risk` account. A wrong account fails the seeds check (2006) first, as measured. Also raised by `push_mark`, `place_order`, `fill_order` and `cross_orders` (a sale of another symbol or mint). |
 | 2006 | 0x7d6 | `ConstraintSeeds` (Anchor) | A seeds constraint was violated | `risk` is not the PDA for the symbol's mint. |
-| 3012 | 0xbc4 | `AccountNotInitialized` (Anchor) | The program expected this account to be already initialized | The symbol is not registered. |
+| 3012 | 0xbc4 | `AccountNotInitialized` (Anchor) | The program expected this account to be already initialized | The symbol is not registered. (On a fill or cross it can also mean the symbol's check is not open; see below.) |
 
 **Raised by other instructions** (you meet these only if you call them):
 
@@ -472,22 +545,47 @@ stock account, and both raise 6008 for accounts that name the wrong mint):
 |---|---|---|---|---|
 | 6007 | 0x1777 | `NotToken2022` | Mint is not owned by the Token-2022 program | `refresh_token_risk` / `init_token_risk`, `fill_order` |
 | 6009 | 0x1779 | `NotAttestor` | Only the registered attestor may push session state | `push_session`, `push_mark`, `classify_rebase` |
-| 6010 | 0x177a | `TimestampInFuture` | Attested timestamp is in the future | `push_session`, `push_mark` |
-| 6011 | 0x177b | `MarkStale` | The price mark is stale | `fill_order` |
-| 6012 | 0x177c | `MarkTooWide` | The mark's uncertainty exceeds what this order accepts | `fill_order`, `push_mark` |
-| 6013 | 0x177d | `PriceOutOfBand` | Delivered less than the order's minimum acceptable output | `fill_order` |
-| 6014 | 0x177e | `NotYetDue` | The order is not yet due to fill | `fill_order` |
-| 6015 | 0x177f | `OrderExpired` | The order has expired | `fill_order` |
-| 6016 | 0x1780 | `OverFill` | Fill exceeds the amount remaining on this order | `fill_order` |
-| 6017 | 0x1781 | `FillTooSmall` | Fill is smaller than the order's minimum | `fill_order` |
+| 6010 | 0x177a | `TimestampInFuture` | Attested timestamp is in the future | `push_session`, `push_mark`, `push_check` |
+| 6011 | 0x177b | `MarkStale` | The price mark is stale | `fill_order`, `cross_orders` |
+| 6012 | 0x177c | `MarkTooWide` | The mark's uncertainty exceeds what this order accepts | `fill_order`, `cross_orders`, `push_mark` |
+| 6013 | 0x177d | `PriceOutOfBand` | Delivered less than the order's minimum acceptable output | `fill_order`, `cross_orders` |
+| 6014 | 0x177e | `NotYetDue` | The order is not yet due to fill | `fill_order`, `cross_orders` |
+| 6015 | 0x177f | `OrderExpired` | The order has expired | `fill_order`, `cross_orders` |
+| 6016 | 0x1780 | `OverFill` | Fill exceeds the amount remaining on this order | `fill_order`, `cross_orders` |
+| 6017 | 0x1781 | `FillTooSmall` | Fill is smaller than the order's minimum | `fill_order`, `cross_orders` |
 | 6018 | 0x1782 | `DelegationMissing` | The quote account is not delegated to this order's authority | `place_order` |
-| 6019 | 0x1783 | `QuoteMintMismatch` | Token account mint does not match | `place_order`, `fill_order`; also any token account that does not unpack (`place_order`, `fill_order`) |
+| 6019 | 0x1783 | `QuoteMintMismatch` | Token account mint does not match | `place_order`, `fill_order`, `cross_orders`; also any token account that does not unpack (`place_order`, `fill_order`) |
 | 6020 | 0x1784 | `NotOrderOwner` | Only the order owner may do this while the order is live | `cancel_order` |
 | 6021 | 0x1785 | `AmountTooLarge` | Order amount is outside the permitted range | `place_order` |
-| 6022 | 0x1786 | `MathOverflow` | Arithmetic overflow | `fill_order` |
-| 6023 | 0x1787 | `BadParameters` | Parameter outside the permitted range | `place_order`, `push_mark` |
+| 6022 | 0x1786 | `MathOverflow` | Arithmetic overflow | `fill_order`, `cross_orders` |
+| 6023 | 0x1787 | `BadParameters` | Parameter outside the permitted range | `place_order`, `push_mark`, `open_check` (a checker that is the attestor or the default key), `push_check` (a reference later than its observation, or a zero rate) |
 | 6024 | 0x1788 | `TokenOwnerMismatch` | Token account owner does not match | `place_order` |
-| 6025 | 0x1789 | `TokenProgramMismatch` | Account is not owned by the token program it is claimed to belong to | the queue's token-account reads (`place_order`, `fill_order`) |
+| 6025 | 0x1789 | `TokenProgramMismatch` | Account is not owned by the token program it is claimed to belong to | the queue's token-account reads (`place_order`, `fill_order`), and a leg program that is not a token program (`fill_order`, `cross_orders`) |
+
+**Added on 24 September**, appended after `RiskStale` so every earlier code
+kept its number. The ones a fill or cross raises come from one shared
+admission test, `admit` in `admit.rs`, and run after the gate:
+
+| code | hex | name | program's message | raised by, and when |
+|---|---|---|---|---|
+| 6027 | 0x178b | `MarkPaused` | The price mark is held: its last push moved further than one step allows | `fill_order`, `fill_sell_order`, `cross_orders`. The circuit breaker holds the mark. It clears when a push lands within the step, or 300 s after the held observation. |
+| 6028 | 0x178c | `NotAuthority` | Only the program's upgrade authority may do this | `open_check` |
+| 6029 | 0x178d | `NotChecker` | Only the symbol's named checker may push its check | `push_check` |
+| 6030 | 0x178e | `CheckStale` | The checker's view is missing or too old to rely on | fills and crosses: the check is over 120 s old, never pushed, or its reference is over 300 s old in session or 12 h at night |
+| 6031 | 0x178f | `CheckerDisagrees` | The checker disagrees about whether the market is open | fills and crosses: a session fill needs the checker to say open, a night fill to say closed |
+| 6032 | 0x1790 | `MarkOffReference` | The mark is too far from the checker's reference price | fills and crosses: over 300 bps from the reference in session, 150 bps at night, measured on the rate |
+| 6033 | 0x1791 | `SelfCross` | A buy and a sell of the same owner cannot cross | `cross_orders` |
+
+**Anchor codes a client out of step with the program meets** (named by
+`errorName` and the crank):
+
+| code | hex | name | when |
+|---|---|---|---|
+| 101 | 0x65 | `InstructionFallbackNotFound` | an instruction the deployed program does not have, such as a cross or a night opt-in sent to a program from before 24 September |
+| 2012 | 0x7dc | `ConstraintAddress` | a cross naming an account its orders do not pin |
+| 3005 | 0xbbd | `AccountNotEnoughKeys` | a fill built with the old 15 accounts. It fails before any handler code runs, so it can never skip the check. |
+| 3007 | 0xbbf | `AccountOwnedByWrongProgram` | a fill of a symbol whose check address holds only lamports someone sent, before `open_check` |
+| 3012 | 0xbc4 | `AccountNotInitialized` | a fill or cross of a symbol whose check has not been opened |
 
 `cancel_order` and `cancel_sell_order` raise neither 6019 nor 6025: a funding
 account that no longer reads as a token account counts as defunded, so a
@@ -512,6 +610,8 @@ Anchor codes above.
 |---|---|---|
 | `symbol_state` (`SymbolState`) | `"sym"`, then the ticker as 12 bytes, space-padded (`"SPYx"` + 8 × `0x20`) | read-only, first |
 | `risk` (`TokenRisk`) | `"risk"`, then the 32-byte mint | read-only, second |
+| `check` (`SymbolCheck`) | `"check"`, then the ticker as 12 bytes | not read by the gate; every fill and cross reads it |
+| `night` (`NightOptIn`) | `"night"`, then the 32-byte owner | not read by the gate; a fill reads it by its contents |
 
 Instruction data is 29 bytes, little-endian:
 
@@ -539,6 +639,16 @@ bits, compared exactly) · `pending_multiplier_bits` 49..57 · `activates_at` i6
 `attestor` and `bump` follow them. `decodeTokenRisk` in `src/chain/codec.ts`
 reads the whole record.
 
+**`SymbolCheck`**, 162 bytes, discriminator `[247, 114, 131, 251, 45, 67, 129, 208]`.
+Offsets: `symbol` 8..20 · `mint` 20..52 · `checker` 52..84 · `open_now` 84 ·
+`ref_rate_q64` u128 85..101 (stock raw per quote raw, Q64.64, the mark's own
+convention) · `ref_px_num` u64 101..109 · `ref_px_expo` i32 109..113 · `ref_at`
+i64 113..121 · `observed_at` i64 121..129 · `bump` 129, then 32 reserved bytes.
+
+**`NightOptIn`**, 65 bytes, discriminator `[126, 117, 90, 76, 172, 79, 14, 180]`.
+Offsets: `owner` 8..40 · `created_at` i64 40..48 · `bump` 48, then 16 reserved
+bytes. Its existence is its meaning.
+
 **The live devnet deployment**, read from chain on 24 September 2026:
 
 | symbol | devnet mint (BELL's mirror) | the real mainnet mint (no BELL deployment there) |
@@ -552,10 +662,18 @@ reads the whole record.
 | JPSTx | `GBkd15Z3AAqUEHDDYoW2373PASazzsvBvPq2dqkJT43L` | `XsCAXu7xTaZMG9b9KJhNWYapuvNjxPuE4SysZq8uvMq` |
 | PFE | `7qtvrsM1XCTwzJVM7d5zNWNmW4vtsrktjoEJg27xB5Rq` | `PFER6ENqP8r8NF3CqVt4mFowxsin3V5MLidBNQFCC3x` |
 | LMT | `Ce9q1o7GYAH7YxPoQvMDb5UDyuw1G4QLtqCWYyby19nf` | `LMT3i1BHgixFqPUgcyteJhnEz2dpy9i3cYy4pi9BoeV` |
+| SPYon | `3AoexT1MUDAryvL2cLPqfQJKow4h4C68Korof1qxeRKg` | `k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo` |
+| QQQon | `6sYtBbrxp2zLvi7QUp6n9tJaRn65gRaiALKc7JhQrHqf` | `HrYNm6jTQ71LoFphjVKBTdAE4uja7WsmLG8VxB8ondo` |
+| AAPLon | `4UZXKwCWx2ebibN85QtFu8eGZLjTNJkaPPnKZJ6HcJA1` | `123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo` |
+| NVDAon | `GLQzR56mGQwow35992EBQYNz3KJQAY2ufSfzimCC5Ygy` | `gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo` |
+| TSLAon | `CA1q3cpt4xrHL5zC3dw3yWQRcs82KEFKnaDZ1o95aLkP` | `KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo` |
 
-Every one of the nine `SymbolState` and `TokenRisk` records names the attestor
-`EsZp7XusAj9fJ1ntQYCTMEw7h6L9mfZUtAvaXDxi4TcG`. The devnet mints are in
-`src/mirrors.json` and the mainnet ones in `src/listings.ts`. SPYx's PDAs are
+Every one of the fourteen `SymbolState` and `TokenRisk` records names the
+attestor `EsZp7XusAj9fJ1ntQYCTMEw7h6L9mfZUtAvaXDxi4TcG`, and every one of the
+fourteen `SymbolCheck` records names the checker
+`FWQdNaez3rAUn9t4VCf1EPs2pB821yPk7vgTFk68uJVR` (read 24 September, 20:15 ET).
+The devnet mints are in `src/mirrors.json` and the mainnet ones in
+`src/listings.ts`. Ondo's five are not offered to US persons. SPYx's PDAs are
 `BSiAQguanExJXTuf5PbPwYVFMbbmDp2ei4KPPZVDBQJN` (symbol) and
 `8Dwi6a2DLHB7UZomuCE9PFuSWjrhQdNkLJWSo97U2rNi` (risk).
 
@@ -568,25 +686,27 @@ Every one of the nine `SymbolState` and `TokenRisk` records names the attestor
   where trading is sane, not whether *this* trade is a good price. Your
   slippage bound is still your only price protection. That matters most in
   `Guarded` mode off-hours, when nothing is arbitraging the pool against a
-  live market. BELL's price mark is not read by the gate; it prices BELL's own
-  queue.
+  live market. BELL's price mark, its circuit breaker and its checker are not
+  read by the gate; they guard BELL's own queue.
 - **It does not know which token your instructions move.** It is keyed by
   symbol, and your swap moves a mint. Tie them together yourself:
   `guardInstructions` does it, and the CPI sketch does it with a `constraint`.
-- **It covers only what is registered.** That means nine symbols, on devnet,
-  over mirror mints. Registration (`register_symbol`) is permissionless and
-  first-come, so a record exists under a ticker only if someone created it,
-  and it is worth only the attestor it names.
-- **It cannot stop a permanent delegate.** All nine real mints have one. It
-  can move tokens out of any holder's account without their signature. BELL
-  records it in `TokenRisk.permanent_delegate`; that is a disclosure, not a
-  defence.
+- **It covers only what is registered.** That means fourteen symbols, on
+  devnet, over mirror mints. Registration (`register_symbol`) is
+  permissionless and first-come, so a record exists under a ticker only if
+  someone created it, and it is worth only the attestor it names.
+- **It cannot stop a permanent delegate.** The nine real Backed and Backpack
+  mints have one; Ondo's five do not. It can move tokens out of any holder's
+  account without their signature. BELL records it in
+  `TokenRisk.permanent_delegate`; that is a disclosure, not a defence.
 - **It cannot see an unannounced multiplier change.** Token-2022 lets the
   issuer's multiplier authority set an effective time of zero or in the past,
   which applies the change immediately with no pending state. Check 4 measures
   its window from that time, so zero, or a time more than fifteen minutes gone,
   leaves it nothing to refuse. Check 5 catches a trade built on the old
-  multiplier, but a trade built after the change is not protected.
+  multiplier, but a trade built after the change is not protected. Ondo's
+  mints write every change already in force, so for them check 4 covers only
+  the fifteen minutes after a change.
 - **It is not a compliance product.** BELL is not a registered Tokenized
   Securities Venue. See the README, "On the regulatory framing".
 
@@ -595,12 +715,15 @@ Every one of the nine `SymbolState` and `TokenRisk` records names the attestor
 The README's "What you must trust" is the full account. In brief:
 
 - **One hot attestor key** attests sessions, halts, marks and split/dividend
-  labels. Silence fails closed. A leak does not (see above).
+  labels. Silence fails closed. A leak does not (see above). For your swap,
+  this key alone says whether the market is open: the second key, the
+  checker, guards only BELL's own fills and crosses.
 - **The upgrade authority is live**
-  (`Dqp6DbUh6j5Jddff9VHPAK1UpByo85NhLVw83S58Ziqs`) until it is burned. A
-  malicious upgrade could change what `assert_tradeable` answers.
+  (`Dqp6DbUh6j5Jddff9VHPAK1UpByo85NhLVw83S58Ziqs`) until it is burned. It is
+  one key; moving it to a Squads multisig is planned, not done. A malicious
+  upgrade could change what `assert_tradeable` answers.
 - **Attestations are not monotonic.** `push_session` accepts a timestamp older
-  than the one it replaces.
+  than the one it replaces. (`push_mark` and `push_check` ignore one.)
 
 ## Checking this document
 
@@ -612,4 +735,9 @@ The README's "What you must trust" is the full account. In brief:
   size, and whether the stand-in swap ran.
 - The error table is `src/chain/idl.json`'s `errors`, and the "raised by"
   column comes from searching `programs/bell-session/src` for each
-  `BellError::` variant.
+  `BellError::` variant. The on-chain IDL matched `src/chain/idl.json` when
+  fetched on 24 September: 19 instructions, 34 errors.
+- The 17-account fills, the cross and the opt-in instructions:
+  `node --test test/chain-v2.test.ts`, which holds `client.ts`'s builders to
+  the IDL, and the program's own `test_check.rs`, `test_cross.rs` and
+  `test_night.rs`.

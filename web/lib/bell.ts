@@ -1190,7 +1190,7 @@ export function explain(reason: string | null): string {
     case 'CheckerDisagrees':
       return 'The two sources disagree about whether the market is open, so nothing fills until they agree.'
     case 'MarkOffReference':
-      return `The pool's price is further from the exchange's last sale than a fill allows (${MAX_SESSION_GAP_BPS}bps in session, ${MAX_NIGHT_GAP_BPS}bps at night), so nothing fills until the two converge.`
+      return `The pool's price is further from the exchange's price (its last sale in session, its close at night) than a fill allows (${MAX_SESSION_GAP_BPS}bps in session, ${MAX_NIGHT_GAP_BPS}bps at night), so nothing fills until the two converge.`
     case 'AccountNotInitialized':
       return "This symbol's second check has not been opened on chain yet, and the program refuses every fill of it until it is."
     case 'AccountNotEnoughKeys':

@@ -447,3 +447,107 @@ unit short and be refused with `PriceOutOfBand`, which is why `crank.ts`
 prices sales with `codec.ts`'s mirrors, step for step. The one figure in
 `sell.rs` that rounds down is the $1,000 value cap, so a sale worth exactly
 $1,000 at the mark is never refused over a fraction of a unit.
+
+## 2026-09-24 — the program outgrew its account
+
+An upgradeable program's data account is sized once, at the first deploy, and
+every feature after that spends from it. BELL's holds 420,000 bytes of program.
+The sell build was 376,192. The upgrade that added the circuit breaker, the
+checker, night fills and the cross came out at 463,976 bytes, and 462,456
+after the review's fixes: 42,456 bytes more than the account holds.
+
+Most of the growth was not our code. The cross alone added 29,488 bytes, and
+about 22.5 KB of that was what Anchor generates to validate its 19 accounts
+(`try_accounts` 16,616 bytes, its error paths 4,488, `exit` 1,376). The handler
+was 7,072. Every lever was measured with a full build. Boxing the cross's six
+accounts saved 2,320 bytes; boxing four of each fill's, 2,064; dropping four
+mint constraints on the cross that could never fail, 800; reading the night
+opt-in by its contents rather than its address, 1,520. Boxing every account in
+the program was 408 bytes worse than boxing only the fills', and boxing the
+place-order structs added 768. Sharing the minimum-output functions between
+the fills and the cross saved 80, net. None of it came near 42 KB.
+
+**Fix:** `solana program extend 56AUPR1c1Tq5AgMvAa3PASax61YYo1KTdocwW6pR7Pdx 50648`,
+at 18:02:52 ET, before the upgrade: 470,648 bytes, 8,192 more than the binary.
+It locked 257,291,840 lamports, 5,080 a byte, and only closing the program
+returns them. Agave's `solana program deploy` would have extended the account
+by itself, unless given `--no-auto-extend`. Extending by hand first made the
+size, and the rent that cannot come back, a decision rather than a side
+effect of a deploy.
+
+## 2026-09-24 — the smaller binary cost a fifth more compute on every fill
+
+The obvious lever for size is the optimizer's: `opt-level = "s"` or `"z"` in
+the release profile. Measured on the sell build, with the same tests passing:
+
+| opt-level | binary | buy fill | sell fill | `push_mark` |
+|---|---|---|---|---|
+| 3 (kept) | 376,192 | 24,905 CU | 25,360 CU | 6,343 CU |
+| `"s"` | 349,120 (−7.2%) | 30,618 (+22.9%) | 31,075 | 7,949 |
+| `"z"` | 327,344 (−13.0%) | 35,848 (+43.9%) | 36,150 | 9,874 |
+
+The extend is paid once. The compute is paid by every fill, every push and
+every cross, for as long as the program runs. A fifth more on every fill was
+more than the bytes were worth, so `"s"` was rejected and the account
+extended. At
+opt-level 3 the upgrade's own fills cost 28,198 compute units for a buy and
+28,673 for a sale: 13% over the sell build, for the check and the night
+opt-in.
+
+## 2026-09-24 — zsh again, and this time it signed
+
+The 23 September entry, "zsh does not split `$E`", ended with a rule: spell
+the assignments out, or split on purpose with `${=E}`. The next evening,
+opting a test wallet in to night fills, the key it should sign with was again
+passed through a variable zsh did not split. The command line was not kept;
+the chain has the rest. `BELL_PAYER_KEYPAIR` never reached `scripts/queue.ts`,
+which fell back to its default, the Solana CLI's own key, `~/.config/solana/id.json`. On this laptop
+that is the deploy key: the program's upgrade authority.
+
+Last time the default was localhost, nothing was listening, and the error was
+loud. This time the default was a real, funded key on the right cluster, so
+nothing failed. The deploy key opted in to night fills at 18:17:14 ET
+([transaction](https://explorer.solana.com/tx/2qoTtukvqjygWZtH6drVhC3jR2bq3N5xs1YFMFEamcHg12fkjAxko5bRNh2HuD3ofM6XrHE4dELEqphNUQ42MKq?cluster=devnet)).
+It opted out again at 18:19:47
+([transaction](https://explorer.solana.com/tx/25WyPBB99oCa7zHwVJcBuDE4mQ4vL753djZw1p4dyaC7wbPqp6wfHi2sJvQXPPX4vT86hWgwqERvtfJGw735FnxF?cluster=devnet)),
+and the rent came back. The intended wallet opted in at 18:19:54, and the first
+night fill, its own, landed at 18:20:28. Nothing filled under the deploy key's
+opt-in, but any order it had parked would have been open to night fills for
+those two and a half minutes.
+
+**Fix, for now:** the assignment spelled out on the command line. The default
+is still in `queue.ts`. The lesson is about defaults more than shells: a
+script that signs should not fall back to the most powerful key on the
+machine, and a quiet success can be worse than a loud failure.
+`scripts/mirror-ondo.ts` already refuses to sign unless the key it loaded is
+the one it expects (`BELL_DEPLOY_PUBKEY`); `queue.ts` does not.
+
+## 2026-09-24 — a few lamports could have stopped every service at once
+
+Each symbol's check lives at a PDA derived from public seeds, `"check"` and
+the ticker. Anyone can send lamports to any address. A plain transfer to a
+check address before `open_check` has run leaves an empty account there,
+owned by the system program. The client decoded whatever sat at each check
+address as a `SymbolCheck`, and that decode throws on the wrong
+discriminator. The board reads every symbol's check in the same
+`getMultipleAccounts` as everything else, so one throw failed the whole read,
+and the keeper, the crank, the checker, the queue CLI and the page all read
+the board. One transfer, 650,240 lamports, the least an empty account can
+hold, would have stopped all five together. That afternoon it was reachable:
+the addresses were public and no check was open yet. The page would have said
+"Cannot reach the chain", which is the fail-closed path hiding the cause, as
+on 22 September.
+
+It is the same family as the 100-key limit: a list we read all at once, with
+part of its content in other people's hands. The services review found it
+before the upgrade.
+
+**Fix:** `checkAt` in `src/chain/client.ts` reads an account as a check only
+when this program owns it and it carries the `SymbolCheck` discriminator.
+Anything else reads as no check, which is the truth. `open_check` still
+succeeds over a funded address, because Anchor's `init` takes one. A fill
+against such an address fails with Anchor's 3007
+(`AccountOwnedByWrongProgram`) rather than 3012, and the clients now name it
+"no checker yet". `test/chain-v2.test.ts` sends the lamports and reads the
+board. The rule: decode what you were handed only after checking who owns it
+and what it says it is.

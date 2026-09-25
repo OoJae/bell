@@ -1,0 +1,1394 @@
+{
+  "generatedAt": "2026-09-24T17:11:19.564Z",
+  "window": {
+    "from": "2026-09-17T17:01:08.000Z",
+    "to": "2026-09-24T17:01:08.000Z",
+    "days": 7
+  },
+  "rpc": {
+    "calls": 596,
+    "byMethod": {
+      "getMultipleAccounts": 1,
+      "getSlot": 1,
+      "getBlockTime": 15,
+      "getBlock": 12,
+      "getSignaturesForAddress": 122,
+      "getTransaction": 445
+    },
+    "budget": 600
+  },
+  "sampling": {
+    "instants": [
+      {
+        "target": "2026-09-17T20:31:08.000Z",
+        "slot": 447884071,
+        "blockEt": "Thu 17 Sep 2026 16:18 ET"
+      },
+      {
+        "target": "2026-09-18T06:51:08.000Z",
+        "slot": 448008037,
+        "blockEt": "Fri 18 Sep 2026 02:53 ET"
+      },
+      {
+        "target": "2026-09-19T00:31:08.000Z",
+        "slot": 448246269,
+        "blockEt": "Fri 18 Sep 2026 20:32 ET"
+      },
+      {
+        "target": "2026-09-19T11:11:08.000Z",
+        "slot": 448390664,
+        "blockEt": "Sat 19 Sep 2026 07:13 ET"
+      },
+      {
+        "target": "2026-09-19T21:31:08.000Z",
+        "slot": 448529874,
+        "blockEt": "Sat 19 Sep 2026 17:32 ET"
+      },
+      {
+        "target": "2026-09-20T07:51:08.000Z",
+        "slot": 448669484,
+        "blockEt": "Sun 20 Sep 2026 03:52 ET"
+      },
+      {
+        "target": "2026-09-20T18:11:08.000Z",
+        "slot": 448808918,
+        "blockEt": "Sun 20 Sep 2026 14:11 ET"
+      },
+      {
+        "target": "2026-09-21T04:31:08.000Z",
+        "slot": 448948147,
+        "blockEt": "Mon 21 Sep 2026 00:32 ET"
+      },
+      {
+        "target": "2026-09-21T22:11:08.000Z",
+        "slot": 449186124,
+        "blockEt": "Mon 21 Sep 2026 18:12 ET"
+      },
+      {
+        "target": "2026-09-22T08:51:08.000Z",
+        "slot": 449330108,
+        "blockEt": "Tue 22 Sep 2026 04:52 ET"
+      },
+      {
+        "target": "2026-09-23T02:31:08.000Z",
+        "slot": 449568324,
+        "blockEt": "Tue 22 Sep 2026 22:32 ET"
+      },
+      {
+        "target": "2026-09-23T12:51:08.000Z",
+        "slot": 449708729,
+        "blockEt": "Wed 23 Sep 2026 08:51 ET"
+      }
+    ],
+    "quietMints": [
+      "IWMx",
+      "JPSTx",
+      "SPYon",
+      "QQQon",
+      "TSLAon"
+    ],
+    "pages": [
+      {
+        "page": "IWMx (whole week)",
+        "sampled": 25
+      },
+      {
+        "page": "JPSTx (whole week)",
+        "sampled": 1
+      },
+      {
+        "page": "SPYon (whole week)",
+        "sampled": 25
+      },
+      {
+        "page": "QQQon (whole week)",
+        "sampled": 25
+      },
+      {
+        "page": "TSLAon (whole week)",
+        "sampled": 25
+      },
+      {
+        "page": "SPYx before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 1
+      },
+      {
+        "page": "NVDAx before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Thu 17 Sep 2026 16:18 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Fri 18 Sep 2026 02:53 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Fri 18 Sep 2026 20:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Sat 19 Sep 2026 07:13 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 3
+      },
+      {
+        "page": "AAPLx before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Sat 19 Sep 2026 17:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 2
+      },
+      {
+        "page": "QQQx before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Sun 20 Sep 2026 03:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Sun 20 Sep 2026 14:11 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Mon 21 Sep 2026 00:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Mon 21 Sep 2026 18:12 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Tue 22 Sep 2026 04:52 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Tue 22 Sep 2026 22:32 ET",
+        "sampled": 5
+      },
+      {
+        "page": "SPYx before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAx before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "QQQx before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "TSLAx before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLx before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "PFE before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "LMT before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "AAPLon before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      },
+      {
+        "page": "NVDAon before Wed 23 Sep 2026 08:51 ET",
+        "sampled": 5
+      }
+    ],
+    "sampled": 630,
+    "read": 445,
+    "unreadable": 0,
+    "stopped": null
+  },
+  "found": {
+    "signedBuys": 28,
+    "regular": 2,
+    "outside": 26,
+    "dustUnderMinUsd": 1,
+    "multiplierInexact": 1,
+    "openNotYetRecorded": 0,
+    "openUnavailable": 0,
+    "unsignedOwnersSkipped": 86,
+    "makerLegsSkipped": 7,
+    "mixed": 7,
+    "minUsd": 1
+  },
+  "aggregate": {
+    "buys": 24,
+    "wallets": 20,
+    "usdc": 1467.6,
+    "p25Bps": 2.7,
+    "medianBps": 44.1,
+    "p75Bps": 284.7,
+    "dollarWeightedBps": 11.6,
+    "paidMoreShare": 0.792,
+    "busiestWalletShare": 0.125,
+    "byWindow": {
+      "after-hours": {
+        "buys": 9,
+        "wallets": 9,
+        "usdc": 149.93,
+        "p25Bps": -10.7,
+        "medianBps": 61.1,
+        "p75Bps": 960.7,
+        "dollarWeightedBps": 54.5,
+        "paidMoreShare": 0.667
+      },
+      "closed day": {
+        "buys": 5,
+        "wallets": 3,
+        "usdc": 33.91,
+        "p25Bps": 2.2,
+        "medianBps": 16.3,
+        "p75Bps": 24.8,
+        "dollarWeightedBps": 57.8,
+        "paidMoreShare": 0.8
+      },
+      "overnight": {
+        "buys": 6,
+        "wallets": 6,
+        "usdc": 1024.35,
+        "p25Bps": 13.7,
+        "medianBps": 44.1,
+        "p75Bps": 267,
+        "dollarWeightedBps": 1.3,
+        "paidMoreShare": 0.833
+      },
+      "pre-market": {
+        "buys": 4,
+        "wallets": 4,
+        "usdc": 259.41,
+        "p25Bps": 54.8,
+        "medianBps": 167,
+        "p75Bps": 284.8,
+        "dollarWeightedBps": 21.4,
+        "paidMoreShare": 1
+      }
+    },
+    "byIssuer": {
+      "backed": {
+        "buys": 4,
+        "wallets": 4,
+        "usdc": 1322.8,
+        "p25Bps": -4.3,
+        "medianBps": 0.3,
+        "p75Bps": 67.6,
+        "dollarWeightedBps": -1.3,
+        "paidMoreShare": 0.5
+      },
+      "backpack": {
+        "buys": 2,
+        "wallets": 1,
+        "usdc": 26.8,
+        "p25Bps": -53.4,
+        "medianBps": -33.3,
+        "p75Bps": -13.3,
+        "dollarWeightedBps": -25.4,
+        "paidMoreShare": 0.5
+      },
+      "ondo": {
+        "buys": 18,
+        "wallets": 15,
+        "usdc": 118,
+        "p25Bps": 23.2,
+        "medianBps": 66.6,
+        "p75Bps": 349.9,
+        "dollarWeightedBps": 164.3,
+        "paidMoreShare": 0.889
+      }
+    },
+    "bySymbol": {
+      "AAPLon": {
+        "buys": 9,
+        "wallets": 7,
+        "usdc": 45.06,
+        "p25Bps": 16.3,
+        "medianBps": 24.8,
+        "p75Bps": 353.8,
+        "dollarWeightedBps": 181.2,
+        "paidMoreShare": 0.889
+      },
+      "AAPLx": {
+        "buys": 1,
+        "wallets": 1,
+        "usdc": 219.16,
+        "p25Bps": 2.8,
+        "medianBps": 2.8,
+        "p75Bps": 2.8,
+        "dollarWeightedBps": 2.8,
+        "paidMoreShare": 1
+      },
+      "LMT": {
+        "buys": 2,
+        "wallets": 1,
+        "usdc": 26.8,
+        "p25Bps": -53.4,
+        "medianBps": -33.3,
+        "p75Bps": -13.3,
+        "dollarWeightedBps": -25.4,
+        "paidMoreShare": 0.5
+      },
+      "NVDAon": {
+        "buys": 6,
+        "wallets": 6,
+        "usdc": 37.15,
+        "p25Bps": 39.3,
+        "medianBps": 67.6,
+        "p75Bps": 273.9,
+        "dollarWeightedBps": 160.9,
+        "paidMoreShare": 0.833
+      },
+      "NVDAx": {
+        "buys": 1,
+        "wallets": 1,
+        "usdc": 100,
+        "p25Bps": -10.7,
+        "medianBps": -10.7,
+        "p75Bps": -10.7,
+        "dollarWeightedBps": -10.7,
+        "paidMoreShare": 0
+      },
+      "QQQx": {
+        "buys": 2,
+        "wallets": 2,
+        "usdc": 1003.64,
+        "p25Bps": 63.8,
+        "medianBps": 129.8,
+        "p75Bps": 195.8,
+        "dollarWeightedBps": -1.2,
+        "paidMoreShare": 0.5
+      },
+      "SPYon": {
+        "buys": 2,
+        "wallets": 2,
+        "usdc": 33.8,
+        "p25Bps": 63.9,
+        "medianBps": 66.6,
+        "p75Bps": 69.4,
+        "dollarWeightedBps": 71.5,
+        "paidMoreShare": 1
+      },
+      "TSLAon": {
+        "buys": 1,
+        "wallets": 1,
+        "usdc": 1.99,
+        "p25Bps": 1423.6,
+        "medianBps": 1423.6,
+        "p75Bps": 1423.6,
+        "dollarWeightedBps": 1423.6,
+        "paidMoreShare": 1
+      }
+    }
+  },
+  "buys": [
+    {
+      "signature": "4ad2p77cmpTjNM1mH2U9DLF17GcCHoqHTQTE3d5R18Wq2DdJQwtpDE2YJNGmi7LGd9QP3ZWuW9PhzWN9XrXqmkTt",
+      "explorer": "https://explorer.solana.com/tx/4ad2p77cmpTjNM1mH2U9DLF17GcCHoqHTQTE3d5R18Wq2DdJQwtpDE2YJNGmi7LGd9QP3ZWuW9PhzWN9XrXqmkTt",
+      "time": "2026-09-23T13:27:28Z",
+      "timeEt": "Wed 23 Sep 2026 09:27 ET",
+      "symbol": "SPYon",
+      "underlying": "SPY",
+      "mint": "k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo",
+      "shares": 0.04086826094550148,
+      "usdcPaid": 31.81015,
+      "pricePerShare": 778.3582972228589,
+      "multiplier": 1.0094730727840426,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "pre-market",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 772.79,
+        "status": "recorded"
+      },
+      "gapBps": 72.1,
+      "owner": "GyGvJQvFwCUVGV5D8Gf9uA73zeKEJAXrMHxcK6hCJfHi"
+    },
+    {
+      "signature": "2pm1So4PpnBMqpTKphiYDGVjKspf3i2PyK9uDNpqZhxqVfu2GHPxFrp5dNr8FvYPKBNGX5cNTscyPDNdEwvezGjP",
+      "explorer": "https://explorer.solana.com/tx/2pm1So4PpnBMqpTKphiYDGVjKspf3i2PyK9uDNpqZhxqVfu2GHPxFrp5dNr8FvYPKBNGX5cNTscyPDNdEwvezGjP",
+      "time": "2026-09-17T20:07:29Z",
+      "timeEt": "Thu 17 Sep 2026 16:07 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.10310406029446272,
+      "usdcPaid": 22.8,
+      "pricePerShare": 221.1358110910836,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-18",
+        "atEt": "Fri 18 Sep 2026 09:30 ET",
+        "price": 219.35,
+        "status": "recorded"
+      },
+      "gapBps": 81.4,
+      "owner": "33ZWb1693748yLNBKfTcxwJgJS7A38FUHzRrhuQef5sT"
+    },
+    {
+      "signature": "3dCDVBD345rfQedYRshrS7vhZhumyVBuLeTBwgarHJNZ5G1ZS4h7gYzwj1qgMUZ248QY2Qs9YKb2yR6ctaFrsPM3",
+      "explorer": "https://explorer.solana.com/tx/3dCDVBD345rfQedYRshrS7vhZhumyVBuLeTBwgarHJNZ5G1ZS4h7gYzwj1qgMUZ248QY2Qs9YKb2yR6ctaFrsPM3",
+      "time": "2026-09-19T00:17:31Z",
+      "timeEt": "Fri 18 Sep 2026 20:17 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.00526760598875946,
+      "usdcPaid": 1.99,
+      "pricePerShare": 377.7807232064166,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": 1267.6,
+      "owner": "A3Nsp652McBZnWz2pDRDYYQfbvMnREgd1EAiTtwC8Vkb"
+    },
+    {
+      "signature": "4TYMEELz3Q6uDZ8GdL5inanKgfejqS3xBLjknyH7BWLPVA9bs826qGxZ4gVhyekY841eGCYswXX1KtmeHu5F3r2t",
+      "explorer": "https://explorer.solana.com/tx/4TYMEELz3Q6uDZ8GdL5inanKgfejqS3xBLjknyH7BWLPVA9bs826qGxZ4gVhyekY841eGCYswXX1KtmeHu5F3r2t",
+      "time": "2026-09-19T00:11:17Z",
+      "timeEt": "Fri 18 Sep 2026 20:11 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.01247680518017877,
+      "usdcPaid": 2.796476,
+      "pricePerShare": 224.133979782149,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 222.935,
+        "status": "recorded"
+      },
+      "gapBps": 53.8,
+      "owner": "7vMwTmUqKccyAHzjm84ZhbCc3JwMoYDPnNLx2BgHcaG7"
+    },
+    {
+      "signature": "5J25ghEEQ38vwMSeFdHea4TF8eNcB75j3r65MeyuxzbnaB93YKn8XVLpYEQfV3E6y1R8F76ecdCZYJud2KBxJtLr",
+      "explorer": "https://explorer.solana.com/tx/5J25ghEEQ38vwMSeFdHea4TF8eNcB75j3r65MeyuxzbnaB93YKn8XVLpYEQfV3E6y1R8F76ecdCZYJud2KBxJtLr",
+      "time": "2026-09-20T18:11:55Z",
+      "timeEt": "Sun 20 Sep 2026 14:11 ET",
+      "symbol": "TSLAx",
+      "underlying": "TSLA",
+      "mint": "XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB",
+      "shares": 0.00033513,
+      "usdcPaid": 0.122,
+      "pricePerShare": 364.0378360636171,
+      "multiplier": 1,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 371.635,
+        "status": "recorded"
+      },
+      "gapBps": -204.4,
+      "owner": "DMJ2sPg1vHhd4p4PXV1gnLaMZQM4wcxfFKD1GNbK2vjf"
+    },
+    {
+      "signature": "4gYbVd4fZuEfnbULwu1jWMv7knQLVcjCrHEWkzTZWni76mSLosoLnystMKNSyaxrFcJkGmbAMCJ3g6oZZsH9Vsf1",
+      "explorer": "https://explorer.solana.com/tx/4gYbVd4fZuEfnbULwu1jWMv7knQLVcjCrHEWkzTZWni76mSLosoLnystMKNSyaxrFcJkGmbAMCJ3g6oZZsH9Vsf1",
+      "time": "2026-09-21T22:01:55Z",
+      "timeEt": "Mon 21 Sep 2026 18:01 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.006917256591595757,
+      "usdcPaid": 2.35815,
+      "pricePerShare": 340.90827321124334,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-22",
+        "atEt": "Tue 22 Sep 2026 09:30 ET",
+        "price": 340.135,
+        "status": "recorded"
+      },
+      "gapBps": 22.7,
+      "owner": "H6ZUeXWtJg2TvvncXkeVy5gw76ULW4F1e6jJS4Y47ky4"
+    },
+    {
+      "signature": "3Rt74civ6k3gmauxTJn5gQ1y1ebXUGmaHx8HvoeGbzmHTCBH1Qywq8DcTBxZrgnaNSDGLo6w5UL6Xyr83qJcW88d",
+      "explorer": "https://explorer.solana.com/tx/3Rt74civ6k3gmauxTJn5gQ1y1ebXUGmaHx8HvoeGbzmHTCBH1Qywq8DcTBxZrgnaNSDGLo6w5UL6Xyr83qJcW88d",
+      "time": "2026-09-23T02:17:56Z",
+      "timeEt": "Tue 22 Sep 2026 22:17 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.008483934140159497,
+      "usdcPaid": 2,
+      "pricePerShare": 235.73968950711352,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 228.03,
+        "status": "recorded"
+      },
+      "gapBps": 338.1,
+      "owner": "GedF4Fp7BhherJxrXqh5pFsiPuFzTr2pFkk65TBGFmPU"
+    },
+    {
+      "signature": "28B4ZWM56PdpL3XnNCPSsTKPPePJoiG4UDh6WJSTrzLbhYdvva4YZJWvpBGkBHj7mE8eoVGQbKU5FMA8FTyBZyTd",
+      "explorer": "https://explorer.solana.com/tx/28B4ZWM56PdpL3XnNCPSsTKPPePJoiG4UDh6WJSTrzLbhYdvva4YZJWvpBGkBHj7mE8eoVGQbKU5FMA8FTyBZyTd",
+      "time": "2026-09-23T12:51:39Z",
+      "timeEt": "Wed 23 Sep 2026 08:51 ET",
+      "symbol": "QQQx",
+      "underlying": "QQQ",
+      "mint": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+      "shares": 0.004748705360770399,
+      "usdcPaid": 3.64,
+      "pricePerShare": 766.5247100968736,
+      "multiplier": 1.0034560758968376,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "pre-market",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 746.97,
+        "status": "recorded"
+      },
+      "gapBps": 261.8,
+      "owner": "FMoupm8SospXYoLxrxuXa9jKn6414Ss8Hywgs3yB1L86"
+    },
+    {
+      "signature": "J8Sk2sS5kvqp7xz8JFZ55f5FogmdmpX83ST3JjoQu6hoE3Wmt7TDSLKDqc2Vi9EwKzmnsEATYq8525gJ8Ur2fQg",
+      "explorer": "https://explorer.solana.com/tx/J8Sk2sS5kvqp7xz8JFZ55f5FogmdmpX83ST3JjoQu6hoE3Wmt7TDSLKDqc2Vi9EwKzmnsEATYq8525gJ8Ur2fQg",
+      "time": "2026-09-23T12:50:00Z",
+      "timeEt": "Wed 23 Sep 2026 08:50 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.013592219935656872,
+      "usdcPaid": 4.8,
+      "pricePerShare": 353.14319682306035,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "pre-market",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 341.075,
+        "status": "recorded"
+      },
+      "gapBps": 353.8,
+      "owner": "BVx3aV8Ws9XXUuWxPMAFZYLCrpyzxcjC1orj5h1NhS4g"
+    },
+    {
+      "signature": "4eZWcAekwDkAzFmucGFYcrsRooFQyKH83P35USr6CWtQgYDvHvBQbKHZmDd1DpVEeF89G2G6m54MoiDXsyMa6Uz1",
+      "explorer": "https://explorer.solana.com/tx/4eZWcAekwDkAzFmucGFYcrsRooFQyKH83P35USr6CWtQgYDvHvBQbKHZmDd1DpVEeF89G2G6m54MoiDXsyMa6Uz1",
+      "time": "2026-09-17T19:18:15Z",
+      "timeEt": "Thu 17 Sep 2026 15:18 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.04371421684690587,
+      "usdcPaid": 14.761199,
+      "pricePerShare": 337.67501890051153,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": false,
+      "session": "regular",
+      "window": null,
+      "nextOpen": null,
+      "gapBps": null,
+      "owner": "3s3GFLnQF3eWniuwib2ZpMfaHFAiXwkM9F7jGmdTe8gb"
+    },
+    {
+      "signature": "2MBwBUXZYDWBMtiS3YddKDcnfMKAsJpXGA1mBeQU2icnB1FxKba8gmBuA8DAKUf6t7VNL5GVyAJcDn38uipaUPJj",
+      "explorer": "https://explorer.solana.com/tx/2MBwBUXZYDWBMtiS3YddKDcnfMKAsJpXGA1mBeQU2icnB1FxKba8gmBuA8DAKUf6t7VNL5GVyAJcDn38uipaUPJj",
+      "time": "2026-09-19T00:19:02Z",
+      "timeEt": "Fri 18 Sep 2026 20:19 ET",
+      "symbol": "LMT",
+      "underlying": "LMT",
+      "mint": "LMT3i1BHgixFqPUgcyteJhnEz2dpy9i3cYy4pi9BoeV",
+      "shares": 0.030157,
+      "usdcPaid": 16.063286,
+      "pricePerShare": 532.6553039095402,
+      "multiplier": 1,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 532.295,
+        "status": "recorded"
+      },
+      "gapBps": 6.8,
+      "owner": "2hfmUnqy77e8wjQqi8oNhxtbnTjTs2bALoamLS6jjX3x"
+    },
+    {
+      "signature": "5oFdRxdrrpDvD6TAw3AuvhvGiaw3Rd556Yp4QFPsHZNqukYk3A6nSB8T7uyr8qX5CJRmbxPFjrofGZcBJryoHG8s",
+      "explorer": "https://explorer.solana.com/tx/5oFdRxdrrpDvD6TAw3AuvhvGiaw3Rd556Yp4QFPsHZNqukYk3A6nSB8T7uyr8qX5CJRmbxPFjrofGZcBJryoHG8s",
+      "time": "2026-09-20T02:54:56Z",
+      "timeEt": "Sat 19 Sep 2026 22:54 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.008901035440491843,
+      "usdcPaid": 2.985,
+      "pricePerShare": 335.35424276830634,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": 2.2,
+      "owner": "2Cq2RNFFxxPXL7teNQAji1beA2vFbBDYW5BGPBFvoN9m"
+    },
+    {
+      "signature": "41fdkSxAjetEy6vSYnSUpb9Tdi2y7NoBX68FfKUA9E4u9W8mGSZgAbsvADpernZuJtpbo8R29EE36ArRpfABC43q",
+      "explorer": "https://explorer.solana.com/tx/41fdkSxAjetEy6vSYnSUpb9Tdi2y7NoBX68FfKUA9E4u9W8mGSZgAbsvADpernZuJtpbo8R29EE36ArRpfABC43q",
+      "time": "2026-09-21T21:54:31Z",
+      "timeEt": "Mon 21 Sep 2026 17:54 ET",
+      "symbol": "LMT",
+      "underlying": "LMT",
+      "mint": "LMT3i1BHgixFqPUgcyteJhnEz2dpy9i3cYy4pi9BoeV",
+      "shares": 0.020141,
+      "usdcPaid": 10.733652,
+      "pricePerShare": 532.925475398441,
+      "multiplier": 1,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-22",
+        "atEt": "Tue 22 Sep 2026 09:30 ET",
+        "price": 536.87,
+        "status": "recorded"
+      },
+      "gapBps": -73.5,
+      "owner": "2hfmUnqy77e8wjQqi8oNhxtbnTjTs2bALoamLS6jjX3x"
+    },
+    {
+      "signature": "iJdiNqF43hUY323xoBZbMUV94fwqfNUcyFEBps1cuponNQgzHQ4qpQ6atbcE1aC2b2rbZhTZCd2ybTZzppEZNRx",
+      "explorer": "https://explorer.solana.com/tx/iJdiNqF43hUY323xoBZbMUV94fwqfNUcyFEBps1cuponNQgzHQ4qpQ6atbcE1aC2b2rbZhTZCd2ybTZzppEZNRx",
+      "time": "2026-09-22T20:32:34Z",
+      "timeEt": "Tue 22 Sep 2026 16:32 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.005376333826862097,
+      "usdcPaid": 2.0099,
+      "pricePerShare": 373.84211336688526,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 341.075,
+        "status": "recorded"
+      },
+      "gapBps": 960.7,
+      "owner": "GXRaWoDfr2S5tN9BsYpS2ZnE27Qz5FePJWsT4xaBmFJg"
+    },
+    {
+      "signature": "5A9xhQob6ZCSMNB6MLDGjeAiLRL6A9npFZpUnND52NaNK52z3wq4uNn5Uk4jSUSUorGB2NoBGzrejwWw5pUm8d7a",
+      "explorer": "https://explorer.solana.com/tx/5A9xhQob6ZCSMNB6MLDGjeAiLRL6A9npFZpUnND52NaNK52z3wq4uNn5Uk4jSUSUorGB2NoBGzrejwWw5pUm8d7a",
+      "time": "2026-09-22T23:29:24Z",
+      "timeEt": "Tue 22 Sep 2026 19:29 ET",
+      "symbol": "SPYon",
+      "underlying": "SPY",
+      "mint": "k18WJUULWheRkSpSquYGdNNmtuE2Vbw1hpuUi92ondo",
+      "shares": 0.0025594372087250445,
+      "usdcPaid": 1.99,
+      "pricePerShare": 777.5146790927903,
+      "multiplier": 1.0094730727840426,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 772.79,
+        "status": "recorded"
+      },
+      "gapBps": 61.1,
+      "owner": "3CqhPYZVaNRjrMp5PuomQZV6eRvhxpgP7Jdczb8SoVKb"
+    },
+    {
+      "signature": "2eSrrwwfGDonRjnKK3zHd1e5H2Ka7bQ7vTcwgJQ5KqM2FWVqy67JipxZ1bCUaTMEecqrZd81q2B1Ttz4nUkwSewu",
+      "explorer": "https://explorer.solana.com/tx/2eSrrwwfGDonRjnKK3zHd1e5H2Ka7bQ7vTcwgJQ5KqM2FWVqy67JipxZ1bCUaTMEecqrZd81q2B1Ttz4nUkwSewu",
+      "time": "2026-09-18T21:11:38Z",
+      "timeEt": "Fri 18 Sep 2026 17:11 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.027282111480197303,
+      "usdcPaid": 6.062387,
+      "pricePerShare": 222.2110632602751,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 222.935,
+        "status": "recorded"
+      },
+      "gapBps": -32.5,
+      "owner": "DSqMPMsMAbEJVNuPKv1ZFdzt6YvJaDPDddfeW7ajtqds"
+    },
+    {
+      "signature": "4xoCLhmNJbrGZmmB59CjjEQjahwWAtqC9gDFmYqGGWZdg8FLFgBMykrRTmwukEAJet7ytPtwZ92B4jEq8vLXPAX8",
+      "explorer": "https://explorer.solana.com/tx/4xoCLhmNJbrGZmmB59CjjEQjahwWAtqC9gDFmYqGGWZdg8FLFgBMykrRTmwukEAJet7ytPtwZ92B4jEq8vLXPAX8",
+      "time": "2026-09-19T16:49:45Z",
+      "timeEt": "Sat 19 Sep 2026 12:49 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.029628360967370655,
+      "usdcPaid": 9.95,
+      "pricePerShare": 335.8268792174434,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": 16.3,
+      "owner": "2Cq2RNFFxxPXL7teNQAji1beA2vFbBDYW5BGPBFvoN9m"
+    },
+    {
+      "signature": "SLWcrNhexBajtVvfPSNtnask4J9P6rZuzPR6Qafqmp9uFCS2QpVSsktLUyEbcjyLUyqdRA58qc8SKDWXqNkrY6S",
+      "explorer": "https://explorer.solana.com/tx/SLWcrNhexBajtVvfPSNtnask4J9P6rZuzPR6Qafqmp9uFCS2QpVSsktLUyEbcjyLUyqdRA58qc8SKDWXqNkrY6S",
+      "time": "2026-09-20T19:02:17Z",
+      "timeEt": "Sun 20 Sep 2026 15:02 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.014928260329765295,
+      "usdcPaid": 5,
+      "pricePerShare": 334.93520943164117,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": -10.3,
+      "owner": "2e59DssPX186h65H6BPERsLCgVb3Qq6PzmSqK7kn3kvr"
+    },
+    {
+      "signature": "5Wa1niomswF541VtKwA4cAdctM6rms9PbdqU4mNgEZNTLCuCo9z2mq6nH9iCrShCmSbrBgWu3YZ6AbeKMcgN8PFz",
+      "explorer": "https://explorer.solana.com/tx/5Wa1niomswF541VtKwA4cAdctM6rms9PbdqU4mNgEZNTLCuCo9z2mq6nH9iCrShCmSbrBgWu3YZ6AbeKMcgN8PFz",
+      "time": "2026-09-21T16:56:05Z",
+      "timeEt": "Mon 21 Sep 2026 12:56 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.01664696126724425,
+      "usdcPaid": 5.64165,
+      "pricePerShare": 338.899689224418,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "regular",
+      "window": null,
+      "nextOpen": null,
+      "gapBps": null,
+      "owner": "2Cq2RNFFxxPXL7teNQAji1beA2vFbBDYW5BGPBFvoN9m"
+    },
+    {
+      "signature": "NZ1y8xeF8yY7NLeKHQQaULAmYDMKoNtNtZQAXsFyNmzh1VArwS56vAZBo3TkboNNk8VUkG4aag9WDTaDWzXo9zD",
+      "explorer": "https://explorer.solana.com/tx/NZ1y8xeF8yY7NLeKHQQaULAmYDMKoNtNtZQAXsFyNmzh1VArwS56vAZBo3TkboNNk8VUkG4aag9WDTaDWzXo9zD",
+      "time": "2026-09-21T21:47:13Z",
+      "timeEt": "Mon 21 Sep 2026 17:47 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.0074795413065034755,
+      "usdcPaid": 1.99,
+      "pricePerShare": 266.0590962001495,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-22",
+        "atEt": "Tue 22 Sep 2026 09:30 ET",
+        "price": 226.85,
+        "status": "recorded"
+      },
+      "gapBps": 1728.4,
+      "owner": "GfEBNr41JfwetzQkuBo7EqvfuJvpxWGQLuzQtXCDuXLf"
+    },
+    {
+      "signature": "4RXfum88dovbWinkXj6iw5mCiHvomqHvfZpDoPAS3Sihope7miaL57qYZuXnSeziwsyRqudAq3WjBULumBeTKBoi",
+      "explorer": "https://explorer.solana.com/tx/4RXfum88dovbWinkXj6iw5mCiHvomqHvfZpDoPAS3Sihope7miaL57qYZuXnSeziwsyRqudAq3WjBULumBeTKBoi",
+      "time": "2026-09-23T07:09:21Z",
+      "timeEt": "Wed 23 Sep 2026 03:09 ET",
+      "symbol": "NVDAon",
+      "underlying": "NVDA",
+      "mint": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+      "shares": 0.006555532114702337,
+      "usdcPaid": 1.5,
+      "pricePerShare": 228.81437749895144,
+      "multiplier": 1.0017152487959897,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 228.03,
+        "status": "recorded"
+      },
+      "gapBps": 34.4,
+      "owner": "2Cq2RNFFxxPXL7teNQAji1beA2vFbBDYW5BGPBFvoN9m"
+    },
+    {
+      "signature": "59xthDSVwoUJMHQLZPshxPq9ZDJFX7E5R6tjdFw4AcUUFTmtCMHRTDBiLD9cGfYh8PBBeTAv7nYxJ8NRSu1mYW98",
+      "explorer": "https://explorer.solana.com/tx/59xthDSVwoUJMHQLZPshxPq9ZDJFX7E5R6tjdFw4AcUUFTmtCMHRTDBiLD9cGfYh8PBBeTAv7nYxJ8NRSu1mYW98",
+      "time": "2026-09-17T20:16:28Z",
+      "timeEt": "Thu 17 Sep 2026 16:16 ET",
+      "symbol": "NVDAx",
+      "underlying": "NVDA",
+      "mint": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+      "shares": 0.4563795929519789,
+      "usdcPaid": 100,
+      "pricePerShare": 219.11584467038645,
+      "multiplier": 1.001701196801074,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-18",
+        "atEt": "Fri 18 Sep 2026 09:30 ET",
+        "price": 219.35,
+        "status": "recorded"
+      },
+      "gapBps": -10.7,
+      "owner": "GpPEGdZ2X7LWNDfsE1d5tif9sKfcYWphKY6HCijSPqoM"
+    },
+    {
+      "signature": "NwcyEckfqtJwXWKa1jkEj9Z48nJraStdJ7igg1d9E4SdPukXWymLQM6xsFqALCuWav9axEYnQPKgSYTW9QoAEv4",
+      "explorer": "https://explorer.solana.com/tx/NwcyEckfqtJwXWKa1jkEj9Z48nJraStdJ7igg1d9E4SdPukXWymLQM6xsFqALCuWav9axEYnQPKgSYTW9QoAEv4",
+      "time": "2026-09-22T21:20:33Z",
+      "timeEt": "Tue 22 Sep 2026 17:20 ET",
+      "symbol": "TSLAon",
+      "underlying": "TSLA",
+      "mint": "KeGv7bsfR4MheC1CkmnAVceoApjrkvBhHYjWb67ondo",
+      "shares": 0.004583008,
+      "usdcPaid": 1.99,
+      "pricePerShare": 434.21263938443917,
+      "multiplier": 1,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 380.1,
+        "status": "recorded"
+      },
+      "gapBps": 1423.6,
+      "owner": "HYGDKUYiA1F4exK6h5r1J5YnjD4djhff8Awnp2NN7ogA"
+    },
+    {
+      "signature": "5XFUoznELheGCShELLgySfLWmNEzASSe49hiXVLaUoTG4mLPRoqFkHQh4gaXxUUFb1QQqmorCwxA69QtNL1sHpCM",
+      "explorer": "https://explorer.solana.com/tx/5XFUoznELheGCShELLgySfLWmNEzASSe49hiXVLaUoTG4mLPRoqFkHQh4gaXxUUFb1QQqmorCwxA69QtNL1sHpCM",
+      "time": "2026-09-17T23:15:26Z",
+      "timeEt": "Thu 17 Sep 2026 19:15 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.0054237112383119625,
+      "usdcPaid": 1.99,
+      "pricePerShare": 366.9074389401589,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": false,
+      "session": "outside",
+      "window": "after-hours",
+      "nextOpen": {
+        "date": "2026-09-18",
+        "atEt": "Fri 18 Sep 2026 09:30 ET",
+        "price": 337.905,
+        "status": "recorded"
+      },
+      "gapBps": 858.3,
+      "owner": "4GzkNDfX9aXdwaBBkhQXsFVboP5ZCbBy8onoTpbBmSu5"
+    },
+    {
+      "signature": "55DxuuMPZRmiAJZYa4T2F65skLL945ub88CD8XyjXwEae4tMA8ZSg4G1Xwqaor9vL5VcRT14f7tXVk3GuFNfsfkX",
+      "explorer": "https://explorer.solana.com/tx/55DxuuMPZRmiAJZYa4T2F65skLL945ub88CD8XyjXwEae4tMA8ZSg4G1Xwqaor9vL5VcRT14f7tXVk3GuFNfsfkX",
+      "time": "2026-09-19T11:39:52Z",
+      "timeEt": "Sat 19 Sep 2026 07:39 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.029752030078587358,
+      "usdcPaid": 10,
+      "pricePerShare": 336.1115182253407,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": 24.8,
+      "owner": "2e59DssPX186h65H6BPERsLCgVb3Qq6PzmSqK7kn3kvr"
+    },
+    {
+      "signature": "3h7AwJhNnW76Boh2D3e4a9zrLhg2n3jaFdUDEaYvNiJfSdJbHSaJwVP7RTQCPjr7rhcdYhAR5JUtjLW93oajB6PB",
+      "explorer": "https://explorer.solana.com/tx/3h7AwJhNnW76Boh2D3e4a9zrLhg2n3jaFdUDEaYvNiJfSdJbHSaJwVP7RTQCPjr7rhcdYhAR5JUtjLW93oajB6PB",
+      "time": "2026-09-20T14:17:37Z",
+      "timeEt": "Sun 20 Sep 2026 10:17 ET",
+      "symbol": "AAPLon",
+      "underlying": "AAPL",
+      "mint": "123mYEnRLM2LLYsJW3K6oyYh8uP1fngj732iG638ondo",
+      "shares": 0.017343061445410115,
+      "usdcPaid": 5.97,
+      "pricePerShare": 344.2298822956644,
+      "multiplier": 1.003376073740221,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "closed day",
+      "nextOpen": {
+        "date": "2026-09-21",
+        "atEt": "Mon 21 Sep 2026 09:30 ET",
+        "price": 335.28,
+        "status": "recorded"
+      },
+      "gapBps": 266.9,
+      "owner": "AW5PMKgDVkVMZz9fMT2JP1Nh7XniPhaNTNufHjVEC8CF"
+    },
+    {
+      "signature": "5iVdTAaoRAMfXtMpGmiv4CuZLku3Ui9X4WZibR99JxQQsnXRE2Nxk1ZHiW1E2whppBY2N8JH7eDUVVgUPZoyPNsN",
+      "explorer": "https://explorer.solana.com/tx/5iVdTAaoRAMfXtMpGmiv4CuZLku3Ui9X4WZibR99JxQQsnXRE2Nxk1ZHiW1E2whppBY2N8JH7eDUVVgUPZoyPNsN",
+      "time": "2026-09-23T02:28:34Z",
+      "timeEt": "Tue 22 Sep 2026 22:28 ET",
+      "symbol": "QQQx",
+      "underlying": "QQQ",
+      "mint": "Xs8S1uUs1zvS2p7iwtsG3b6fkhpvmwz4GYU3gWAmWHZ",
+      "shares": 1.3390332716713251,
+      "usdcPaid": 1000,
+      "pricePerShare": 746.8074327621762,
+      "multiplier": 1.0034560758968376,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "overnight",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 746.97,
+        "status": "recorded"
+      },
+      "gapBps": -2.2,
+      "owner": "2AeSjJVM3299pUoMA7Lt5hUoxznvTJCYU6WXjJHFTWWe"
+    },
+    {
+      "signature": "mxVQS1gaSGX2EvvS65PLFm2tumxde2nPXQ23nMWukrFtWx9fnouFxFaRyP9Y4ZGeADxPwhJpR55YNvtdA1XzAtv",
+      "explorer": "https://explorer.solana.com/tx/mxVQS1gaSGX2EvvS65PLFm2tumxde2nPXQ23nMWukrFtWx9fnouFxFaRyP9Y4ZGeADxPwhJpR55YNvtdA1XzAtv",
+      "time": "2026-09-23T12:47:40Z",
+      "timeEt": "Wed 23 Sep 2026 08:47 ET",
+      "symbol": "AAPLx",
+      "underlying": "AAPL",
+      "mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+      "shares": 0.6423768556404823,
+      "usdcPaid": 219.159255,
+      "pricePerShare": 341.1692888304438,
+      "multiplier": 1.0032690125398187,
+      "multiplierExact": true,
+      "session": "outside",
+      "window": "pre-market",
+      "nextOpen": {
+        "date": "2026-09-23",
+        "atEt": "Wed 23 Sep 2026 09:30 ET",
+        "price": 341.075,
+        "status": "recorded"
+      },
+      "gapBps": 2.8,
+      "owner": "m7VmSjdSN6isudY6PVRa7GuZbG8rPBpB2X2DGHR5awz"
+    }
+  ],
+  "reviewNote": "Re-read on 24 Sep 2026 by the reviewer: market-maker legs of quoted fills (customer sales) removed; see makerLegsSkipped."
+}

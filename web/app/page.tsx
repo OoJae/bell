@@ -1053,7 +1053,7 @@ export default function Page() {
         setNotice({
           ok: true,
           sig,
-          text: `Night fills are on, for every live order of this wallet and every one after. While New York is shut, an order fills only when the pool's price is within ${bandText(MAX_NIGHT_GAP_BPS)} of the exchange's last price, and only within ${bound(MAX_NIGHT_REF_AGE_SECONDS)} of that sale; a halt, a paused mint or a dividend window still refuses it.`,
+          text: `Night fills are on, for every live order of this wallet and every one after. While New York is shut, an order fills only when the pool's price is within ${bandText(MAX_NIGHT_GAP_BPS)} of the exchange's last close, and only within ${bound(MAX_NIGHT_REF_AGE_SECONDS)} of that close; a halt, a paused mint or a dividend window still refuses it.`,
         })
       } else {
         const sig = await submit(conn, optOutNightTx(publicKey), publicKey, signTransaction)
@@ -1245,7 +1245,7 @@ export default function Page() {
               For every live order of this wallet, including ones already placed (a recurring buy&apos;s later
               days still keep to their own open): while New York is shut, an
               order fills only when the pool&apos;s price is within {bandText(MAX_NIGHT_GAP_BPS)} of the
-              exchange&apos;s last price, and only within {bound(MAX_NIGHT_REF_AGE_SECONDS)} of that sale, so a
+              exchange&apos;s last close, and only within {bound(MAX_NIGHT_REF_AGE_SECONDS)} of that close, so a
               weekend mostly waits for the bell. A halt, a paused mint or a dividend window still refuses it.
               {nightOn
                 ? ' Off stops night fills for every order at once and returns the rent.'
