@@ -141,8 +141,11 @@ dividend scheduled by us to show the gate; not a real Apple dividend".*
 
 ### 6 · If we disappear (2:11–2:21)
 
-*On screen: the keeper stopped; the badges turning to "stale". Not filmed yet
-(see the last list).*
+*On screen: the keeper stopped; the board going to refused. Filmed Fri 25 Sep
+(`demo/recordings/keeper-stop/`): SPYx tradeable at 11:36:53 ET; the keeper
+disarmed from 11:38:38 (it kept running, attesting nothing); at 11:40:11 the
+page read "✕ Nobody has confirmed this market is open recently enough to
+trust", 0 of 14 tradeable; re-armed, and tradeable again at 11:44:00.*
 
 > Stop our keeper, and within two minutes every trade is refused. Your orders
 > wait, and one tap in your own wallet cancels them.
@@ -405,9 +408,10 @@ say a cross has happened, or call the cross price "fair".
   machine lost its internet connection at 09:25). Cover it with the explorer
   view of the transaction and the buyer's "Your fills" line, recorded after
   the fact (`demo/recordings/`).
-- The keeper-stop sequence in section 6: not filmed yet. Stopping the hosted
-  keeper also stops night fills and, in session, every fill, for as long as
-  it is down.
+- The keeper-stop sequence in section 6: filmed Fri 25 Sep 11:36–11:50 ET
+  (`demo/recordings/keeper-stop/`). The refusal came 1 min 33 s after the
+  keeper stopped attesting, inside the two minutes the line claims
+  (`MAX_STATE_AGE_SECONDS = 120` from the last attestation).
 - The night switch on the live page, turned on, with the clock's "night band
   on" line: film it after 18:06 ET on a wallet with a live order.
 - The limit shot. The order queued at 20:40 ET on Wed 23 Sep was placed before
